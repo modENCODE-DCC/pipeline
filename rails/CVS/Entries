@@ -3,4 +3,16 @@
 /Rakefile/1.1/Tue Jul 17 23:51:24 2007//
 /go.sample/1.1/Wed Feb  6 01:36:27 2008//
 /stop/1.1/Wed Feb  6 01:35:16 2008//
-D
+D/app////
+D/components////
+D/config////
+D/db////
+D/doc////
+D/lib////
+D/log////
+D/public////
+D/script////
+D/test////
+D/tmp////
+D/upload////
+D/vendor////
