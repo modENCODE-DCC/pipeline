@@ -1,8 +1,25 @@
 body {
-  #font-family: Helvetica, Geneva, Arial, sans-serif;
+  /* font-family: Helvetica, Geneva, Arial, sans-serif; */
   font-family: sans-serif;
 }
 
+A { color: blue; }
+
+#command_panel {
+  float: right;
+  width: 20%;
+  font-size: 80%;
+  border: thin solid #CCCCCC;
+  border-bottom: medium solid #CCCCCC;
+  border-right: medium solid #CCCCCC;
+}
+
+A.smallLink { font-size: 60% }
+
+TD { vertical-align: bottom }
+
+TABLE.status TH { text-align: right; padding-right: 15px; vertical-align: top; white-space: nowrap; }
+TABLE.archive_list TH, TABLE.archive_list TD { white-space: nowrap; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
 #container {
 }
 
@@ -21,7 +38,7 @@ body {
 
 #nav {
   font-size: 12pt;
-  font-weight; bold;
+  /* font-weight: bold; */
   background: #ddd;
   padding: 0.5em;
 }
@@ -40,8 +57,8 @@ text-decoration: none;
 }
 
 #content {
-  font-size: 12pt;
-  margin-left: 15%;
+  font-size: 90%;
+  margin-left: 5%;
 }
 
 #welcome {
@@ -54,6 +71,7 @@ text-decoration: none;
 }
 
 #footer {
+  clear: both;
   font-size: 12pt;
   text-align: center;
   background: #ddd;
@@ -104,7 +122,7 @@ text-decoration: none;
     font-size: 12pt;
 }
 
-input {
+input, select {
     font-size: 12pt;
     margin: 2px;
 }
