@@ -1,0 +1,17 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  project_id: 1
+  type: MyString
+  stdout: MyString
+  stderr: MyString
+  status: MyString
+  order: 1
+
+two:
+  project_id: 1
+  type: MyString
+  stdout: MyString
+  stderr: MyString
+  status: MyString
+  order: 1

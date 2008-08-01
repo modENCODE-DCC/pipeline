@@ -1,2 +1,6 @@
 /test_helper.rb/1.1/Tue Jul 17 23:51:33 2007//
-D
+D/fixtures////
+D/functional////
+D/integration////
+D/mocks////
+D/unit////
