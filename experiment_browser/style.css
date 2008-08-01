@@ -1,0 +1,11 @@
+BODY { font-family: Sans }
+TABLE.browse { border-collapse: collapse; }
+TABLE.browse TD { padding: 2px; padding-left: 18px; padding-right: 8px; border: thin solid black; }
+TABLE.browse TH { padding: 2px; padding-left: 18px; padding-right: 8px; border: thin solid black; }
+A.navigate { color: #77D; }
+TABLE.dag { border-collapse: collapse; }
+TABLE.dag TD { vertical-align: top; padding: 2px; padding-left: 18px; padding-right: 8px; border: thin solid black; }
+TABLE.dag TH { padding: 2px; padding-left: 18px; padding-right: 8px; border: thin solid black; }
+H1 A { text-decoration: none; color: black; }
+H1 A:hover { text-decoration: underline; }
+
