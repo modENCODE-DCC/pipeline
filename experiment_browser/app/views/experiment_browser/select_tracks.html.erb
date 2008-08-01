@@ -1,0 +1,27 @@
+<div id="error" style="font-color:red;font-weight:bold;"></div>
+
+<%= 
+  form_remote_tag(
+    :url => { :action => :set_region },
+    :update => { :success => "tracks", :failure => "error" },
+    :before => '$("tracks").update("Loading...")'
+  )
+%>
+  <table border="0">
+    <tr>
+      <td><%= select_tag "chr", options_from_collection_for_select(@chromosomes, :id, :uniquename, @chr.id) %></td>
+      <td><input type="text" value="123000" name="fmin"/></td>
+      <td><input type="text" value="125000" name="fmax"/></td>
+    </tr>
+    <tr>
+      <td style="font-size:75%">Chromosome</td>
+      <td style="font-size:75%">Start</td>
+      <td style="font-size:75%">End</td>
+    </tr>
+  </table>
+  <input type="submit" value="Set range"/>
+</form>
+<hr/>
+<div id="tracks">
+  <%= render :partial => 'set_region_erb' %>
+</div>

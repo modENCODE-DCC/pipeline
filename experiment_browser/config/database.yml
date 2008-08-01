@@ -1,0 +1,33 @@
+# SQLite version 3.x
+#   gem install sqlite3-ruby (not necessary on OS X Leopard)
+development:
+  adapter: mysql
+  socket: /var/run/mysqld/mysqld.sock
+  username: db_public
+  password: limecat
+  database: experiment_browser_dev
+
+# Warning: The database defined as 'test' will be erased and
+# re-generated from your development database when you run 'rake'.
+# Do not set this db to the same as development or production.
+test:
+  adapter: mysql
+  socket: /var/run/mysqld/mysqld.sock
+  username: db_public
+  password: limecat
+  database: experiment_browser_test
+
+production:
+  adapter: mysql
+  socket: /var/run/mysqld/mysqld.sock
+  username: db_public
+  password: limecat
+  database: experiment_browser_prod
+
+chado:
+  adapter: postgresql
+  database: mepipe
+  host: localhost
+  username: db_public
+  password: ir84#4nm
+

@@ -1,0 +1,51 @@
+<table class="list" border="1">
+  <th colspan="2"><%= @datum.heading + " [" + @datum.name + "]:" + @datum.id.to_s %></th>
+  <% for name in @datum.attribute_names %>
+    <tr>
+      <td><%= name %></td>
+      <td><%= @datum.attributes.fetch name %></td>
+    </tr>
+  <% end %>
+  <tr>
+    <td><b>Data track?</b></th>
+    <td>
+      <% if @datum.feature_ids.size > 0 then %>
+        Yes, <%= @datum.feature_ids.size %> features
+      <% else %>
+        No
+      <% end %>
+    </td>
+  </tr>
+</table>
+
+<br/>
+
+<table class="list" border="1">
+  <tr>
+    <th>Connected To</th><th>as an...</th>
+  </tr>
+  <%
+    inputs_to = @datum.applied_protocol_data.find_all { |apd| apd.direction.rstrip.eql? "input" }.collect { |apd| apd.applied_protocol }
+    outputs_to = @datum.applied_protocol_data.find_all { |apd| apd.direction.rstrip.eql? "output" }.collect { |apd| apd.applied_protocol }
+  %>
+  <% for input in inputs_to %>
+    <tr>
+      <td><%= link_to_remote input.protocol.name + ":" + input.id.to_s,
+        :before => "$('applied_protocol_browser').update('Loading...')",
+        :url => { :action => :applied_protocol_browser, :id => input.id, :no_wrap_applied_protocol_browser => "true" },
+        :update => "applied_protocol_browser"
+        %></td>
+      <td>input</td>
+    </tr>
+  <% end %>
+  <% for output in outputs_to %>
+    <tr>
+      <td><%= link_to_remote output.protocol.name + ":" + output.id.to_s,
+        :before => "$('applied_protocol_browser').update('Loading...')",
+        :url => { :action => :applied_protocol_browser, :id => output.id, :no_wrap_applied_protocol_browser => "true" },
+        :update => "applied_protocol_browser"
+        %></td>
+      <td>output</td>
+    </tr>
+  <% end %>
+</table>

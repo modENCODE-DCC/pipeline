@@ -1,0 +1,25 @@
+a {
+  color: blue;
+}
+body {
+  background-color: #eee;
+  font-family: verdana, arial, helvetica, sans-serif;
+}
+
+table.list {
+  border: thin solid black;
+  border-collapse: collapse;
+}
+
+table.list td, table.list th {
+  padding: 1px 10px 1px 10px;
+  font-size: 8pt;
+}
+table.list td {
+  vertical-align: top;
+}
+
+.breadcrumbs {
+  font-size: 80%;
+  font-weight: bold;
+}

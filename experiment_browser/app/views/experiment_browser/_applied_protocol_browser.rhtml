@@ -1,0 +1,55 @@
+<%= '<div id="applied_protocol_browser">' unless @no_wrap_applied_protocol_browser %>
+  <div class="breadcrumbs"><%= 
+    i = -1
+    @txt_crumbs = @breadcrumbs.map { |crumb| 
+      i += 1
+      crumb_txt = crumb.map { |ap| 
+        link_to_remote ap.protocol.name + ":" + ap.id.to_s,
+        :before => "$('applied_protocol_browser').update('Loading...')",
+        :url => { :action => :applied_protocol_browser, :id => ap.id, :no_wrap_applied_protocol_browser => "true" },
+        :update => "applied_protocol_browser"
+      }.join(", ")
+      crumb_txt = "(" + crumb_txt + ")" if crumb.size > 1
+      ("&nbsp;&nbsp;" * i) + crumb_txt
+    }
+    @txt_crumbs.join(" &gt;<br/>\n")
+    %></div><br/>
+  <table class="list" border="1">
+    <tr>
+      <th>Previous Applied Protocols</th>
+      <th>Applied Protocols</th>
+      <th>Next Applied Protocols</th>
+    </tr>
+    <tr>
+      <td>
+        <% for ap in @previous_applied_protocols do %>
+          <%= link_to_remote ap.protocol.name + ":" + ap.id.to_s,
+            :before => "$('applied_protocol_browser').update('Loading...')",
+            :url => { :action => :applied_protocol_browser, :id => ap.id, :no_wrap_applied_protocol_browser => "true" },
+            :update => "applied_protocol_browser"
+          %>
+          <br/>
+        <% end %>
+      </td>
+      <td>
+        <b>
+          <%= link_to_remote(@current_applied_protocol.protocol.name + ":" + @current_applied_protocol.id.to_s,
+            :before => "$('applied_protocol_browser').update('Loading...')",
+            :url => { :action => :applied_protocol_browser, :id => @current_applied_protocol.id, :no_wrap_applied_protocol_browser => "true" },
+            :update => "applied_protocol_browser") if @current_applied_protocol
+          %>
+        </b>
+      </td>
+      <td>
+        <% for ap in @next_applied_protocols do %>
+          <%= link_to_remote ap.protocol.name + ":" + ap.id.to_s,
+            :before => "$('applied_protocol_browser').update('Loading...')",
+            :url => { :action => :applied_protocol_browser, :id => ap.id, :no_wrap_applied_protocol_browser => "true" },
+            :update => "applied_protocol_browser"
+          %>
+          <br/>
+        <% end %>
+      </td>
+    </tr>
+  </table>
+  <%= "</div>" unless @no_wrap_applied_protocol_browser %>

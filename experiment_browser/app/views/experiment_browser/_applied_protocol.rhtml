@@ -1,0 +1,38 @@
+<%= '<div id="applied_protocol">' unless @no_wrap_applied_protocol %>
+  <table class="list" border="1">
+    <tr>
+      <th colspan="2">
+        <%= @applied_protocol.protocol.name + ":" + @applied_protocol.id.to_s %>
+      </th>
+    </tr>
+    <tr>
+      <th>Input Data</th>
+      <th>Output Data</th>
+    </tr>
+    <% for i in 0...[@input_data.size, @output_data.size].max %>
+      <tr>
+        <td>
+          <%= link_to_remote(@input_data[i].heading + " [" + @input_data[i].name + "]",
+                             :before => "$('datum').update('Loading...')",
+                             :url => { :action => :datum, :id => @input_data[i].id, :no_wrap_applied_protocol => "true" },
+                             :update => "datum"
+                            ) unless @input_data[i].nil? 
+          %>
+        </td>
+        <td><%= link_to_remote(@output_data[i].heading + " [" + @output_data[i].name + "]",
+                                 :before => "$('datum').update('Loading...')",
+                                 :url => { :action => :datum, :id => @output_data[i].id, :no_wrap_applied_protocol => "true" },
+                                 :update => "datum"
+                                ) unless @output_data[i].nil?
+          %>
+        </td>
+      </tr>
+    <% end %>
+  </table>
+  <br/>
+  <div id="datum">
+    <% if @datum then %>
+      <%= render :partial => "datum" %>
+    <% end %>
+  </div>
+<%= '</div>' unless @no_wrap_applied_protocol %>

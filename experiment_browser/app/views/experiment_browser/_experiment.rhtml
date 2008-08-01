@@ -1,0 +1,14 @@
+<table class="list" border="1">
+  <tr>
+    <% for protocol_name in @protocol_names %>
+      <th><%= protocol_name %></th>
+    <% end %>
+  </tr>
+  <% for row in @spreadsheet do %>
+    <tr>
+      <% for col in row do; next if col.nil? && @use_rowspan  %>
+        <td rowspan="<%= col && @use_rowspan ? col[:rowspan] : 1 %>"><%= col ? col[:name] + ":" + col[:rowspan].to_s : "&nbsp;" %></td>
+      <% end %>
+    </tr>
+  <% end %>
+</table>
