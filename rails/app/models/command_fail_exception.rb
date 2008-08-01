@@ -1,0 +1,3 @@
+class CommandFailException < RuntimeError
+end
+

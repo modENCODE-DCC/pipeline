@@ -1,0 +1,2 @@
+class CommandRunException < RuntimeError
+end

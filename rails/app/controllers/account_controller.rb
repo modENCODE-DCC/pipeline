@@ -42,9 +42,12 @@ class AccountController < ApplicationController
     @user = User.new(params[:user])
     @user.host = request.host
     @user.port = request.port
-    return unless request.post?
+    unless request.post?
+      flash.clear
+      return
+    end
     @user.save!
-    @user.update_ftp_password
+    #@user.update_ftp_password
     # the next few lines are equivalent to instant autologin,
     # so they have been commented out and the welcome render added.
     # user's shouldn't get in until activated through email

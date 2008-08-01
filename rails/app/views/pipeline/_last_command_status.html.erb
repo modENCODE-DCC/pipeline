@@ -1,0 +1,5 @@
+<b>Command Status</b>
+<span style="font-size: 80%">
+  <%= link_to "more", { :action => :command_status, :id => @last_command_run }, :style => "font-size: 80%", :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank" %><br/>
+  <%= @last_command_run.short_formatted_status if @last_command_run %>
+</span>

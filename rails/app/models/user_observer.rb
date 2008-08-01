@@ -8,5 +8,7 @@ class UserObserver < ActiveRecord::Observer
     UserNotifier.deliver_forgot_password(user) if user.recently_forgot_password?
     UserNotifier.deliver_reset_password(user) if user.recently_reset_password?
     UserNotifier.deliver_change_email(user) if user.recently_changed_email?
+
+    user.create_upload_resources if user.recently_activated?
   end
 end

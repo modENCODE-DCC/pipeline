@@ -1,0 +1,15 @@
+<b>Command Queue</b><br/>
+
+<% 
+  short_queue = @project.commands.find_all_by_status(Command::Status::QUEUED)[0...10]
+  short_queue = short_queue + Array.new(10-short_queue.size)
+%>
+<% short_queue.each do |command| %>
+  <% if command.nil? then %>
+    ...
+  <% else %>
+    <%= command.class.name %>: 
+    <%= command.status %>
+  <% end %>
+  <br/>
+<% end %>

@@ -1,132 +1,119 @@
-<p>
-<% if @project.project_archives.blank? %>
-   <b>Submit data for this project:</b>
-<% end %>
-<table style="margin-top:10px;" cellpadding=1 cellspacing=1>
-<tr><td>Project: </td><td><%= @project.name -%></td><td>&nbsp;&nbsp;&nbsp;</td>
-<td>Created: </td><td><%= @project.created_at.strftime("%b %d %H:%M"); -%></td>
-</tr>
-
-<tr><td>Status: </td><td><%= 
-  if @project.status.starts_with?("schedule uploading ")
-    "schedule uploading"
-  else
-    if @project.status.starts_with?("schedule expanding ")
-      "schedule expanding"
-    else
-      @project.status
-    end
-  end
--%></td>
-<td>&nbsp;</td>
-<td>Updated: </td><td><%= @project.updated_at.strftime("%b %d %H:%M"); -%></td>
-<tr><td>&nbsp;</td>
-</tr>
-
-<% if current_user.login == "admin" %>
-<tr><td>Type: </td><td> <%= @project.project_type.short_label -%></td></tr>
-<tr><td>Active: </td><td><%= @project.archives_active -%></td></tr>
-<% end %>
-</table>
-
-<% if @uploadText -%>
-<strong>Progress uploading: </strong> <%= @uploadText -%> <br/>
-<% end %>
-</p>
-
-<!-- <table CELLSPACING=0 CELLPADDING=0> -->
-
-<% if @project.status == "loading" or
-      @project.status == "uploading" or
-      @project.status == "expanding" or
-      @project.status == "re-expanding all" or
-      @project.status == "validating" %> 
-  <td><%= link_to ' ', {:action => 'nothingyet', :id => @project.id} -%></td>
-<% elsif @project.status.starts_with?("schedule") %>
-  <td><%= link_to ' ', {:action => 'nothingyet', :id => @project.id} -%></td>
-<% else %>
-  <% if @project.status == "uploaded" %> 
-    <td><%= link_to 'Validate', {:action => 'begin_validating', :id => @project.id} -%>
-    <%= ' | ' -%> </td>
-  <% elsif @project.status == "validated" %> 
-    <td><%= link_to 'Load', {:action => 'begin_loading', :id => @project.id} -%>
-    <%= ' | ' -%> </td>
-  <% end %>
-
-  <td><%= link_to 'Submit Data', {:action => 'upload', :id => @project.id} -%>
-  <%= ' | ' -%> </td>
-  <td><%= link_to 'Delete Project', {:action => 'delete', :id => @project.id},
-    :confirm => "Are you sure you want to delete this project?" -%>
-  <%= ' | ' -%> </td>
-  <td><%= link_to 'Rename Project', {:action => 'edit', :id => @project.id} -%></td>
-  <% if current_user.login == "admin" and @project_status != "new" %>
-    <td><%= ' | ' -%>
-    <%= link_to 'Expand', {:action => 'reexpand_all', :id => @project.id} -%></td>
-  <% end %>
-<% end %>
-
-</table>
-
-<p>
-<% if !@project.project_archives.blank? && @project.status != "new"  %>
-<table cellspacing=2 cellpadding=2>
-<tr><td></td>
-<td align="left"><b>File</b></td>
-<td align="left"><b>Size</b></td>
-<td align="left"><b>Updated</b></td>
-<% if current_user.login == "admin" %>
-  <td align="left"><b>Status</b></td>
-<% end %>
-<td></td></tr>
-<% @project.project_archives.reverse_each do |a| %>
-  <% n = a.archive_no-1 %>
-  <% c = @project.archives_active[n..n] %>
-  <% if c == "0" && current_user.login != "admin" %> 
-    <% next %>
-  <% end %>
-
-  <tr style="margin: 10;">
-  <td><b>Archive</b></td><td><%= a.file_name -%></td>
-  <td align="right"><%= a.file_size -%></td>
-  <td><%= a.file_date.strftime("%b %d %H:%M") -%></td>
-
-  <% if current_user.login == "admin" %>
-    <td><%= 
-    if a.status == "schedule uploading" then "schedule uploading"
-    elsif a.status == "schedule expanding" then "schedule expanding"
-    elsif a.status == "see current" then @project.status
-    else a.status
-    end
-    -%></td>
-    <td><%= a.archives_active -%></td>
-  <% end %>
-
-  <% if c == "1" %>
-    <td><%= link_to 'Delete', {:action => 'delete_archive', :id => a.id} -%></td>
+<div id="command_panel">
+<%= render :partial => "command_panel" %>
+</div>
+<%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 2,
+  :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
+<div>
+  <h1>Project: <%= @project.name %></h1>
+  <%= link_to "Submit Data", { :action => :upload, :id => @project } %>
+  <%= " | " + link_to("Rename Project", { :action => :edit, :id => @project }) %>
+  <%= " | " + link_to("Delete Project", { :action => :delete, :id => @project }, :confirm => "Are you sure you want to delete this project?") %>
+  <% if @project_needs_expansion then %>
+    <%= " | " + link_to_if(@project_can_validate, "Expand &amp; Validate Project", { :action => :expand_and_validate, :id => @project }) %>
   <% else %>
-    <td><%= link_to 'Un-Delete', {:action => 'delete_archive', :id => a.id} -%></td>
+    <%= " | " + link_to_if(@project_can_expand, "Expand Project", { :action => :expand_all, :id => @project }) %>
+    <%= " | " + link_to_if(@project_can_validate, "Validate Project", { :action => :validate, :id => @project }) %>
   <% end %>
-  </tr>
+  <%= " | " + link_to_if(@project_can_load, "Load Project", { :action => :load, :id => @project }) %>
+  <%= " | " + link_to_if(@project_can_process, "Find Tracks", { :action => :process, :id => @project }) %>
 
-  <% a.project_files.each do |f| %>
+  <hr style="width: 50%;" align="left"/>
+  <table border="0" style="margin-top:10px;" class="status">
     <tr>
-      <td>&nbsp;</td>
-      <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<%= f.file_name -%></td>
-      <td align=right><%= f.file_size -%></td>
-      <td><%= f.file_date.strftime("%b %d %H:%M") -%></td>
+      <th>Last Status:</th>
+      <td><%= @last_command_run.status %></td>
     </tr>
-  <% end %>
-
-<% end %>
-</table>
-<p>
-<% end %>
-
-<% if @errText != "" -%> 
-  <hr />
-  Error:<br>
-<pre>
-<%= @errText -%>
-</pre>
-  <br>
-<% end %>
+    <tr>
+      <th>Created:</th>
+      <td><%= @project.created_at.strftime("%b %d %H:%M"); %></td>
+    </tr>
+    <tr>
+      <th>Last updated:</th>
+      <td><%= @project.updated_at.strftime("%b %d %H:%M"); %></td>
+    </tr>
+    <tr>
+      <th>Archives:</th>
+      <td colspan="2">
+        <table border="0" class="archive_list">
+          <tr>
+            <th style="font-weight: normal;" colspan="5">
+              <%= link_to_if(@num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Expand All Active Archives", { :action => :expand_all, :id => @project }) unless @project.project_archives.blank? %>
+              <%= " | " + link_to_if(@num_archives > @num_active_archives && @project.status != Expand::Status::EXPANDING, "Activate All Archives", { :action => :activate_all, :id => @project }, :confirm => "This will activate all archives, requiring the re-expansion of all active archives before validation. Continue?") unless @project.project_archives.blank? %>
+              <%= " | " + link_to_if(@num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Deactivate All Archives", { :action => :deactivate_all, :id => @project }, :confirm => "This will deactivate all archives. You will have to add a new archive or activate an existing one before validation. Continue?") unless @project.project_archives.blank? %>
+            </th>
+          </tr>
+          <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th></tr>
+          <% @project.project_archives.reverse.each do |archive| %>
+            <tr>
+              <th style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>">Archive <%= archive.id %></th>
+              <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_name %></td>
+              <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= 
+                if archive.file_size.to_f >= (1024**2) then
+                      "#{(archive.file_size.to_f / 1024**2).round(1)}M"
+                elsif archive.file_size.to_f >= (1024) then
+                      "#{(archive.file_size.to_f / 1024).round(1)}K"
+                else
+                  archive.file_size 
+                end
+              %></td>
+              <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_date.strftime("%b %d %H:%M") unless archive.file_date.nil? %></td>
+              <td style="padding-top: 10px; font-size: 80%"<%= " rowspan=\"#{archive.project_files.size+1}\"" if archive.is_active %>>
+                <% unless @project.status == Expand::Status::EXPANDING then -%>
+                  <%=
+                      if archive.status == ProjectArchive::Status::NOT_EXPANDED || (archive.project.project_archives.find_all { |pa| pa.is_active && pa != archive }.size > 0) then
+                        link_to_if archive.file_size.to_i > 0, "Expand only this archive", { :action => :expand, :id => archive }, :confirm => "This will deactivate all other archives, and expand just this one. Continue?"
+                      else
+                        link_to_if archive.file_size.to_i > 0, "Re-expand", { :action => :expand, :id => archive }
+                      end
+                  -%>
+                  <br/>
+                  <%= 
+                    if archive.is_active then
+                      link_to_if archive.file_size.to_i > 0, "Deactivate", { :action => :deactivate_archive, :id => archive }, :confirm => "Deactivating this archive will require re-expansion of all active archives before you can validate. Continue?"
+                    else
+                      link_to_if archive.file_size.to_i > 0, "Reactivate", { :action => :activate_archive, :id => archive }, :confirm => "Reactivating this archive will require re-expansion of all active archives before you can validate. Continue?"
+                    end
+                  -%>
+                <% end %>
+                <br/>
+                <%= archive.status -%>
+              </td>
+            </tr>
+            <% if archive.is_active then archive.project_files.each { |file| %>
+              <tr>
+                <th>&nbsp;</th>
+                <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
+                  if File.basename(file.file_name).size > 25 then
+                    File.basename(file.file_name) 
+                  else
+                    if file.file_name.size > 25 then
+                      "<span style=\"color: #888\">..." + 
+                      file.file_name[-25,25].sub("#{File.basename(file.file_name)}", '</span>\0')
+                    else
+                      "<span style=\"color: #888\">" + 
+                      file.file_name.sub("#{File.basename(file.file_name)}", '</span>\0')
+                    end
+                  end
+                  %></td>
+                <td style="text-align: right"><%= 
+                  if file.is_overwritten then 
+                    "&nbsp;" 
+                  else 
+                    if file.file_size.to_f >= (1024**2) then
+                      "#{(file.file_size.to_f / 1024**2).round(1)}M"
+                    elsif file.file_size.to_f >= (1024) then
+                      "#{(file.file_size.to_f / 1024).round(1)}K"
+                    else
+                      file.file_size 
+                    end
+                  end 
+                  %></td>
+                <td><%= if file.is_overwritten then "&nbsp;" else file.file_date.strftime("%b %d %H:%M") end %></td>
+              </tr>
+            <% } end %>
+          <% end %>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>

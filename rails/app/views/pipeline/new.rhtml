@@ -1,40 +1,27 @@
 <p>
-<b>Create new project:</b>
+  <b>Create new project:</b>
 <p>
 <%= error_messages_for 'project' -%>
 
-<% form_tag (:action => 'create') do %>
+<% form_tag(:action => 'new') do %>
+  <table border="0">
+    <tr><td><label for="project_name">Name</label>: </td><td><%= text_field 'project', 'name'  %></td></tr>
+    <tr><td><label for="project_type_id">Type</label>: </td><td>
+        <%= select_tag "project_type_id", options_from_collection_for_select(@projectTypes, "id", "short_label") %>
+    </td></tr>
 
-  <p><label for="project_name">Name</label><br/>
-  <%= text_field 'project', 'name'  %></p>
- 
-<%
-=begin %>
-    Maybe I can use code like this for the "type"
-    if we ever have a "types" table
-  <p><label for="project_category">Category</label><br/>
-  <%= collection_select(:project, :category_id, @categories, :id, :name) %></p>
-
-  <p><label for="project_project_type_id">Type</label><br/>
-  <%= collection_select(:project, :project_type_id, @projectTypesColl, :id, :name) %></p>
-
-  <p><label for="project_project_type_id">Type</label><br/>
-  <%= text_field 'project', 'project_type_id'  %></p>
-
-<%
-=end %>
 
 <!-- Project type dropdown menu, now only for 'admin' user -->
 <% if current_user.login == "admin" %>
-  <p><label for="project_project_type_id">Type</label><br/>
   <select id="project_project_type_id" name="project[project_type_id]">
-  <% @projectTypes.each do |t| %>
-  <option value="<%= t.id -%>"><%= t.short_label -%></option>
-  <% end %>
+    <% @projectTypes.each do |t| %>
+      <option value="<%= t.id -%>"><%= t.short_label -%></option>
+    <% end %>
   </select></p>
 <% else %>
-   <% @project.project_type_id = @projectTypes[0].id %>
-   <%= hidden_field :project, :project_type_id %>
+  <% 
+    @project.project_type_id = @projectTypes[0].id %>
+  <%= hidden_field :project, :project_type_id %>
 <% end %>
   
 <table><tr>

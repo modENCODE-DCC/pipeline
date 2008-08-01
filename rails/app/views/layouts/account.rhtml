@@ -13,7 +13,7 @@
 <div id="container">
   <img align="left" height=50 width=100  src="/images/encode_logo.png">
     <div id="header">
-        <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
+      <%= link_to ActiveRecord::Base.configurations[RAILS_ENV]['title'], { :controller => :welcome } -%>
         <font size=-1 color="gray"> <em>
         <%= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
         </em></font>

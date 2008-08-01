@@ -125,6 +125,19 @@ class User < ActiveRecord::Base
     end
   end
 
+  def create_upload_resources
+    if ActiveRecord::Base.configurations[RAILS_ENV]['ftpServer'] then
+      # Create FTP stuff
+      update_ftp_password
+    end
+    if ActiveRecord::Base.configurations[RAILS_ENV]['upload'] then
+      abs_upload_path = File.expand_path(ActiveRecord::Base.configurations[RAILS_ENV]['upload'])
+      abs_upload_path = File.join(abs_upload_path, login)
+      unless File.directory? abs_upload_path then
+        Dir.mkdir(abs_upload_path)
+      end
+    end
+  end
   def update_ftp_password
     return if password.blank?
     create_ftp_user  # if needed
