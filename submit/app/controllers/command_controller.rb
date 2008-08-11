@@ -110,7 +110,7 @@ class CommandController < ApplicationController
       # If we can't create this object, then it probably means it was created between
       # the "unless" check above and the creation below. If that's the case, it's 
       # effectively a StaleObjectError and should be handled the same
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => running).save
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "running").save
     end
     s = Semaphore.find_by_flag("running")
     s.value = state ? "true" : "false"

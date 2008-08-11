@@ -1,33 +1,35 @@
 class ValidateIdf2chadoxml < Validate
   def formatted_status
     formatted_string = '<table style="padding: 0px; margin: 0px; border-collapse: collapse;" cellspacing="0" border="0">'
-    self.stderr.each do |line|
-      if line !~ /^[A-Z]+:/ then
-        line = '<tr><th>&nbsp;</th><td style="vertical-align:top">' + line + '</td></tr>'
-      else
-        (level, message) = line.split(":", 2)
-        indent = message.match(/^ */)[0].length
-        message.gsub!(/^ */, '')
-        href = message.clone
-        href.sub!(/^(Error|Warning): /, '')
-        error_description = ERROR_MESSAGES.find { |regex| href =~ regex[0] }
-        if error_description then
-          message = "<a style=\"cursor: help; color: #000088\" href=\"http://wiki.modencode.org/project/index.php/#{error_description[1]}\">#{message}</a>"
-        end
-        
-        case level.upcase
-        when "NOTICE" then
-          line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: black; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
-        when "WARNING" then
-          line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: orange; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
-        when "ERROR" then
-          line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: red; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+    if self.stderr then
+      self.stderr.each do |line|
+        if line !~ /^[A-Z]+:/ then
+          line = '<tr><th>&nbsp;</th><td style="vertical-align:top">' + line + '</td></tr>'
         else
-          line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: black; font-weight: normal\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+          (level, message) = line.split(":", 2)
+          indent = message.match(/^ */)[0].length
+          message.gsub!(/^ */, '')
+          href = message.clone
+          href.sub!(/^(Error|Warning): /, '')
+          error_description = ERROR_MESSAGES.find { |regex| href =~ regex[0] }
+          if error_description then
+            message = "<a style=\"cursor: help; color: #000088\" href=\"http://wiki.modencode.org/project/index.php/#{error_description[1]}\">#{message}</a>"
+          end
+          
+          case level.upcase
+          when "NOTICE" then
+            line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: black; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+          when "WARNING" then
+            line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: orange; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+          when "ERROR" then
+            line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: red; font-weight: bold\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+          else
+            line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: black; font-weight: normal\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
+          end
         end
-      end
 
-      formatted_string << line << "\n"
+        formatted_string << line << "\n"
+      end
     end
     formatted_string + "</table>"
   end
@@ -36,9 +38,11 @@ class ValidateIdf2chadoxml < Validate
 
     # Get at least two lines (from the end of the log) that start with NOTICE/WARNING/ERROR/etc.
     lines = Array.new
-    self.stderr.split($/).reverse.each do |line|
-      lines.unshift line
-      break if lines.find_all { |l| l =~ /^[A-Z]+:/ }.size >= 2
+    if self.stderr then
+      self.stderr.split($/).reverse.each do |line|
+        lines.unshift line
+        break if lines.find_all { |l| l =~ /^[A-Z]+:/ }.size >= 2
+      end
     end
 
     lines.each do |line|
@@ -181,7 +185,7 @@ class ValidateIdf2chadoxml < Validate
 [ /^No Public Release Date provided in the IDF, assuming current date(.*)\.$/, "No Public Release Date provided in the IDF, assuming current date" ],
 
 [ /^Nothing to validate; no term or accession given, and no accession built into termsource: (.*)$/, "Nothing to validate; no term or accession given, and no accession built into termsource: Term_Source" ],
-[ /^No validator for attribute (.*) \[(.*)] with term source type (.*)\.$/, "No validator for attribute Attribute [Name] with term source type Term_Source_Type" ],
+[ /^No validator for attribute (.*) \[(.*)\] with term source type (.*)\.$/, "No validator for attribute Attribute [Name] with term source type Term_Source_Type" ],
 [ /^No validator for attribute of type (.*)\.$/, "No validator for attribute of type Attribute_Type." ],
 [ /^No validator for data type (.*)\.$/, "No validator for data type Data_Type." ],
 [ /^Oh no, terrible things have happened\.$/, "Unknown Error" ],

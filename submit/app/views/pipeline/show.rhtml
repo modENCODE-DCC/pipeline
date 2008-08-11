@@ -21,7 +21,7 @@
   <table border="0" style="margin-top:10px;" class="status">
     <tr>
       <th>Last Status:</th>
-      <td><%= @last_command_run.status %></td>
+      <td><%= @last_command_run.status if @last_command_run %></td>
     </tr>
     <tr>
       <th>Created:</th>

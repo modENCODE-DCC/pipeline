@@ -14,6 +14,7 @@ class Command < ActiveRecord::Base
     FINISHED = "finished"
     FAILED = "failed"
     CANCELING = "canceling"
+    CANCELED = "canceled"
   end
 
   def initialize(options = {})

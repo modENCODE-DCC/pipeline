@@ -12,6 +12,12 @@ class FileUploadController < UploadController
     super do
       retval = true
       (source, destfile) = command_object.command.split(/ to /).map { |i| URI.unescape(i) }
+      if source == destfile then
+        # This must be a placeholder command for a browser upload
+        command_object.status = Upload::Status::UPLOADED
+        command_object.save
+        return self.class.ancestors[1].instance_method(:do_after).bind(self).call(:source => source, :destfile => destfile)
+      end
       do_before(:destfile => destfile)
       command_object.status = Upload::Status::UPLOADING
       command_object.save

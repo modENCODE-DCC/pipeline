@@ -638,8 +638,6 @@ class PipelineController < ApplicationController
       # Command.is_a? Command
       if validate_class.ancestors.map { |a| a.name == 'Command' }.find { |a| a } then
         begin
-
-
           validate_controller_class = (validate_class.name + "Controller").camelize.constantize
         rescue
           validate_controller_class = ValidateController
@@ -708,7 +706,7 @@ class PipelineController < ApplicationController
 
 
     # Build a Command::Upload object to fetch the file
-    if !upurl.blank? then
+    if !upurl.blank? || upurl == "http://" then
       # Uploading from a remove URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
       projectDir = path_to_project_dir
 
@@ -721,10 +719,11 @@ class PipelineController < ApplicationController
       upload_controller.timeout = 600 # 10 minutes
     else
       # Uploading from the browser
-      if !defined? upfile.local_path
+      if !upfile.local_path
         # TODO: Need an uploader here
         File.open(path_to_file(project_archive.file_name), "wb") { |f| f.write(upfile.read) }
-        throw :implement_me
+        upload_controller = FileUploadController.new(:source => path_to_file(project_archive.file_name), :filename => path_to_file(project_archive.file_name), :project => @project)
+        upload_controller.timeout = 20 # 20 seconds
       else
         upload_controller = FileUploadController.new(:source => upfile.local_path, :filename => path_to_file(project_archive.file_name), :project => @project)
         upload_controller.timeout = 600 # 10 minutes
