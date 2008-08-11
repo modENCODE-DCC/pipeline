@@ -51,8 +51,8 @@ class FileUploadController < UploadController
   protected
   def do_after(options = {})
     # Clean up
-    File.delete(options[:source]) if !options[:source].blank? && File.exists(options[:source])
-    return super
+    File.delete(options[:source]) if !options[:source].blank? && File.exists?(options[:source])
+    super
   end
 
 end
