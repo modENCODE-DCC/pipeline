@@ -50,7 +50,7 @@ class UserNotifier < ActionMailer::Base
   def setup_email(user)
     @recipients  = "#{user.email}"
     @from        = "#{ActiveRecord::Base.configurations[RAILS_ENV]['from']}"
-    @subject     = "ENCODE DCC: "
+    @subject     = "modENCODE DCC: "
     @sent_on     = Time.now
     @body[:user] = user
   end
