@@ -1,0 +1,15 @@
+modENCODE:
+  name: modENCODE Project
+  short_label: modENCODE
+  long_label: modENCODE Project
+  validator: /users/yostinso/Documents/modENCODE/magetab/fromscratch/idf2chadoxml.pl
+  description: Default modENCODE project type.
+  display_order: 1
+  unloader: /bin/false
+  loader: /bin/false
+  load_params: none
+  load_time_out: 60
+  type_params: none
+  unload_time_out: 60
+  unload_params: none
+  time_out: 60
