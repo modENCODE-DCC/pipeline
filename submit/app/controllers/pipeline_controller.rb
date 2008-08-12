@@ -46,7 +46,6 @@ class PipelineController < ApplicationController
           :create,
           :list,
           :show_user,
-          :show,
           :deactivate_archive,
           :activate_archive,
           :command_status,
