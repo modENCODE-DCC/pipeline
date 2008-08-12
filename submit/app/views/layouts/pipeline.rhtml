@@ -92,7 +92,7 @@
     <div id="header">
         <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
         <font size=-1 color="gray"> <em>
-        <%= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
+        <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
         </em></font>
     </div>
   <div id="user"> Logged In: <strong> <%= @current_user.login -%> </strong>
@@ -113,8 +113,10 @@
     </td>
     <td align="right">
     <%= link_to ' Log Out', :controller => 'account', :action => 'logout' %> 
-    <%= ' | ' -%>
+    |
     <%= link_to 'Change Profile', :controller => 'account', :action => 'change_profile' %> 
+    |
+    <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&keywords=pipeline&owner=yostinso&component=Submission%20Pipeline&priority=minor&description=#{CGI.escape("Problem with " + request.request_uri)}" %>
     </td>
     </tr></table>
   </div>
