@@ -15,6 +15,7 @@
     <%= " | " + link_to_if(@project_can_validate, "Validate Project", { :action => :validate, :id => @project }) %>
   <% end %>
   <%= " | " + link_to_if(@project_can_load, "Load Project", { :action => :load, :id => @project }) %>
+  <%= " | " + link_to_if(@project_can_unload, "Unload Project", { :action => :unload, :id => @project }) %>
   <%= " | " + link_to_if(@project_can_process, "Find Tracks", { :action => :process, :id => @project }) %>
 
   <hr style="width: 50%;" align="left"/>

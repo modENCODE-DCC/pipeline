@@ -8,7 +8,9 @@ class PipelineController < ApplicationController
     Validate::Status::VALIDATED,
     Validate::Status::VALIDATION_FAILED,
     Load::Status::LOADED,
-    Load::Status::LOAD_FAILED
+    Load::Status::LOAD_FAILED,
+    Unload::Status::UNLOADED,
+    Unload::Status::UNLOAD_FAILED
   ]
   OKAY_TO_EXPAND = [
     Expand::Status::EXPANDED,
@@ -17,17 +19,25 @@ class PipelineController < ApplicationController
     Validate::Status::VALIDATED,
     Validate::Status::VALIDATION_FAILED,
     Load::Status::LOADED,
-    Load::Status::LOAD_FAILED
+    Load::Status::LOAD_FAILED,
+    Unload::Status::UNLOADED,
+    Unload::Status::UNLOAD_FAILED
   ]
   OKAY_TO_LOAD = [
     Validate::Status::VALIDATED,
     Load::Status::LOADED,
-    Load::Status::LOAD_FAILED
+    Load::Status::LOAD_FAILED,
+    Unload::Status::UNLOADED,
+    Unload::Status::UNLOAD_FAILED
+  ]
+  OKAY_TO_UNLOAD = [
+    Load::Status::LOADED,
+    Unload::Status::UNLOAD_FAILED
   ]
   OKAY_TO_PROCESS = [
     Load::Status::LOADED
   ]
-  [ OKAY_TO_VALIDATE, OKAY_TO_EXPAND, OKAY_TO_LOAD, OKAY_TO_PROCESS ].each { |c|
+  [ OKAY_TO_VALIDATE, OKAY_TO_EXPAND, OKAY_TO_LOAD, OKAY_TO_UNLOAD, OKAY_TO_PROCESS ].each { |c|
     def c.orjoin(delim = ", ", lastjoin = "or")
       if self.size > 2 then
         return "#{self[0...-1].join(delim)}#{delim}#{lastjoin} #{self[-1]}"
@@ -163,6 +173,7 @@ class PipelineController < ApplicationController
     ) ? true : false
 
     @project_can_load = OKAY_TO_LOAD.find { |s| s == @project.status } ? true : false
+    @project_can_unload = OKAY_TO_UNLOAD.find { |s| s == @project.status } ? true : false
     @project_can_expand = OKAY_TO_EXPAND.find { |s| s == @project.status } ? true : false
     @project_can_process = OKAY_TO_PROCESS.find { |s| s == @project.status } ? true : false
 
@@ -424,7 +435,7 @@ class PipelineController < ApplicationController
         return
       end
     
-      projectType = getProjectType
+      projectType = getProjectType(@project)
  
       projectDir = path_to_project_dir
       cmd = "#{projectType['unloader']} #{projectType['unload_params']} #{projectDir} &> #{projectDir}/unload_error"
@@ -509,6 +520,7 @@ class PipelineController < ApplicationController
 
     redirect_to :action => 'show', :id => @project
   end
+
   def _load
     begin
       @project = Project.find(params[:id])
@@ -535,6 +547,26 @@ class PipelineController < ApplicationController
     end
 
     do_load(@project)
+
+    redirect_to :action => :show, :id => @project
+  end 
+
+  def unload
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    unless OKAY_TO_UNLOAD.find { |s| s == @project.status } then
+      flash[:error] = "Project status must be #{OKAY_TO_UNLOAD.orjoin}."
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    do_unload(@project)
 
     redirect_to :action => :show, :id => @project
   end 
@@ -599,9 +631,9 @@ class PipelineController < ApplicationController
   def do_load(project, options = {})
     # Get the *Controller class to be used to do loading
     begin
-      load_class = getProjectType.load_wrapper_class.singularize.camelize.constantize
+      load_class = getProjectType(project).load_wrapper_class.singularize.camelize.constantize
     rescue
-      load_class = Validate
+      load_class = Load
     end
 
     if load_class.ancestors.map { |a| a.name == 'CommandController' }.find { |a| a } then
@@ -619,14 +651,41 @@ class PipelineController < ApplicationController
       end
     end
 
-    load_controller = load_controller_class.new(:project => @project)
+    load_controller = load_controller_class.new(:project => project)
     load_controller.queue options
+  end
+
+  def do_unload(project, options = {})
+    # Get the *Controller class to be used to do unloading
+    begin
+      unload_class = getProjectType(project).unload_wrapper_class.singularize.camelize.constantize
+    rescue
+      unload_class = Unload
+    end
+
+    if unload_class.ancestors.map { |a| a.name == 'CommandController' }.find { |a| a } then
+      unload_controller_class = unload_class
+    else
+      # Command.is_a? Command
+      if unload_class.ancestors.map { |a| a.name == 'Command' }.find { |a| a } then
+        begin
+          unload_controller_class = (unload_class.name + "Controller").camelize.constantize
+        rescue
+          unload_controller_class = UnloadController
+        end
+      else
+        throw :expecting_subclass_of_command_or_command_controller
+      end
+    end
+
+    unload_controller = unload_controller_class.new(:project => project)
+    unload_controller.queue options
   end
 
   def do_validate(project, options = {})
     # Get the *Controller class to be used to do validation
     begin
-      validate_class = getProjectType.validate_wrapper_class.singularize.camelize.constantize
+      validate_class = getProjectType(project).validate_wrapper_class.singularize.camelize.constantize
     rescue
       validate_class = Validate
     end
@@ -646,7 +705,7 @@ class PipelineController < ApplicationController
       end
     end
 
-    validate_controller = validate_controller_class.new(:project => @project)
+    validate_controller = validate_controller_class.new(:project => project)
     validate_controller.queue options
 
   end
@@ -792,11 +851,11 @@ class PipelineController < ApplicationController
     return types
   end
 
-  def getProjectType
+  def getProjectType(project)
     # --- read one project type from config file into hash -------
     projectTypes = getProjectTypes
     projectTypes.each do |x|
-      if x['id'] == @project.project_type_id
+      if x['id'] == project.project_type_id
         return x
       end
     end
