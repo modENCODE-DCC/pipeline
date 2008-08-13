@@ -25,6 +25,7 @@ class AccountController < ApplicationController
 
   def change_profile
     @user = self.current_user
+    @pis = get_pis
     return unless request.post?
     unless params[:commit] == "Cancel"
       @user.update_attributes(params[:user])
@@ -39,6 +40,7 @@ class AccountController < ApplicationController
   end
 
   def signup
+    @pis = get_pis
     @user = User.new(params[:user])
     @user.host = request.host
     @user.port = request.port
@@ -182,4 +184,20 @@ class AccountController < ApplicationController
     end
   end
 
+  private
+  def get_pis
+    pis = Array.new
+    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+      hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      while (hashes.length > 0) do
+        newhashes = Array.new
+        hashes.each { |hash|
+          pis = pis + hash.keys
+          newhashes = newhashes + hash.values.find_all { |val| val.is_a? Hash }
+        }
+        hashes = newhashes
+      end
+    end
+    return pis.sort
+  end
 end
