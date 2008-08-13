@@ -198,6 +198,6 @@ class AccountController < ApplicationController
         hashes = newhashes
       end
     end
-    return pis.sort
+    return pis.uniq.sort
   end
 end
