@@ -38,7 +38,7 @@ class Command < ActiveRecord::Base
 
   # TODO: format log, parse log for success
   def formatted_status
-    "<b>STDERR:</b><pre>" + self.stderr + "</pre>\n<b>STDOUT</b>:<pre>" + self.stdout + "</pre>"
+    "<b>STDERR:</b><pre>" + (self.stderr.nil? ? '' : self.stderr)+ "</pre>\n<b>STDOUT</b>:<pre>" + (self.stdout.nil? ? '' : self.stdout) + "</pre>"
   end
 
   def short_formatted_status
