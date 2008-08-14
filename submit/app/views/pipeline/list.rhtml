@@ -24,7 +24,7 @@
         <% end %>
 
         <td> 
-          <%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last } -%>
+          <%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, :popup => true -%>
   </td><td>&nbsp;</td>
 
   <% if !defined? @user %>
