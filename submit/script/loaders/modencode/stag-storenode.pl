@@ -55,7 +55,7 @@ if ($help) {
 }
 
 #print STDERR "Connecting to $db\n";
-my $dbh = DBIx::DBStag->connect($db, $user, $pass);
+my $dbh = DBIx::DBStag->connect($db, $schema . "_data", $user, $pass);
 eval {
     $dbh->dbh->{AutoCommit} = $autocommit || 0;
 };
@@ -64,8 +64,10 @@ if ($@) {
 }
 
 if ($schema) {
-  eval { $dbh->do("SET search_path TO $schema,\"\$user\",public"); };
+  eval { $dbh->dbh->do("SET search_path TO $schema, generic_chado, \"\$user\",public"); };
   print STDERR "Couldn't set schema to $schema: $@" if ($@);
+  eval { $dbh->schema_dbh->do("SET search_path TO ${schema}_data, generic_chado,\"\$user\",public"); };
+  print STDERR "Couldn't set schema to ${schema}_data: $@" if ($@);
 }
 if ($trust_ids) {
     $dbh->trust_primary_key_values(1);
