@@ -770,11 +770,17 @@ class PipelineController < ApplicationController
 
       upload_controller = UrlUploadController.new(:source => upurl, :filename => path_to_file(project_archive.file_name), :project => @project)
       upload_controller.timeout = 36000 # 10 hours
+
+      # Queue upload command
+      upload_controller.queue
     elsif !upftp.blank?
       # Uploading from the FTP site
       FileUtils.copy(File.join(ftpFullPath,upftp), path_to_file(project_archive.file_name))
       upload_controller = FileUploadController.new(:source => File.join(ftpFullPath,upftp), :filename => path_to_file(project_archive.file_name), :project => @project) 
       upload_controller.timeout = 600 # 10 minutes
+
+      # Queue upload command
+      upload_controller.queue
     else
       # Uploading from the browser
       if !upfile.local_path
@@ -786,10 +792,12 @@ class PipelineController < ApplicationController
         upload_controller = FileUploadController.new(:source => upfile.local_path, :filename => path_to_file(project_archive.file_name), :project => @project)
         upload_controller.timeout = 600 # 10 minutes
       end
+
+      # Immediately run upload command
+      # (Since this was uploaded from a browser, need to copy the file before the tmp file dissapears)
+      upload_controller.run
     end
 
-    # Queue upload command
-    upload_controller.queue
   end
 
   def check_user_is_owner(project = nil)
