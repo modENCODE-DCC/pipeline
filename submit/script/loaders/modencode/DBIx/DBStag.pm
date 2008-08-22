@@ -66,7 +66,6 @@ sub new {
 
 
 sub connect {
-  print STDERR "ONE TWO THREE\n";
     my $class = shift;
     my $dbi = shift;
     my $self;
