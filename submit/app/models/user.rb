@@ -1,6 +1,8 @@
 require 'digest/sha1'
 class User < ActiveRecord::Base
 
+  self.inheritance_column = 'accesslevel'
+
   has_many :projects
 
   # Virtual attribute for the unencrypted password
@@ -24,6 +26,9 @@ class User < ActiveRecord::Base
   validates_format_of       :new_email,
                 :with => /^([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})$/,
                 :if => :new_email_entered?
+  validates_inclusion_of    :accesslevel, :allow_blank => true, :allow_nil => true, :in => [ 
+    Administrator.name, Moderator.name, Reviewer.name, User.name
+  ]
 
   before_save :encrypt_password
   before_create :make_activation_code

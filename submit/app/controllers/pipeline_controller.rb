@@ -50,10 +50,22 @@ class PipelineController < ApplicationController
   }
 
   before_filter :login_required
-  before_filter :check_user_is_owner, :except => 
+  before_filter :check_user_can_write, :except => 
+        [
+          :show,
+          :new,
+          :list,
+          :show_user,
+          :deactivate_archive,
+          :activate_archive,
+          :command_status,
+          :command_panel,
+          :expand 
+        ]
+
+  before_filter :check_user_can_view, :except => 
         [
           :new,
-          :create,
           :list,
           :show_user,
           :deactivate_archive,
@@ -111,7 +123,7 @@ class PipelineController < ApplicationController
     end
     @project = base_command.project
 
-    return false unless check_user_is_owner @project
+    return false unless check_user_can_view @project
 
     begin
       command_type = base_command.class_name.singularize.camelize.constantize
@@ -176,6 +188,7 @@ class PipelineController < ApplicationController
     @project_can_unload = OKAY_TO_UNLOAD.find { |s| s == @project.status } ? true : false
     @project_can_expand = OKAY_TO_EXPAND.find { |s| s == @project.status } ? true : false
     @project_can_process = OKAY_TO_PROCESS.find { |s| s == @project.status } ? true : false
+    @user_can_write = check_user_can_write @project, :skip_redirect => true
 
   end
 
@@ -257,7 +270,7 @@ class PipelineController < ApplicationController
     begin
       project_archive = ProjectArchive.find(params[:id])
       @project = project_archive.project
-      return false unless check_user_is_owner @project
+      return false unless check_user_can_write @project
     rescue
       flash[:error] = "Couldn't find project archive with ID #{params[:id]}"
       redirect_to :action => "list"
@@ -474,7 +487,7 @@ class PipelineController < ApplicationController
   def deactivate_archive
     project_archive = ProjectArchive.find(params[:id])
     @project = project_archive.project
-    return false unless check_user_is_owner @project
+    return false unless check_user_can_write @project
 
     do_deactivate_archive(project_archive)
     redirect_to :action => 'show', :id => @project
@@ -483,7 +496,7 @@ class PipelineController < ApplicationController
   def activate_archive
     project_archive = ProjectArchive.find(params[:id])
     @project = project_archive.project
-    return false unless check_user_is_owner @project
+    return false unless check_user_can_write @project
 
     do_activate_archive(project_archive)
     redirect_to :action => 'show', :id => @project
@@ -800,7 +813,8 @@ class PipelineController < ApplicationController
 
   end
 
-  def check_user_is_owner(project = nil)
+
+  def check_user_can_write(project = nil, options = {})
     if project.nil? then
       @project = Project.find(params[:id])
     elsif project.is_a? Fixnum
@@ -808,9 +822,28 @@ class PipelineController < ApplicationController
     else
       @project = project
     end
-    unless @project.user_id == current_user.id
-      flash[:error] = "That project does not belong to you."
-      redirect_to :action => 'list'
+    unless @project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
+      flash[:error] = "This project does not belong to you." unless options[:skip_redirect] == true 
+      redirect_to :action => 'show', :id => @project unless options[:skip_redirect] == true 
+      return false
+    end
+    if @project.user_id != current_user.id then
+      flash[:warning] = "Note: This project (#{@project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
+      flash.discard(:warning)
+    end
+    return true
+  end
+  def check_user_can_view(project = nil, options = {})
+    if project.nil? then
+      @project = Project.find(params[:id])
+    elsif project.is_a? Fixnum
+      @project = Project.find(project)
+    else
+      @project = project
+    end
+    unless @project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
+      flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
+      redirect_to :action => 'list' unless options[:skip_redirect] == true 
       return false
     end
     return true
