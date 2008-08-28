@@ -24,7 +24,16 @@ class AccountController < ApplicationController
   end
 
   def change_profile
-    @user = self.current_user
+    if self.current_user.is_a?(Administrator) && params[:id] then
+      @user = User.find(params[:id])
+      unless @user
+        flash[:error] = "Cannot find user with id '#{params[:id]}'"
+        flash.discard
+        redirect_to(:controller => 'administration', :action => 'index')
+      end
+    else
+      @user = self.current_user
+    end
     @pis = get_pis
     return unless request.post?
     unless params[:commit] == "Cancel"

@@ -1,0 +1,26 @@
+<style type="text/css">
+</style>
+<div style="float: left">
+  <table>
+    <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th></tr>
+    <% @commands.sort { |a,b| b.id <=> a.id }.each do |command| %>
+      <tr>
+        <td><%= command.id %></td>
+        <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+        <td><%= command.project ? link_to(command.project.name, url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %></td>
+        <td><%= command.status %></td>
+        <td><%= command.project ? link_to(command.project.user.login, url_for(:controller => :account, :action => :change_profile, :id => command.project.user)) : "Orphaned" %></td>
+      </tr>
+    <% end %>
+  </table>
+</div>
+<div style="float:right; text-align: center">
+  <b>Free Space</b><br/>
+  <% free_space_for_files(@files).each do |volume| %>
+    <%= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
+  <% end %>
+</div>
+<div style="float:right; text-align: center">
+  <b>Webserver CPU Usage</b><br/>
+  <%= google_ometer_chart(get_cpu_usage_of_self) %>
+</div>
