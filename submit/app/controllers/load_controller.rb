@@ -1,20 +1,21 @@
 class LoadController < CommandController
   def initialize(options)
-    super
-    if block_given? then
-      # Don't create a Load object if a subclass gave us a block to use
-      yield
-      return if self.command_object
+    super do
+      if block_given? then
+        # Don't create a Load object if a subclass gave us a block to use
+        yield
+        return if self.command_object
+      end
+
+      self.command_object = Load.new(options)
+      project_load_params = command_object.project.project_type.load_params
+      package_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "extracted")
+
+      loader = command_object.project.project_type.loader
+      command_object.command = "#{loader} #{project_load_params} \"#{package_dir}\""
+
+      command_object.timeout = 3600/2 # 30 minutes by default
     end
-
-    self.command_object = Load.new(options)
-    project_load_params = command_object.project.project_type.load_params
-    package_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "extracted")
-
-    loader = command_object.project.project_type.loader
-    command_object.command = "#{loader} #{project_load_params} \"#{package_dir}\""
-
-    command_object.timeout = 3600/2 # 30 minutes by default
   end
 
   def run

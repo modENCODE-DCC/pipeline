@@ -26,11 +26,11 @@ class UnloadIdf2chadoxmlController < UnloadController
       (unloader, params, package_dir) = command_object.command.split(/ /).map { |i| URI.unescape(i) }
 
       if !File.directory? package_dir then
-        command_object.stderr = command_object.stderr + "Can't find extracted experiment directory #{package_dir}"
-        command_object.status = Unload::Status::UNLOAD_FAILED
+        command_object.stderr = command_object.stderr + "Can't find extracted experiment directory #{package_dir}. Already deleted?"
+        command_object.status = Unload::Status::UNLOADED
         command_object.save
         self.do_after
-        return false
+        return true
       end
 
       # Use the same code as ValidateIdf2chadoxmlController to figure out where the output XML is

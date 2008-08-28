@@ -73,11 +73,12 @@ class CommandController < ApplicationController
             end
           rescue CommandRunException
             # TODO: Failure handling
+            logger.info "Command failed! #{$!}"
             CommandController.disable_related_commands(next_command)
           end
         end
       ensure
-        logger.info "Oh noes! #{$!}"
+        logger.info "Resetting running flag #{$!}"
         CommandController.running_flag=false
       end
     end
@@ -98,6 +99,7 @@ class CommandController < ApplicationController
     if command_object.status == Command::Status::QUEUED || command_object.status == Command::Status::CANCELED then
       # Strange, we think we ran it but the status didn't get updated
       # Assume failure
+      logger.info "Failure because command status is #{command_object.status}"
       command_object.status = Command::Status::FAILED
       command_object.save
       raise CommandRunException.new("Command #{command_object.id} was run, but is still queued!")

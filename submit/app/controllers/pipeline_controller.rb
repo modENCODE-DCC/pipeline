@@ -1,3 +1,4 @@
+require 'find'
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
@@ -123,7 +124,9 @@ class PipelineController < ApplicationController
     end
     @project = base_command.project
 
-    return false unless check_user_can_view @project
+    unless (@project.nil? && current_user.is_a?(Administrator)) then
+      return false unless check_user_can_view @project
+    end
 
     begin
       command_type = base_command.class_name.singularize.camelize.constantize
@@ -184,12 +187,11 @@ class PipelineController < ApplicationController
       )
     ) ? true : false
 
-    @project_can_load = OKAY_TO_LOAD.find { |s| s == @project.status } ? true : false
+    @project_can_load = (OKAY_TO_LOAD.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
     @project_can_unload = OKAY_TO_UNLOAD.find { |s| s == @project.status } ? true : false
-    @project_can_expand = OKAY_TO_EXPAND.find { |s| s == @project.status } ? true : false
+    @project_can_expand = (OKAY_TO_EXPAND.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
     @project_can_process = OKAY_TO_PROCESS.find { |s| s == @project.status } ? true : false
     @user_can_write = check_user_can_write @project, :skip_redirect => true
-
   end
 
   def expand_and_validate
@@ -433,57 +435,6 @@ class PipelineController < ApplicationController
     end
   end
 
-  def delete
-    # call an unload cleanup routine 
-    #  (e.g. that can remove .wib symlinks from /gbdb/ to the submission dir)
-    projectDir= path_to_project_dir
-    msg = ""
-    msg += "Project deleted."
-    if File.exists?(projectDir)
-      @project.status = Unload::Status::UNLOADING
-      unless @project.save
-        flash[:error] = "System error - project record save failed."
-        #@project.errors.each_full { |x| msg += x + "<br>" }
-        redirect_to :action => 'show', :id => @project
-        return
-      end
-    
-      projectType = getProjectType(@project)
- 
-      projectDir = path_to_project_dir
-      cmd = "#{projectType['unloader']} #{projectType['unload_params']} #{projectDir} &> #{projectDir}/unload_error"
-      timeout = projectType['unload_time_out']
-
-      #logger.info "GALT! cmd=#{cmd} timeout=#{timeout}"
-
-      exitCode = run_with_timeout(cmd, timeout)
-
-      if exitCode == 0
-        @project.status = Unload::Status::UNLOADED
-        @project.save
-        log_project_status
-      else
-        msg = "Project unload failed."
-        flash[:notice] = msg
-        @project.status = Unload::Status::UNLOAD_FAILED
-        @project.save
-        redirect_to :action => 'show', :id => @project
-        return
-      end
-
-    end    
-    delete_completion
-    @project.status = Delete::Status::DELETED
-    @project.save
-    log_project_status
-    unless @project.destroy
-        @project.errors.each_full { |x| msg += x + "<br>" }
-    end
-    flash[:notice] = msg
-    redirect_to :action => 'show_user'
-
-  end
-  
   def deactivate_archive
     project_archive = ProjectArchive.find(params[:id])
     @project = project_archive.project
@@ -583,6 +534,32 @@ class PipelineController < ApplicationController
 
     redirect_to :action => :show, :id => @project
   end 
+
+  def delete
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    # TODO: Stop all running tasks
+
+    # Queue up unload and delete tasks
+    do_unload(@project, :defer => true)
+    do_delete(@project)
+
+    redirect_to :action => :list
+  end
+
+  def do_delete(project, options = {})
+    # TODO: Make this function private
+
+    delete_controller = DeleteController.new(:project => project)
+
+    delete_controller.queue options
+  end
 
   def validate
     begin
@@ -813,35 +790,43 @@ class PipelineController < ApplicationController
 
   end
 
-
   def check_user_can_write(project = nil, options = {})
-    if project.nil? then
-      @project = Project.find(params[:id])
-    elsif project.is_a? Fixnum
-      @project = Project.find(project)
-    else
-      @project = project
+    begin
+      if project.nil? then
+        project = Project.find(params[:id])
+      elsif project.is_a? Fixnum
+        project = Project.find(project)
+      end
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
     end
-    unless @project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
+    unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
       flash[:error] = "This project does not belong to you." unless options[:skip_redirect] == true 
-      redirect_to :action => 'show', :id => @project unless options[:skip_redirect] == true 
+      redirect_to :action => 'show', :id => project unless options[:skip_redirect] == true 
       return false
     end
-    if @project.user_id != current_user.id then
-      flash[:warning] = "Note: This project (#{@project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
+    if project.user_id != current_user.id then
+      flash[:warning] = "Note: This project (#{project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
       flash.discard(:warning)
     end
     return true
   end
+
   def check_user_can_view(project = nil, options = {})
-    if project.nil? then
-      @project = Project.find(params[:id])
-    elsif project.is_a? Fixnum
-      @project = Project.find(project)
-    else
-      @project = project
+    begin
+      if project.nil? then
+        project = Project.find(params[:id])
+      elsif project.is_a? Fixnum
+        project = Project.find(project)
+      end
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
     end
-    unless @project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
+    unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => 'list' unless options[:skip_redirect] == true 
       return false
@@ -922,26 +907,6 @@ class PipelineController < ApplicationController
         end
         sleep(sleepInterval)
       end
-    end
-  end
-
-  def delete_completion
-    # TODO: FIX THIS FUNCTION
-    projectDir= path_to_project_dir
-    if File.exists?(projectDir)
-      Dir.entries(projectDir).each { 
-        |f| 
-        unless (f == ".") or (f == "..")
-          fullName = File.join(projectDir,f)
-          cmd = "rm -fr #{fullName}"
-          unless system(cmd)
-            flash[:error] = "System error cleaning out project subdirectory: <br>command=[#{cmd}].<br>"  
-	    redirect_to :action => 'show_user'
-            return
-          end
-        end
-      }
-      Dir.delete(projectDir)
     end
   end
 

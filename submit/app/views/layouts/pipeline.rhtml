@@ -112,6 +112,10 @@
                 :controller => 'pipeline', :action => 'show_user' %> 
     </td>
     <td align="right">
+    <% if current_user.is_a? Administrator then %>
+      <%= link_to ' Administration', :controller => 'administration', :action => 'index' %> 
+      |
+    <% end %>
     <%= link_to ' Log Out', :controller => 'account', :action => 'logout' %> 
     |
     <%= link_to 'Change Profile', :controller => 'account', :action => 'change_profile' %> 
