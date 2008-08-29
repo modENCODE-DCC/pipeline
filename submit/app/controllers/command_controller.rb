@@ -78,6 +78,9 @@ class CommandController < ApplicationController
           end
         end
       ensure
+        next_command.status = Command::Status::FAILED
+        next_command.save
+        CommandController.disable_related_commands(next_command)
         logger.info "Resetting running flag #{$!}"
         CommandController.running_flag=false
       end

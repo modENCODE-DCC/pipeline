@@ -2,7 +2,7 @@ class Expand < Command
   class Status < Command::Status
     EXPANDING = "expanding"
     EXPANDED = "expanded"
-    EXPAND_FAILED = "expand_failed"
+    EXPAND_FAILED = "expand failed"
   end
 
   def formatted_status

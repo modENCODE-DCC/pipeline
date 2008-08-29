@@ -22,6 +22,16 @@ class ExpandController < CommandController
       if project_archive.nil? then
         project_archive = command_object.project.project_archives.new({ :file_name => command_object.command })
       end
+
+      unless File.exists?(File.join(path_to_project_dir, command_object.command)) then
+        command_object.status = Expand::Status::EXPAND_FAILED
+        command_object.stderr = "Can't expand archive; \"#{command_object.command}\" does not exist.";
+        command_object.save
+        # Destroy the ProjectArchive if it's not going to be able to expand
+        project_archive.destroy
+        return false
+      end
+
       project_archive.status = ProjectArchive::Status::EXPANDING
       project_archive.file_size = File.size(File.join(path_to_project_dir, command_object.command))
       project_archive.file_date = Time.now
