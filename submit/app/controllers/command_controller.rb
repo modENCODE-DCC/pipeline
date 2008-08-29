@@ -47,7 +47,7 @@ class CommandController < ApplicationController
   end
 
   def self.do_queued_commands
-    spawn do
+#    spawn do
       # Is a process already handling queued commands?
       # If so, return and let it do its thing
       if CommandController.running_flag then
@@ -78,13 +78,9 @@ class CommandController < ApplicationController
           end
         end
       ensure
-        next_command.status = Command::Status::FAILED
-        next_command.save
-        CommandController.disable_related_commands(next_command)
         logger.info "Resetting running flag #{$!}"
         CommandController.running_flag=false
       end
-    end
   end
 
   def self.disable_related_commands(command)
