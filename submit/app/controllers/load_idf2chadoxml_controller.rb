@@ -1,17 +1,21 @@
 class LoadIdf2chadoxmlController < LoadController
   def initialize(options)
-    super do
-      return unless options[:command].nil?
-
-      self.command_object = LoadIdf2chadoxml.new(options)
-      project_load_params = command_object.project.project_type.load_params || ''
-      package_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "extracted")
-
-      loader = command_object.project.project_type.loader
-      command_object.command = "#{URI.escape(loader)} #{URI.escape(project_load_params)} #{URI.escape(package_dir)}"
-
-      command_object.timeout = 3600/2 # 30 minutes by default
+    super
+    if block_given? then
+      # Don't create an Unload object if a subclass gave us a block to use
+      yield
+      return if self.command_object
     end
+    return unless options[:command].nil?
+
+    self.command_object = LoadIdf2chadoxml.new(options)
+    project_load_params = command_object.project.project_type.load_params || ''
+    package_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "extracted")
+
+    loader = command_object.project.project_type.loader
+    command_object.command = "#{URI.escape(loader)} #{URI.escape(project_load_params)} #{URI.escape(package_dir)}"
+
+    command_object.timeout = 3600/2 # 30 minutes by default
   end
 
   def run
@@ -58,7 +62,6 @@ class LoadIdf2chadoxmlController < LoadController
       schema = "modencode_experiment_#{command_object.project.id}"
 
       run_command = "#{loader} #{params} #{database} -s \"#{schema}\" #{output_file}"
-      puts run_command
 
       last_update = Time.now
       (exitvalue, errormessage) = Open5.popen5(run_command) { |stdin, stdout, stderr, exitvaluechannel, sidechannel|
