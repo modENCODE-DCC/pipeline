@@ -33,6 +33,7 @@ die "Invalid schema name" unless $schema =~ /^[a-zA-Z0-9_-]+$/;
 print STDERR "Removing temporary schema in Chado for $schema.\n";
 my $dbh = DBI->connect($dsn, $user, $password, { PrintWarn => 0 }) or die "Couldn't connect to database identified by $dsn";
 $dbh->do("DROP SCHEMA IF EXISTS $schema CASCADE") or die "Couldn't drop schema $schema, but it exists";
+$dbh->do("DROP SCHEMA IF EXISTS ${schema}_data CASCADE") or die "Couldn't drop schema ${schema}_data, but it exists";
 $dbh->disconnect();
 print STDERR "Done.\n";
 
