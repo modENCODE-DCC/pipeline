@@ -52,9 +52,7 @@ $dbh->disconnect();
 print STDERR "Done.\n";
 
 print STDERR "Loading chadoxml.\n";
-print STDERR "INC: " . $INC[0] . "\n";
 $ENV{'PERL5LIB'} = join(":", @INC);
-print STDERR $ENV{'PERL5LIB'} . "\n";
 system("$this_dir/stag-storenode.pl", @orig_args);
 if ($? == 0) {
   print STDERR "Done.\n";
