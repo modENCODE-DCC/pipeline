@@ -64,7 +64,7 @@ if ($@) {
 }
 
 if ($schema) {
-  eval { $dbh->dbh->do("SET search_path TO $schema, generic_chado, \"\$user\",public"); };
+  eval { $dbh->dbh->do("SET search_path TO $schema, generic_chado, wiggle, \"\$user\",public"); };
   print STDERR "Couldn't set schema to $schema: $@" if ($@);
   eval { $dbh->schema_dbh->do("SET search_path TO ${schema}_data, generic_chado,\"\$user\",public"); };
   print STDERR "Couldn't set schema to ${schema}_data: $@" if ($@);
