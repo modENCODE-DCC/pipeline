@@ -94,6 +94,10 @@ text-decoration: none;
 #content h1 {
   font-size: 14pt;
 }
+#content h2 {
+  margin-top: 0px;
+  font-size: 12pt;
+}
 
 #message {
   font-size: 12pt;
