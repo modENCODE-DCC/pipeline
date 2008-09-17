@@ -1,6 +1,7 @@
 <b>Command Queue</b><br/>
 
 <% 
+  all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
   short_queue = @project.commands.find_all_by_status(Command::Status::QUEUED)[0...10]
   short_queue = short_queue + Array.new(10-short_queue.size)
 %>
@@ -9,7 +10,7 @@
     ...
   <% else %>
     <%= command.class.name %>: 
-    <%= command.status %>
+    <%= Inflector.ordinalize(all_queued_commands.index(command)+1) %> in the queue
   <% end %>
   <br/>
 <% end %>
