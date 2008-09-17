@@ -4,7 +4,8 @@
 <%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 2,
   :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
 <div>
-  <h1>Project: <%= @project.name %></h1>
+  <h1 style="margin-bottom: 2px;">Project: <%= @project.name %></h1>
+  <h2>Submission #<%= @project.id %></h2>
   <%= link_to_if(@user_can_write, "Submit Data", { :action => :upload, :id => @project }) %>
   <%= " | " + link_to_if(@user_can_write, "Rename Project", { :action => :edit, :id => @project }) %>
   <%= " | " + link_to_if(@user_can_write, "Delete Project", { :action => :delete, :id => @project }, :confirm => "Are you sure you want to delete this project?") %>
