@@ -6,7 +6,9 @@ class AdministrationController < ApplicationController
     @commands = Command.all
     project = Project.first || Project.new(:id => 0)
     project_dir = ExpandController.path_to_project_dir(project)
-    File.stat(project_dir) # Make sure any automounting that needs to be done is done
+    if File.directory? project_dir then
+      File.stat(project_dir) # Make sure any automounting that needs to be done is done
+    end
     @files = [ project_dir ]
   end
 
