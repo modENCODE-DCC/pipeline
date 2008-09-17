@@ -3,39 +3,32 @@
 <% else %>
 
   <p>
-  <table id="projects" cellpadding="1" cellspacing="3">
-    <tr><td align="left"><b>Name</b></td><td>&nbsp;</td>
-
-      <% if current_user.login == "admin" %>
-        <td align="left"><b>Type</b></td><td>&nbsp;</td>
-      <% end %>
-      <td align="left"><b>Status</b></td><td>&nbsp;</td>
-      <% if !defined? @user %>
-        <td align="left"><b>Investigator</b></td><td>&nbsp;</td>
-      <% end %>
-      <td align="left"><b>Updated PST</b></td></tr>
+  <table id="projects" class="archive_list">
+    <tr>
+      <th align="left">Name</th>
+      <th align="left">Status</th>
+      <% if !defined? @user %><th align="left">Investigator</th><% end %>
+      <th align="left">Updated PST</th>
+      <th colspan="2" align="left">Created PST</th>
+    </tr>
 
     <% @projects.each do |c| %>
+      <% 
+        deleted_project = c.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false 
+        queued_commands = c.commands.find_all_by_status(Command::Status::QUEUED).size
+      %>
       <tr>
-        <td><%= link_to c.name, {:action => 'show', :id => c.id} -%></td><td>&nbsp;</td>
-
-        <% if current_user.login == "admin" %>
-          <td><%= c.project_type.short_label -%></td><td>&nbsp;</td><td>&nbsp;</td>
-        <% end %>
-
-        <td> 
-          <%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, :popup => true -%>
-  </td><td>&nbsp;</td>
-
-  <% if !defined? @user %>
-    <td><%= c.user.pi -%></td><td>&nbsp;</td>
-  <% end %>
-  <td><%= c.updated_at.strftime("%b %d %H:%M") -%></td>
-</tr>
- <% end %>
+        <td<%= ' style="text-decoration: line-through"' if deleted_project %>><%= link_to c.name, {:action => 'show', :id => c.id} %></td>
+        <td><%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, :popup => true %></td>
+        <% if !defined? @user %><td><%= c.user.pi -%></td><% end %>
+        <td><%= c.updated_at.strftime("%b %d %H:%M") -%></td>
+        <td><%= c.created_at.strftime("%b %d %H:%M") -%></td>
+        <td>
+          <%= 'Deleting...' if deleted_project %>
+          <%= "#{queued_commands} operations(s) queued." if queued_commands > 0 %>
+        </td>
+      </tr>
+    <% end %>
  </table>
 <% end %>
 <br/>
-
-<%
-
