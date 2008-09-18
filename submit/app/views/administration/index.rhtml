@@ -1,6 +1,26 @@
-<style type="text/css">
-</style>
 <div style="float: left">
+  <h1>Active (...ing)</h1>
+  <table>
+    <tr><th colspan="2">Command</th></tr>
+    <% @active_commands.each do |command| %>
+    <tr>
+      <td><%= command.id %></td> 
+      <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+    </tr>
+    <% end %>
+  </table>
+  <h1>Queue</h1>
+  <table>
+    <tr><th colspan="2">Command</th><th>Position in queue</th></tr>
+    <% @all_queued_commands.each do |command| %>
+    <tr>
+      <td><%= command.id %></td> 
+      <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+      <td><%= Inflector.ordinalize(@all_queued_commands.index(command)+1) %></td>
+    </tr>
+    <% end %>
+  </table>
+  <h1>All Commands</h1>
   <table>
     <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th></tr>
     <% @commands.sort { |a,b| b.id <=> a.id }.each do |command| %>
