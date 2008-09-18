@@ -1,3 +1,4 @@
+require 'find'
 class DeleteController < CommandController
   def initialize(options)
     super
