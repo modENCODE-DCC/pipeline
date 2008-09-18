@@ -1,7 +1,7 @@
 <div id="command_panel">
 <%= render :partial => "command_panel" %>
 </div>
-<%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 2,
+<%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 5,
   :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
 <div>
   <h1 style="margin-bottom: 2px;">Project: <%= @project.name %></h1>
