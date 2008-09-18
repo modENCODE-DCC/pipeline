@@ -96,8 +96,26 @@ class PipelineController < ApplicationController
   end
   
   def list
+
     @autoRefresh = true
-    @projects = Project.find(:all, :order => 'name')
+    @projects = Project.find(:all)#, :order => 'name')
+
+
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if session[:sort_list] then
+      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
+      @projects = @projects.sort { |p1, p2|
+        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
+        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
+        p1_attrs <=> p2_attrs
+      }
+      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    end
+
   end
   
   def command_panel
@@ -411,6 +429,23 @@ class PipelineController < ApplicationController
     @autoRefresh = true
     @user = User.find(current_user.id)
     @projects = @user.projects
+
+
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if session[:sort_list] then
+      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
+      @projects = @projects.sort { |p1, p2|
+        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
+        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
+        p1_attrs <=> p2_attrs
+      }
+      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    end
+
 
     render :action => 'list'
     
