@@ -44,20 +44,9 @@ class UnloadIdf2chadoxmlController < UnloadController
         end
       end
 
-      possible_idfs = Dir.glob(File.join(lookup_dir, "*.idf")) + Dir.glob(File.join(lookup_dir, "*IDF*")) + Dir.glob(File.join(lookup_dir, "*idf*"))
-      if possible_idfs.empty? then
-        command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}"
-        command_object.status = Unload::Status::UNLOAD_FAILED
-        command_object.save
-        self.do_after
-        return false
-      end
-
-      idf_file = possible_idfs.first
-      output_file = idf_file + ".chadoxml"
       schema = "modencode_experiment_#{command_object.project.id}"
 
-      run_command = "#{unloader} #{params} #{database} -s \"#{schema}\" #{output_file}"
+      run_command = "#{unloader} #{params} #{database} -s \"#{schema}\""
       puts run_command
 
       last_update = Time.now
