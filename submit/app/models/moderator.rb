@@ -1,2 +1,2 @@
-class Moderator < User
+class Moderator < Reviewer
 end

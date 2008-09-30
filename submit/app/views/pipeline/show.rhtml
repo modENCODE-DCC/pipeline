@@ -1,5 +1,5 @@
 <div id="command_panel">
-<%= render :partial => "command_panel" %>
+  <%= render :partial => "command_panel" %>
 </div>
 <%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 5,
   :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
@@ -18,6 +18,10 @@
   <%= " | " + link_to_if(@user_can_write && @project_can_load, "Load Project", { :action => :load, :id => @project }) %>
   <%= " | " + link_to_if(@user_can_write && @project_can_unload, "Unload Project", { :action => :unload, :id => @project }) %>
   <%= " | " + link_to_if(@user_can_write && @project_can_process, "Find Tracks", { :action => :process, :id => @project }) %>
+  <% if @current_user.is_a? Moderator then %>
+    <br/><br/>
+    <%= link_to_if(@project_can_load && @project_is_modencode, "Download ChadoXML", { :action => :download_chadoxml, :id => @project }) %>
+  <% end %>
 
   <hr style="width: 50%;" align="left"/>
   <table border="0" style="margin-top:10px;" class="status">

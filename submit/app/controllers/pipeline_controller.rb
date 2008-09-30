@@ -209,7 +209,36 @@ class PipelineController < ApplicationController
     @project_can_unload = OKAY_TO_UNLOAD.find { |s| s == @project.status } ? true : false
     @project_can_expand = (OKAY_TO_EXPAND.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
     @project_can_process = OKAY_TO_PROCESS.find { |s| s == @project.status } ? true : false
+    @project_is_modencode = (@project.project_type == ProjectType.find_by_name("modENCODE Project"))
     @user_can_write = check_user_can_write @project, :skip_redirect => true
+  end
+
+  def download_chadoxml
+    @autoRefresh = true
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    project_can_load = (OKAY_TO_LOAD.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
+    project_is_modencode = (@project.project_type == ProjectType.find_by_name("modENCODE Project"))
+    unless project_can_load && project_is_modencode then
+      # Project hasn't yet gotten to the point where it can be loaded (no chadoxml generated)
+      # OR project is not a modENCODE project and thus does not have a chadoXML associated
+      flash[:error] = "Project does not have generated a ChadoXML file"
+      redirect_to :action => "show", :id => @project
+      return
+    end
+
+    chadoxmlfile = LoadIdf2chadoxmlController::get_idf_file(File.join(path_to_project_dir(@project), "extracted"))
+    if File.exists? "#{chadoxmlfile}.chadoxml" then
+      send_file "#{chadoxmlfile}.chadoxml", :type => 'text/xml'
+    else
+      flash[:error] = "Project does not have generated a ChadoXML file"
+      redirect_to :action => "show", :id => @project
+    end
   end
 
   def expand_and_validate
@@ -791,7 +820,7 @@ class PipelineController < ApplicationController
     # Build a Command::Upload object to fetch the file
     if !upurl.blank? || upurl == "http://" then
       # Uploading from a remove URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
-      projectDir = path_to_project_dir
+      projectDir = path_to_project_dir(@project)
 
       upload_controller = UrlUploadController.new(:source => upurl, :filename => path_to_file(project_archive.file_name), :project => @project)
       upload_controller.timeout = 36000 # 10 hours
@@ -877,9 +906,10 @@ class PipelineController < ApplicationController
     just_filename.gsub(/[^\w\.\_]/,'_') 
   end
 
-  def path_to_project_dir
+  def path_to_project_dir(project = nil)
+    project = @project if project.nil?
     # the expand_path method resolves this relative path to full absolute path
-    File.expand_path("#{ActiveRecord::Base.configurations[RAILS_ENV]['upload']}/#{@project.id}")
+    File.expand_path("#{ActiveRecord::Base.configurations[RAILS_ENV]['upload']}/#{project.id}")
   end
 
   def path_to_file(filename)
