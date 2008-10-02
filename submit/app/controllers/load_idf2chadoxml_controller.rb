@@ -37,7 +37,7 @@ class LoadIdf2chadoxmlController < LoadController
         return false
       end
 
-      idf_file = get_idf_file(package_dir)
+      idf_file = LoadIdf2chadoxmlController::get_idf_file(package_dir)
       if idf_file.nil? then
         command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}"
         command_object.status = Load::Status::LOAD_FAILED
