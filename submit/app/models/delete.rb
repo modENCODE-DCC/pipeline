@@ -1,5 +1,5 @@
 class Delete < Command
-  class Status < Command::Status
+  module Status
     DELETING = "deleting"
     DELETED = "deleted"
     DELETE_FAILED = "delete failed"

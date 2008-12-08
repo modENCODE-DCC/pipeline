@@ -1,0 +1,350 @@
+<% if @projects.blank? %>
+  <p>There are no <%= @show_status %> projects currently.</p>
+<% else %>
+  <% if @display_type!='graph' %> 
+  <style type="text/css">
+    TABLE.archive_list2 TR TH { vertical-align: bottom; text-align: center }
+    TH.banner-top { background-color: #FAFAFA; border-bottom: thin solid black }
+    TH.banner-bottom { background-color: #FAFAFA; border-top: thin solid black }
+    TH.tophr { border-top: medium solid grey; }
+    TH.bottomhr { border-bottom: medium solid grey; }
+  </style>
+  <% @queued_commands = Command.find_all_by_status(Command::Status::QUEUED) %>
+  <table class="archive_list2">
+    <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>
+    <% if (@display_type == 'expanded') %>
+      <tr>
+        <th colspan="<%= @queued_commands.length > 0 ? 5 : 4 %>">&nbsp;</th>
+        <th colspan="2" class="banner-top">Upload</th>
+        <th colspan="2" class="banner-top">Validation</th>
+        <th colspan="2" class="banner-top">DB Load</th>
+        <th class="banner-top">Released</th>
+        <th colspan="2">&nbsp;</th>
+      </tr>
+    <% end %>
+    <tr>
+      <th><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+      <th><%= link_to "Submission<br/>Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+      <th><%= link_to "Current<br/>Status", :action => controller.action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
+      <% if @queued_commands.length > 0 %><th>Q</th><% end %>
+
+      <% if (@display_type == 'expanded') %>
+        <th><%= link_to "Created", :action => controller.action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
+        <th title="Most recent upload attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <!-- th>% success <br/>(# attempts)</th -->
+        <th>#<br />attempts</th>
+        <th title="Most recent validation attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <th>#<br />attempts</th>
+        <th title="Most recent database load attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <th>#<br />attempts</th>
+        <th><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+      <% end %>
+
+      <th><span style="font-size:50%">(PST)</span><br/>Last<br/>Updated</th>
+      <th>Duration</th>
+      <th>Submitter</th>
+      <th>PI</th>
+    </tr>
+
+    <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>
+
+    <% 
+      colors = [ '#eeeeee', '#f2f2ff' ]
+      i = 0
+    %>
+
+    <% @projects.each do |p| %>
+      <%
+        deleted_project = p.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false
+        queued_commands = p.commands.find_all_by_status(Command::Status::QUEUED).size
+        active_project = Command::Status::is_active_state(p.status)
+        failed_project = Command::Status::is_failed_state(p.status)
+        released_project = p.status == Project::Status::RELEASED
+        #released_project = Command::Status::is_released_state(p.status)
+        last_upload_command = p.commands.find_all_by_status(Upload::Status::UPLOADED).last if !p.commands.nil?
+        last_validate_command = p.commands.find_all_by_status(Validate::Status::VALIDATED).last if !p.commands.nil?
+        last_load_command = p.commands.find_all_by_status(Load::Status::LOADED).last if !p.commands.nil?
+        total_uploads = p.commands.find_all_by_status(Upload::Status::UPLOADED).length+p.commands.find_all_by_status(Upload::Status::UPLOAD_FAILED).length
+        total_validations = p.commands.find_all_by_status(Validate::Status::VALIDATED).length+p.commands.find_all_by_status(Validate::Status::VALIDATION_FAILED).length
+        total_dbloads = p.commands.find_all_by_status(Load::Status::LOADED).length+p.commands.find_all_by_status(Load::Status::LOAD_FAILED).length
+        color = active_project ? '#ffffbb' : colors[i%2]
+        i += 1
+      %>
+      <tr style="background-color: <%= color %>">
+        <td align="right" <%= ' style="text-decoration: line-through"' if deleted_project %>>
+          <%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %>
+        </td>
+        <td class="name">
+          <%= link_to p.name, {:action => 'show', :id => p.id, :controller => 'pipeline' } %>
+        </td>
+        <td>
+        <% 
+          step = 0
+          case  
+          when p.nil?
+            step=1
+          when (p.status==Project::Status::NEW || p.status==Upload::Status::UPLOAD_FAILED)
+            step=1
+          when (p.status==Upload::Status::UPLOADED || p.status==Validate::Status::VALIDATION_FAILED || p.status==Expand::Status::EXPAND_FAILED)
+            step=2
+          when (p.status==Validate::Status::VALIDATED || p.status==Load::Status::LOAD_FAILED) 
+            step=3
+          when (p.status==Load::Status::LOADED)
+            step=4
+          when (p.status=='tracks found')
+            step=5
+          when (p.status=='submitter approval')
+            step=6
+          when (p.status=='DCC approval')
+            step=7
+          when (p.status=='released to gbrowse')
+            step=8
+          when (p.status=='released to modmine')
+            step=9
+          when (p.status=='released')
+            step=10
+          else
+            step=1
+          end 
+        %>
+        <% if (!Command::Status::is_active_state(p.status)) %>
+          <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="p.status" title="<%= p.status %>" />
+	<% else %>
+          <%= p.status %>...
+        <% end %>    
+      </td>
+
+      <% if @queued_commands.length > 0 %>
+        <td title="Queued" align="right" style="align: right; font-size: x-large">
+          <%= @queued_commands.length > 0 ? "*" : "&nbsp;" %>
+        </td>
+      <% end %>
+
+      <% if (@display_type == 'expanded') %>
+        <td>
+          <% if (@display_date == 'quarter') %>
+            <%= @quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0] %>
+          <% else %>
+            <%=p.created_at.strftime("%y %b %d ") %>
+          <% end %>
+        </td>
+
+        <td>
+          <% if !p.commands.nil? && p.commands.find_all_by_status(Upload::Status::UPLOADED).length > 0 && @display_date == 'quarter' then %>
+            <%= @quarters.find {|k,v| last_upload_command.updated_at.to_date <= v["end"] && last_upload_command.updated_at.to_date >= v["start"]}[0] %>
+          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Upload::Status::UPLOADED).length > 0 then %>
+            <%= last_upload_command.updated_at.strftime("%y %b %d ") %>
+          <% elsif !p.commands.nil? then %>
+            --
+          <% end %>
+        </td>
+        <td>
+          <% if !p.commands.nil? && total_uploads > 0 then %>
+            <%#= ((p.commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")" %>
+	    <%= total_uploads.to_s  %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">0</span>
+          <% else %>
+            &nbsp;
+          <% end %>
+        </td>
+
+        <td>
+          <% if !p.commands.nil? && p.commands.find_all_by_status(Validate::Status::VALIDATED).length > 0 && @display_date == 'quarter' then %>
+            <%= @quarters.find {|k,v| last_validate_command.updated_at.to_date <= v["end"] && last_validate_command.updated_at.to_date >= v["start"]}[0] %>
+          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Validate::Status::VALIDATED).length > 0 then %>
+            <%= last_validate_command.updated_at.strftime("%y %b %d ") %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">--</span>
+          <% end %>
+        </td>
+        <td>
+          <% if !p.commands.nil? && total_validations > 0 then %>
+            <%#= ((p.commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")" %>
+	    <%= total_validations.to_s  %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">0</span>
+          <% else %>
+            &nbsp;
+          <% end %>
+        </td>
+
+        <td>
+          <% if !p.commands.nil? && p.commands.find_all_by_status(Load::Status::LOADED).length > 0 && @display_date == 'quarter' then %>
+            <%= @quarters.find {|k,v| last_load_command.updated_at.to_date <= v["end"] && last_load_command.updated_at.to_date >= v["start"]}[0] %>
+          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Load::Status::LOADED).length > 0 then %>
+            <%= last_load_command.updated_at.strftime("%y %b %d ") %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">--</span>
+          <% end %>
+        </td>
+        <td>
+          <% if !p.commands.nil? && total_dbloads > 0 then %>
+            <%#= ((p.commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")" %>
+	    <%= total_dbloads.to_s %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">0</span>
+          <% else %>
+            &nbsp;
+          <% end %>
+        </td>
+
+        <td>
+          <% if !p.commands.nil? && !p.commands.find_by_status(Release::Status::RELEASED).nil? then %>
+            <%= p.commands.find_by_status(Release::Status::RELEASED).updated_at.strftime("%y %b %d ") %>
+          <% elsif !p.commands.nil? then %>
+            <span style="color:grey">--</span>
+          <% else %>
+            &nbsp;
+          <% end %>
+        </td>
+      <% end %>
+
+      <td><%= p.updated_at.strftime("%y %b %d (%H:%M)") -%></td>
+      <td>
+        <% 
+          # TODO: Time.now should be release data if there is a release date
+          s = (Time.now - p.created_at)
+          m = ((s / 60) % 60).to_i  #minutes
+          h = (((s/60)/60) % 24).to_i #hours
+          d = (((s/60)/60)/24).to_i #days
+          s = (s % 60).to_i #seconds
+          if d > 0 then
+            display = "#{d.to_s} days"
+          elsif d <= 0 && h > 0 then
+            display = "#{h.to_s} hours"
+          else
+            display = "#{m.to_s} minutes"
+          end
+       %>
+       <%= display %>
+      </td>
+      <td><%= p.user.login %></td>
+      <td><%= p.user.pi.split(",")[0] %></td>
+    </tr>
+  <% end %>
+
+  <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="bottomhr">&nbsp;</td></tr>
+  <tr>
+    <th class="name" colspan="<%= @queued_commands.length > 0 ? 5 : 4 %>">
+      Summary:<br/>
+      <span style="font-size:75%">(<%= @projects.length %> submissions listed)</span>
+    </th>
+    <% 
+      total_uploaded = @projects.find_all {|p| p.commands.find_by_status(Upload::Status::UPLOADED)}.length
+      total_validated = @projects.find_all {|p| p.commands.find_by_status(Validate::Status::VALIDATED)}.length
+      total_loaded   = @projects.find_all {|p| p.commands.find_by_status(Load::Status::LOADED)}.length
+      total_released = @projects.find_all {|p| p.commands.find_by_status(Release::Status::RELEASED)}.length
+    %>
+  <% if (@display_type=="expanded") %>
+    <th class="banner-bottom" colspan="2"><%= total_uploaded %> uploaded</th><!--upload-->
+    <th class="banner-bottom" colspan="2"><%= total_validated %> validated</th><!--validate-->
+    <th class="banner-bottom" colspan="2"><%= total_loaded %> loaded</th><!--loaded--> 
+    <th class="banner-bottom"><%= total_released %> released</th><!--released-->
+    <% end %>
+  <td></td><td></td>
+
+  </tr>
+</table>
+<% if (@display_type == 'expanded') %>
+<br />
+     Dates - listed are the most recent attempt of a given command (YY Month DD)<br />
+     % success - percentage of successful attempts of a command out of all attempts<br />
+     <% if @queued_commands.length > 0 %>
+     Q - indicates if a given project has commands in the queue.<br />
+     <% end %>
+     "--" as a date indicates that a given status has not yet been achieved <br />
+<% end %>
+
+<% else %>
+
+   <br />
+    <% title = ""
+       header = ""
+       if (session[:show_filter] == :user)
+         title += current_user.login+"'s"
+	 header = "My"
+	 data_hash = @my_projects_by_status
+       elsif (session[:show_filter] == :group) then
+         title += current_user.pi.split(",")[0] + " project"
+	 header += "My Group's"
+	 data_hash = @my_groups_projects_by_status
+       else
+         title += "All modENCODE"
+	 header = title
+	 data_hash = @all_projects_by_status
+       end
+         temp = []
+         for i in 0..data_hash.length-1
+           temp += [data_hash.find{|k,v| k==@status[i] }] unless nil
+         end
+         data_hash = temp
+         title1= "Distribution of " + title + " active and released submissions"
+         title2 = title + " new submissions per quarter"
+	 title3 = title + " released submissions per quarter"
+    %>   
+
+<center>
+    <% if (@show_status != "released") %>       	
+    <br />
+    <h2>Summary of <%= header %> Submissions</h2> 
+    <hr />
+</center>
+    <table>
+    <tr>
+      <td align="center">
+        <%= google_vert_bar_chart([], :data => data_hash, :title => title1+"|as of #{Time.now.strftime("%b %d %Y")}", :width => 700, :legend => @active_status, :show_legend => false, :align => "center", :chbh => "35,30,25", :color => "cccccc|cccccc|cccccc|cccccc|cccccc|cccccc|cccccc|00cc00|00cc00|00cc00" )%>
+      </td>
+      <td>
+        <b><%=title1%>, binned by status.</b> This represents the distribution of data validation status for each submission made to the DCC as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.
+Progression from "New" to "Released" is from left to right.
+Numbers above the bars depict the total number of submissions currently at that status.
+"n" value in the title represents the sum of all submissions for the current filter of <b>"<%=title%>"</b>.
+</p>
+
+        For additional details, please visit the <%= link_to 'modENCODE stats', :controller => 'reports', :action => 'index' %> reports page.<br />
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <%= google_vert_bar_chart([], :data => @all_my_new_projects_per_quarter.sort, :title => title2+"|as of #{Time.now.strftime("%b %d %Y")}", :width => 350, :show_legend => false, :align => "center", :color => "660066",  :chbh => "35,28,20" )%>
+      </td>
+      <td>
+<b>Submissions initiated to modENCODE DCC by <%= title%>, binned by Quarter.</b> This represents the distribution of submissions initiated to the DCC, regardless of current status, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.
+Numbers above the bars depict the total number of submissions for that quarter.
+"n" value in the title represents the sum of all initiated submissions.
+The distribution represents the submissions selected with the current filter of <b>"<%= title %>"</b>.
+<i>To see the breakdown of other group's new submissions, visit the  <%= link_to 'modENCODE stats', :controller => 'reports', :action => 'index' %> page.<br /></i>
+</td>
+    </tr>
+    <tr>
+      <td align="center">
+        <%= google_vert_bar_chart([], :data => @all_my_released_projects_per_quarter.sort, :title => title3+"|as of #{Time.now.strftime("%b %d %Y")}", :width => 350, :show_legend => false, :align => "center", :color => "00cc00", :chbh => "35,28,20" ) %>
+      </td>
+      <td>
+        <b>Submissions by <%= title%>, released to the public, binned by Quarter.</b> This represents the distribution of submissions released to the public, regardless of original submission date, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.
+Numbers above the bars depict the total number of released submissions for that quarter.
+"n" value in the title represents the sum of all released submissions.
+The distribution represents the submissions selected with the current filter of <b>"<%= title %>"</b>.
+<i>To see the breakdown of other group's released submissions, visit the  <%= link_to 'modENCODE stats', :controller => 'reports', :action => 'index' %> page.<br /></i>
+
+      </td>
+    </tr>
+  </table>
+<br /><br />
+
+    <% else %>
+
+    <center>
+    This feature is disabled at this time.  Select to show "all" instead. <br/>
+    </center>
+
+<% end %>
+
+<br />
+<br />
+   
+<% end %>
+
+<% end %>
+

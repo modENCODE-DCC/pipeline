@@ -7,9 +7,6 @@
   <title><%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] + " " +  ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%></title>
   <%= stylesheet_link_tag "encode" %>
   <%= javascript_include_tag "prototype" %>
-
-</head>
-<body id="encode-pipeline">
   <script type="text/javascript">
     // AJAX refresh. So fancy. Spinner GIF courtesy ajaxload.info
     var spinner;
@@ -64,80 +61,78 @@
       }, 5
       );
     <% end %>
-    /*
-    function click(e) {
-      if (!e) var e = window.event;
-      if (e.target) targ = e.target;
-      else if (e.srcElement) targ = e.srcElement;
-      if (targ.nodeType == 3) // defeat Safari bug
-        targ = targ.parentNode;
-      if (targ) 
-        if (targ.href) {
-          var rightclick;
-          if (e.which) rightclick = (e.which == 3);
-          else if (e.button) rightclick = (e.button == 2);
-          if (!rightclick)
-            window.clearTimeout(myTimeout);
-        }
-    }
-    if (navigator.appName=="Netscape") {
-      document.addEventListener("click", click, true);
-    } else {
-      document.onclick  = click;
-    }
-    */
   </script>
-<div id="container">
-  <img align="left" height="85"  src="/images/encode_logo.png">
+</head>
+<body id="encode-pipeline">
+  <div id="container">
+    <img align="left" height="85"  src="/images/encode_logo.png" alt="modENCODE"/>
     <div id="header">
-        <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
-        <font size=-1 color="gray"> <em>
-        <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
-        </em></font>
+      <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
+      <font size="-1" color="gray"> <em>
+          <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
+      </em></font>
     </div>
-  <div id="user"> Logged In: <strong> <%= @current_user.login -%> </strong>
-  </div>
 
-  <div id="nav">
-    <!-- <table width="100%"><tr>-->
-    <table cellpadding=0 cellspacing=0 width="100%"><tr>
-    <td align="left">
-    <%= link_to_unless_current 'New Project', 
-                :controller => 'pipeline', :action => 'new' %> 
-    <%= ' | ' -%>
-    <%= link_to_unless_current 'All Projects', 
-                :controller => 'pipeline', :action => 'list' %> 
-    <%= ' | ' -%>
-    <%= link_to_unless_current 'My Projects', 
-                :controller => 'pipeline', :action => 'show_user' %> 
-    </td>
-    <td align="right">
-    <% if current_user.is_a? Administrator then %>
-      <%= link_to ' Administration', :controller => 'administration', :action => 'index' %> 
-      |
-    <% end %>
-    <%= link_to ' Log Out', :controller => 'account', :action => 'logout' %> 
-    |
-    <%= link_to 'Change Profile', :controller => 'account', :action => 'change_profile' %> 
-    |
-    <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&keywords=pipeline&owner=yostinso&component=Submission%20Pipeline&priority=minor&description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
-    </td>
-    </tr></table>
-  </div>
+    <div id="user"> 
+      <%= link_to '(logout)', {:controller=> 'account', :action => 'logout'}, :class=> "smallLink" %><br/>
+      Logged In: 
+      <%= link_to @current_user.login, {:controller => 'account', :action => 'change_profile' }, :title => "View/Change User Details", :class => "strong" %>
+    </div>
 
-  <div id="message">
-    <% if flash[:error] %><div id="error"><%= flash[:error] %></div><% end %>  
-    <% if flash[:warning] %><div id="warning"><%= flash[:warning] %></div><% end %>  
-    <% if flash[:notice] %><div id="notice"><%= flash[:notice] %></div><% end %>  
+    <div id="nav">
+      <span style="float:right; text-align:right">
+          <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
+          |
+        <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
+        <% if current_user.is_a? Administrator then %>
+          | <%= link_to ' Administration', :controller => 'administration', :action => 'index' %> 
+        <% end %>
+      </span>
+      <style type="text/css">
+        SPAN#list SPAN { font-weight: bold; }
+        SPAN#list A { font-weight: normal; }
+      </style>
+
+      <span>
+        List 
+        [
+        <span id="list">
+          <span><%= link_to_unless_current 'all', :controller => 'pipeline', :action => 'list' %></span>
+          |
+          <span><%= link_to_unless_current 'my group', :controller => 'pipeline', :action => 'show_group' %></span>
+          |
+          <span><%= link_to_unless_current 'my', :controller => 'pipeline', :action => 'show_user' %></span>
+        </span>
+        ]
+        submissions
+        or <%= link_to_unless_current 'create a new submission', :controller => 'pipeline', :action => 'new' %>.
+      </span>
+    </div>
+
+    <div id="stuff_to_do">
+      <table align="center">
+        <tr>
+          <td align="center">
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div id="message">
+      <% if flash[:error] %><div id="error"><%= flash[:error] %></div><% end %>  
+      <% if flash[:warning] %><div id="warning"><%= flash[:warning] %></div><% end %>  
+      <% if flash[:notice] %><div id="notice"><%= flash[:notice] %></div><% end %>  
+    </div>
+
+    <div id="content">
+      <%= yield %>
+    </div>
+
+    <div id="footer">
+      <a href="/help.html">Help</a>
+      <%= ' | ' -%>
+      <a href="/contact.html">Contact Us</a>
+    </div>
   </div>
-  <div id="content">
-    <%= yield %>
-  </div>
-  <div id="footer">
-    <A HREF="/help.html">Help</A>
-    <%= ' | ' -%>
-    <A HREF="/contact.html">Contact Us</A>
-  </div>
-</div>
 </body>
 </html>

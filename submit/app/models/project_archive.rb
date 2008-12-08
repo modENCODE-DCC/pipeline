@@ -9,7 +9,7 @@ class ProjectArchive < ActiveRecord::Base
 #  validates_presence_of :file_date
   validates_presence_of :project_id
 
-  class Status
+  module Status
     NOT_EXPANDED = "not expanded"
     EXPANDED = "expanded"
     EXPANDING = "expanding"

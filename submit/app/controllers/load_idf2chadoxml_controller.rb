@@ -20,8 +20,6 @@ class LoadIdf2chadoxmlController < LoadController
 
   def run
     super do
-      do_before
-
       command_object.status = Load::Status::LOADING
       command_object.stdout = ""
       command_object.stderr = ""
@@ -37,16 +35,7 @@ class LoadIdf2chadoxmlController < LoadController
         return false
       end
 
-      idf_file = LoadIdf2chadoxmlController::get_idf_file(package_dir)
-      if idf_file.nil? then
-        command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}"
-        command_object.status = Load::Status::LOAD_FAILED
-        command_object.save
-        self.do_after
-        return false
-      end
-
-      output_file = idf_file + ".chadoxml"
+      output_file = File.join(package_dir, "#{command_object.project.id}.chadoxml")
       schema = "modencode_experiment_#{command_object.project.id}"
 
       run_command = "#{loader} #{params} #{database} -s \"#{schema}\" #{output_file}"
@@ -114,33 +103,12 @@ class LoadIdf2chadoxmlController < LoadController
     end
   end
 
-  def LoadIdf2chadoxmlController.get_idf_file(package_dir)
-    # Use the same code as ValidateIdf2chadoxmlController to figure out where the output XML is
-    # If the root of the extracted package just contains a single dir, assume
-    # the IDF is in that dir
-    lookup_dir = package_dir
-    if Dir.glob(File.join(lookup_dir, "*")).size == 1 then
-      entry = Dir.glob(File.join(lookup_dir, "*")).first
-      if File.directory? entry then
-        lookup_dir = entry
-      end
-    end
-
-
-    possible_idfs = Dir.glob(File.join(lookup_dir, "*.idf")) + Dir.glob(File.join(lookup_dir, "*IDF*")) + Dir.glob(File.join(lookup_dir, "*idf*"))
-    if possible_idfs.empty? then
-      return nil
-    end
-
-    idf_file = possible_idfs.first
-  end
-
   private
   def database
     if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
       db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read) }
 
-      args = "-d=\"#{db_definition['dsn']}\""
+      args = "-d=\"#{db_definition['perl_dsn']}\""
       args << " -user=\"#{db_definition['user']}\"" if db_definition['user']
       args << " -password=\"#{db_definition['password']}\"" if db_definition['password']
       return args

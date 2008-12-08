@@ -5,16 +5,39 @@ class Command < ActiveRecord::Base
   acts_as_list :scope => :project_id
   acts_as_queue # Just a clone of acts_as_list with new method names
 
-  class Status
+  module Status
     # Status constants
     QUEUED = "queued"
-    VALIDATING = "validating"
-    LOADING = "loading"
-    UNLOADING = "unloading"
-    FINISHED = "finished"
-    FAILED = "failed"
+    FAILED = "failed" # Generic failure case; not to be used by subclasses
     CANCELING = "canceling"
     CANCELED = "canceled"
+
+    def self.is_active_state(state)
+      active_states = [
+        Delete::Status::DELETING,
+        Load::Status::LOADING,
+        Expand::Status::EXPANDING,
+        Release::Status::RELEASING,
+        Unload::Status::UNLOADING,
+        Upload::Status::UPLOADING,
+        Validate::Status::VALIDATING,
+        FindTracks::Status::FINDING
+      ]
+      return active_states.include?(state)
+    end
+
+    def self.is_failed_state(state)
+      failed_states = [
+        Upload::Status::UPLOAD_FAILED,
+        Delete::Status::DELETE_FAILED,
+        Load::Status::LOAD_FAILED,
+        Expand::Status::EXPAND_FAILED,
+        Release::Status::RELEASE_FAILED,
+        Unload::Status::UNLOAD_FAILED,
+        Validate::Status::VALIDATION_FAILED,
+      ]
+      return failed_states.include?(state)
+    end
   end
 
   def initialize(options = {})
@@ -27,6 +50,14 @@ class Command < ActiveRecord::Base
 
     throw :no_project_provided unless (self.project && self.project.is_a?(Project))
     @package_dir = options[:package_dir]
+  end
+
+  def status=(newstatus)
+    write_attribute :status, newstatus
+    unless self.project.nil? then
+      self.project.status = newstatus
+      self.project.save
+    end
   end
 
   def package_dir
@@ -84,5 +115,9 @@ class Command < ActiveRecord::Base
     keepers = self.attributes.keys.map { |k| k.to_sym }
     keepers = keepers + [ :project ]
     options.reject { |k, v| keepers.index(k).nil? }
+  end
+
+  def name
+    self.type
   end
 end

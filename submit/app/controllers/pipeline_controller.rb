@@ -2,77 +2,56 @@ require 'find'
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
-
-  OKAY_TO_VALIDATE = [
-    Expand::Status::EXPANDED,
-    Upload::Status::UPLOADED,
-    Validate::Status::VALIDATED,
-    Validate::Status::VALIDATION_FAILED,
-    Load::Status::LOADED,
-    Load::Status::LOAD_FAILED,
-    Unload::Status::UNLOADED,
-    Unload::Status::UNLOAD_FAILED
-  ]
-  OKAY_TO_EXPAND = [
-    Expand::Status::EXPANDED,
-    Expand::Status::EXPAND_FAILED,
-    Upload::Status::UPLOADED,
-    Validate::Status::VALIDATED,
-    Validate::Status::VALIDATION_FAILED,
-    Load::Status::LOADED,
-    Load::Status::LOAD_FAILED,
-    Unload::Status::UNLOADED,
-    Unload::Status::UNLOAD_FAILED
-  ]
-  OKAY_TO_LOAD = [
-    Validate::Status::VALIDATED,
-    Load::Status::LOADED,
-    Load::Status::LOAD_FAILED,
-    Unload::Status::UNLOADED,
-    Unload::Status::UNLOAD_FAILED
-  ]
-  OKAY_TO_UNLOAD = [
-    Load::Status::LOADED,
-    Unload::Status::UNLOAD_FAILED
-  ]
-  OKAY_TO_PROCESS = [
-    Load::Status::LOADED
-  ]
-  [ OKAY_TO_VALIDATE, OKAY_TO_EXPAND, OKAY_TO_LOAD, OKAY_TO_UNLOAD, OKAY_TO_PROCESS ].each { |c|
-    def c.orjoin(delim = ", ", lastjoin = "or")
-      if self.size > 2 then
-        return "#{self[0...-1].join(delim)}#{delim}#{lastjoin} #{self[-1]}"
-      elsif self.size > 1 then
-        return self.join(" #{lastjoin} ")
-      else
-        return self.join(delim)
-      end
-    end
+  GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'blue', 'lightgrey', 'grey']
+  STANZA_OPTIONS = {
+    'fgcolor' => GD_COLORS,
+    'bgcolor' => GD_COLORS,
+    'key' => :text,
+    'label' => [ 'sub { return shift->name; }', 'sub { return shift->source; }' ],
+    'bump density' => :integer,
+    'label density' => :integer,
+    'glyph' => [
+      'segments', 'arrow', 'anchored_arrow', 'box',
+      'crossbox', 'dashed_line', 'diamond', 'dna', 'dot', 'dumbbell', 'ellipse' 'ex',
+      'line', 'primers', 'saw_teeth', 'span', 'splice_site',
+      'translation', 'triangle' 'two_bolts', 'wave', 'wiggle_density', 'wiggle_xyplot'
+    ],
+    'connector' => [ 'solid', 'dashed', 'none' ],
+    'min_score' => :integer,
+    'max_score' => :integer,
+    'neg_color' => GD_COLORS,
+    'pos_color' => GD_COLORS
   }
 
-  before_filter :login_required
+  before_filter :login_required, :except => [ :get_gbrowse_config ]
   before_filter :check_user_can_write, :except => 
         [
           :show,
           :new,
           :list,
+          :status_table,
           :show_user,
+	  :show_group,
           :deactivate_archive,
           :activate_archive,
           :command_status,
           :command_panel,
-          :expand 
+          :expand,
+          :get_gbrowse_config
         ]
 
   before_filter :check_user_can_view, :except => 
         [
           :new,
           :list,
+          :status_table,
           :show_user,
+	  :show_group,
           :deactivate_archive,
           :activate_archive,
           :command_status,
-          :expand 
+          :expand ,
+          :get_gbrowse_config
         ]
 
   def edit
@@ -95,29 +74,43 @@ class PipelineController < ApplicationController
     end
   end
   
-  def list
-
-    @autoRefresh = true
-    @projects = Project.find(:all)#, :order => 'name')
-
-
-    if params[:sort] then
-      session[:sort_list] = Hash.new unless session[:sort_list]
-      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+  def status_table
+    begin
+      @show_user = User.find(params[:user]) if params[:user]
+    rescue
+      @show_user = nil
+      @show_group = nil
     end
-    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
-    if session[:sort_list] then
-      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
-      @projects = @projects.sort { |p1, p2|
-        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
-        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
-        p1_attrs <=> p2_attrs
-      }
-      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
-    end
+    # Call main status renderer
 
+    status
+
+    render :partial => 'status_table'
   end
-  
+
+  def show_user
+    user_to_view = (params[:user_id] && User.find(params[:user_id]) && current_user.is_a?(Moderator)) ? User.find(params[:user_id]) : current_user
+    session[:show_filter_user] = user_to_view.id
+    session[:show_filter] = :user
+    status
+    render :action => "status"
+  end
+
+  def show_group
+    user_to_view = (params[:pi] && User.find_by_pi(params[:pi]) && current_user.is_a?(Moderator)) ? User.find_by_pi(params[:pi]) : current_user
+    session[:show_filter_user] = user_to_view.id
+    session[:show_filter] = :group
+    status
+    render :action => "status"
+  end
+
+  def list
+    session[:show_filter] = nil
+    status
+    render :action => "status"
+  end
+
+
   def command_panel
     begin
       @project = Project.find(params[:id])
@@ -127,8 +120,33 @@ class PipelineController < ApplicationController
       return
     end
     @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
-
+    @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_command = @active_commands.find { |c| c.project_id = @project.id }
+ 
     render :partial => "command_panel"
+  end
+
+  def kill_command
+
+    begin
+      base_command = Command.find(params[:id])
+    rescue
+      flash[:error] = "CRAP Couldn't find command with ID #{params[:id]}"
+      redirect_to :action => :list
+      return false
+    end
+    @project = base_command.project
+
+    unless (@project.nil? && current_user.is_a?(Administrator)) then
+      return false unless check_user_can_view @project
+    end
+
+    base_command.destroy
+    CommandController.running_flag = false
+    CommandController.do_queued_commands
+    @project.status = "(#{@project.status}) killed by Admin" 
+    flash[:error] = "Admin illed command with ID #{params[:id]}"
+    render reload
   end
 
   def command_status
@@ -193,24 +211,12 @@ class PipelineController < ApplicationController
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
 
-    @project_can_validate = (@num_active_archives > 0 && OKAY_TO_VALIDATE.find { |s| s == @project.status }) ? true : false
-    @project_needs_expansion = (
-      (
-        # Archives are active but not expanded
-        @project.project_archives.find_all { |pa| pa.is_active && pa.status != Expand::Status::EXPANDED }.size > 0 ||
-        # Need to re-expand after failed validation
-        @project.status == Validate::Status::VALIDATION_FAILED
-      ) && (
-        OKAY_TO_EXPAND.find { |s| s == @project.status }
-      )
-    ) ? true : false
+    @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_command = @active_commands.find { |c| c.project_id = @project.id }
 
-    @project_can_load = (OKAY_TO_LOAD.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
-    @project_can_unload = OKAY_TO_UNLOAD.find { |s| s == @project.status } ? true : false
-    @project_can_expand = (OKAY_TO_EXPAND.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
-    @project_can_process = OKAY_TO_PROCESS.find { |s| s == @project.status } ? true : false
-    @project_is_modencode = (@project.project_type == ProjectType.find_by_name("modENCODE Project"))
     @user_can_write = check_user_can_write @project, :skip_redirect => true
+    @user_is_owner = check_user_is_owner @project
+
   end
 
   def download_chadoxml
@@ -231,10 +237,9 @@ class PipelineController < ApplicationController
       redirect_to :action => "show", :id => @project
       return
     end
-
-    chadoxmlfile = LoadIdf2chadoxmlController::get_idf_file(File.join(path_to_project_dir(@project), "extracted"))
-    if File.exists? "#{chadoxmlfile}.chadoxml" then
-      send_file "#{chadoxmlfile}.chadoxml", :type => 'text/xml'
+    chadoxmlfile = File.join(path_to_project_dir(@project), "extracted", "#{@project.id}.chadoxml")
+    if File.exists? chadoxmlfile then
+      send_file chadoxmlfile, :type => 'text/xml'
     else
       flash[:error] = "Project does not have generated a ChadoXML file"
       redirect_to :action => "show", :id => @project
@@ -247,12 +252,6 @@ class PipelineController < ApplicationController
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
-      return
-    end
-
-    if @project.status == Expand::Status::EXPANDING then
-      flash[:error] = "Already expanding an archive, please wait until that process is complete."
-      redirect_to :action => "show", :id => @project
       return
     end
 
@@ -444,8 +443,6 @@ class PipelineController < ApplicationController
     projectDir = File.dirname(path_to_file(filename))
     Dir.mkdir(projectDir,0775) unless File.exists?(projectDir)
 
-    flash[:notice] = "Uploading #{filename}.<br>"
-
     redirect_to :action => 'show', :id => @project
 
     # Upload in background
@@ -453,33 +450,6 @@ class PipelineController < ApplicationController
  
   end
 
-  def show_user
-
-    @autoRefresh = true
-    @user = User.find(current_user.id)
-    @projects = @user.projects
-
-
-    if params[:sort] then
-      session[:sort_list] = Hash.new unless session[:sort_list]
-      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
-    end
-    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
-    if session[:sort_list] then
-      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
-      @projects = @projects.sort { |p1, p2|
-        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
-        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
-        p1_attrs <=> p2_attrs
-      }
-      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
-    end
-
-
-    render :action => 'list'
-    
-  end
-  
   def begin_loading
     # TODO: Delete this function
     @project = Project.find(params[:id])
@@ -563,8 +533,7 @@ class PipelineController < ApplicationController
       redirect_to :action => :show, :id => @project
       return false
     end
-    unless OKAY_TO_LOAD.find { |s| s == @project.status } then
-      flash[:error] = "Project status must be #{OKAY_TO_LOAD.orjoin}."
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -588,8 +557,8 @@ class PipelineController < ApplicationController
       return
     end
 
-    unless OKAY_TO_UNLOAD.find { |s| s == @project.status } then
-      flash[:error] = "Project status must be #{OKAY_TO_UNLOAD.orjoin}."
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::UNLOADING) then
+#      flash[:error] = "Project status must be #{OKAY_TO_UNLOAD.orjoin}."
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -639,8 +608,8 @@ class PipelineController < ApplicationController
       redirect_to :action => :show, :id => @project
       return false
     end
-    unless OKAY_TO_VALIDATE.find { |s| s == @project.status } then
-      flash[:error] = "Project status must be #{OKAY_TO_VALIDATE.orjoin}"
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING) then
+#      flash[:error] = "Project status must be #{OKAY_TO_VALIDATE.orjoin}"
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -663,8 +632,8 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless OKAY_TO_PROCESS.find { |s| s == @project.status } then
-      flash[:error] = "Project status must be #{OKAY_TO_PROCESS.orjoin}"
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::FINDING) then
+#      flash[:error] = "Project status must be #{OKAY_TO_FIND_TRACKS.orjoin}"
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -674,12 +643,269 @@ class PipelineController < ApplicationController
     redirect_to :action => :show, :id => @project
   end
 
-#private # --------- PRIVATE ---------
+  def get_gbrowse_config
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      render :text => "Couldn't find project with ID #{params[:id]}", :layout => false
+      return
+    end
+
+    render :text => TrackFinder.new.generate_gbrowse_conf(@project.id), :layout => false
+  end
+
+  def configure_tracks
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
+#      flash[:error] = "Project status must be #{OKAY_TO_CONFIGURE_TRACKS.orjoin}"
+      # Redirect here so that hitting refresh in the browser doesn't prompt annoyingly
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    ts = TrackStanza.find_by_project_id(@project.id)
+    if ts.nil? || params[:reset_definitions] then
+      @track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
+      # Delete old one
+      ts.destroy unless ts.nil?
+      ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(@track_defs)
+      ts.save
+      redirect_to :action => :configure_tracks, :id => @project
+    else
+      @track_defs = ts.stanza
+    end
+
+    @stanza_options = STANZA_OPTIONS
+  end
+      
+  def async_update_track_location
+    stanzaname = params[:stanzaname]
+    changed = false
+    user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
+    user_stanza = user_stanzas.find { |ts| ts.stanza.has_key? stanzaname }
+    stanzas = user_stanza.stanza
+    if stanzas[stanzaname][:chr] != params[:chr] = params[:chr] then
+      if params[:chr] =~ /^[a-zA-Z0-9_]+$/
+        stanzas[stanzaname][:chr] = params[:chr] = params[:chr]
+        changed = true
+      end
+    end
+    if stanzas[stanzaname][:fmin] != params[:fmin] = params[:fmin] then
+      if params[:fmin].to_s == params[:fmin].to_i.to_s
+        stanzas[stanzaname][:fmin] = params[:fmin] = params[:fmin]
+        changed = true
+      end
+    end
+    if stanzas[stanzaname][:fmax] != params[:fmax] = params[:fmax] then
+      if params[:fmax].to_s == params[:fmax].to_i.to_s
+        stanzas[stanzaname][:fmax] = params[:fmax] = params[:fmax]
+        changed = true
+      end
+    end
+
+    # Update main track
+    STANZA_OPTIONS.each do |option, values|
+      value = params[option]
+      if value then
+        okay_value = false
+        if values.is_a? Array then
+          okay_value = true if values.member?(value)
+        elsif values.is_a? Symbol then
+          # Controlled type
+          case values
+          when :integer
+            okay_value = true if value.to_i.to_s == value.to_s
+          when :text
+            okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+          end
+        end
+
+        if okay_value then
+          if (stanzas[stanzaname][option] != value) then
+            stanzas[stanzaname][option] = value
+            changed = true
+          end
+        end
+      end
+    end
+
+
+    # Update semantic zoom tracks
+    zoom_levels = params.keys.find_all { |key| key =~ /^zoom:\d+$/ }.map { |key| key[5..-1].to_i }
+
+    zoom_levels.each do |zoom_level|
+      next unless stanzas[stanzaname][:semantic_zoom] && stanzas[stanzaname][:semantic_zoom][zoom_level]
+      STANZA_OPTIONS.each do |option, values|
+        zoom_option = "zoom:#{zoom_level}_#{option}"
+        value = params[zoom_option]
+        if value then
+          okay_value = false
+          if values.is_a? Array then
+            okay_value = true if values.member?(value)
+          elsif values.is_a? Symbol then
+            # Controlled type
+            case values
+            when :integer
+              okay_value = true if value.to_i.to_s == value.to_s
+            when :text
+              okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+            end
+          end
+
+          if okay_value then
+            if (stanzas[stanzaname][:semantic_zoom][zoom_level][option] != value) then
+              stanzas[stanzaname][:semantic_zoom][zoom_level][option] = value
+              changed = true
+            end
+          end
+        end
+      end
+      if params["zoom:#{zoom_level}"].to_i.to_s == params["zoom:#{zoom_level}"].to_s then
+        new_zoom_level = params["zoom:#{zoom_level}"].to_i
+        if new_zoom_level != zoom_level then
+          # Trying to change the actual zoom_level
+          stanzas[stanzaname][:semantic_zoom][new_zoom_level] = stanzas[stanzaname][:semantic_zoom][zoom_level]
+          stanzas[stanzaname][:semantic_zoom].delete(zoom_level)
+
+          # We should go ahead and force a refresh since this changes lots of underlying form fields
+          headers["Content-Type"] = "application/javascript"
+          render :text => "console.log('Zoom level being changed from #{zoom_level} to #{new_zoom_level}'); location.replace('#{url_for({ :action => :configure_tracks, :id => params[:id] })}')"
+          return
+        end
+      end
+    end
+
+
+    # If anything changed
+    if (changed) then
+
+      user_stanza.stanza = stanzas
+      user_stanza.save
+
+      # Get the current location
+      chr = stanzas[stanzaname][:chr]
+      fmin = stanzas[stanzaname][:fmin]
+      fmax = stanzas[stanzaname][:fmax]
+      name = "#{chr}:#{fmin}..#{fmax}"
+
+      # Update the track view with the new location
+      headers["Content-Type"] = "application/javascript"
+      render :text => "
+        Controller.update_coordinates(
+          '#{stanzaname}', 'name:#{name}', '#{chr}', #{fmin}, #{fmax}
+        );
+      "
+      return
+    end
+
+    headers["Content-Type"] = "application/javascript"
+    render :text => '1;'
+  end
+
+  def full_command_history
+    begin
+      base_project = Project.find(params[:id])
+      #base_command = Command.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => :list
+      return false
+      end
+    @project = base_project
+
+    unless (@project.nil? && current_user.is_a?(Administrator)) then
+      return false unless check_user_can_view @project
+    end
+
+    #begin
+    #  command_type = base_command.class_name.singularize.camelize.constantize
+    #rescue
+    #  command_type = Command
+    #end
+
+    #@command = command_type.find(params[:id])
+    #render :action => "command_status", :layout => "popup"
+
+  end
+
+
+  def release
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    last_validation = @project.commands.find_all_by_type('ValidateIdf2chadoxml').sort { |a, b| a.id <=> b.id }.last
+    @is_validated = [ 
+      "Data Validated",
+      last_validation && last_validation.status == Validate::Status::VALIDATED, 
+      last_validation ? last_validation.updated_at : "never",
+      last_validation
+    ]
+
+    last_upload = (@project.commands.find_all_by_type('Upload::File')+@project.commands.find_all_by_type('Upload::Url')).sort { |a, b| a.id <=> b.id }.last
+    @is_uploaded = [ 
+      "Data Upload",
+      last_upload && last_upload.status == Upload::Status::UPLOADED, 
+      last_upload ? last_upload.updated_at : "never",
+      last_upload
+    ]
+
+
+    last_loading = @project.commands.find_all_by_type('LoadIdf2chadoxml').sort { |a, b| a.id <=> b.id }.last
+    @is_loaded = [
+      "Database loaded",
+      last_loading && last_loading.status == Load::Status::LOADED, 
+      last_loading ? last_loading.updated_at : "never",
+      last_loading
+    ]
+
+    last_track_finding = @project.commands.find_all_by_type('FindTracks').sort { |a, b| a.id <=> b.id }.last
+    @is_tracks_found = [
+      "Tracks found",
+      last_track_finding && last_track_finding.status == FindTracks::Status::FOUND, 
+      last_track_finding ? last_track_finding.updated_at : "never",
+      last_track_finding
+    ]
+
+    last_track_configure = @project.commands.find_all_by_type('ConfigureTracks').sort { |a, b| a.id <=> b.id }.last
+    @is_tracks_configured = [
+      "Tracks configured",
+      false,
+      last_track_configure ? last_track_configure.updated_at : "never",
+      last_track_configure
+    ]
+
+    @checklist_for_data_validation = [@is_uploaded, @is_validated, @is_loaded, @is_tracks_found, @is_tracks_configured ]
+
+    @checklist_for_release_by_pi = ["Okay to go to Browser", 
+                                    "Okay to go to modMine", 
+				   "Okay to go to FTP site",
+				   "Okay to go to GEO",
+				   "Okay to go to Worm/Flybase" ]
+
+    @project_needs_release = @project.status == "released" ? false : true
+    #    TODO
+#    @project_ready_for_release = OKAY_TO_RELEASE_BY_PI.find { |s| s == @project.status } ? true : false
+  end
   def project=(proj)
     @project = proj
   end
 
   def do_find_tracks(project, options = {})
+    # Get the *Controller class to be used to do track finding
+    TrackStanza.destroy_all "project_id = #{@project.id} AND user_id = #{current_user.id}"
+    find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
+    find_tracks_controller.queue options
   end
 
   def do_load(project, options = {})
@@ -878,6 +1104,21 @@ class PipelineController < ApplicationController
     return true
   end
 
+  def check_user_is_owner(project = nil)
+    begin
+      if project.nil? then
+        project = Project.find(params[:id])
+      elsif project.is_a? Fixnum
+        project = Project.find(project)
+      end
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    return project.user_id == current_user.id
+  end
+
   def check_user_can_view(project = nil, options = {})
     begin
       if project.nil? then
@@ -892,7 +1133,8 @@ class PipelineController < ApplicationController
     end
     unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
-      redirect_to :action => 'list' unless options[:skip_redirect] == true 
+#      redirect_to :action => 'list' unless options[:skip_redirect] == true 
+#      redirect_to :action => 'status' unless options[:skip_redirect] == true 
       return false
     end
     return true
@@ -940,6 +1182,121 @@ class PipelineController < ApplicationController
       flash[:error] += "<br/>Can't load any project types, please populate projectTypes.yml"
     end
     return types
+  end
+
+  def status(user = nil)
+
+    user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
+
+    @viewing_user = user_to_view if user_to_view != current_user
+    same_group_users = User.find_all_by_pi(user_to_view.pi)
+    if session[:show_filter] == :user then
+      @projects = user_to_view.projects
+    elsif session[:show_filter] == :group then
+      @projects = same_group_users.map { |u| u.projects }.flatten
+    else  
+      @projects = Project.all
+    end
+
+    session[:status_display_type] = params[:display_type] unless params[:display_type].nil?
+    session[:status_display_date] = params[:display_date] unless params[:display_date].nil?
+    session[:status_show_status] = params[:show_status] unless params[:show_status].nil?
+
+    @display_type = session[:status_display_type] || 'compact'
+    @display_date = session[:status_display_date] || 'quarter'
+    @show_status = session[:status_show_status] || 'all'
+
+    @projects = @projects.find_all{|p| p.status==Project::Status::RELEASED} if (session[:status_show_status] == 'released')
+    @projects = @projects.find_all{|p| p.status!=Project::Status::RELEASED} if (session[:status_show_status] == 'active')
+
+
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if session[:sort_list] then
+      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
+      @projects = @projects.sort { |p1, p2|
+        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
+        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
+        p1_attrs <=> p2_attrs
+      }
+      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    else
+      @projects = @projects.sort { |p1, p2| p1.name <=> p2.name }
+    end
+
+   @quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)},
+               "Y1Q4" => {"year" => "Y1", "quarter"=> "Q4", "start" => Date.civil(2008,2,1), "end" => Date.civil(2008,4,30)},
+               "Y2Q1" => {"year" => "Y2", "quarter"=> "Q1", "start" => Date.civil(2008,5,1), "end" => Date.civil(2008,7,31)},
+               "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
+               "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
+               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
+    @status = ["New","Uploaded","Validated","DBLoad","Track Config","Aprvl-PI","Aprvl-DCC","to GBrowser","to Modmine","to WB/FB"]
+    @active_status = @status[0..6]
+
+    @all_projects_by_status = Hash.new {|status,count| status = count }
+    @my_projects_by_status = Hash.new {|status,count| status = count }
+    @my_groups_projects_by_status = Hash.new {|status,count| status = count }
+    @my_active_projects_by_status = Hash.new {|status,count| status = count }
+
+
+    @status.each {|s| @my_projects_by_status[s] = 0 }
+    @status.each {|s| @my_groups_projects_by_status[s] = 0 }
+    @status.each {|s| @all_projects_by_status[s] = 0 }
+    @active_status.each {|s| @my_active_projects_by_status[s] = 0 }
+    
+    @projects.each do |p|
+          step = 1
+          #identify what step its at
+          step = case p.status
+            when Project::Status::NEW : 1
+            when Upload::Status::UPLOAD_FAILED : 1
+            when Upload::Status::UPLOADED : 2
+            when Validate::Status::VALIDATION_FAILED : 2
+            when Expand::Status::EXPAND_FAILED : 2
+            when Validate::Status::VALIDATED : 3
+            when Load::Status::LOAD_FAILED : 3
+            when Load::Status::LOADED : 4
+            when 'tracks found' : 5
+            when 'submitter approval' : 6
+            when 'DCC approval' : 7
+            when 'released to gbrowse' : 8
+            when 'released to modmine' : 9
+            when 'released' : 10
+          else 1
+          end
+        @my_projects_by_status[@status[step-1]] += 1 unless p.user_id != user_to_view.id
+	@my_groups_projects_by_status[@status[step-1]] += 1 unless !same_group_users.index(p.user_id).nil?
+	@all_projects_by_status[@status[step-1]]+= 1
+	if (step < @active_status.length)
+	  @my_active_projects_by_status[@active_status[step-1]] += 1
+	end
+    end
+
+    @all_my_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0 }
+    # initialize to make sure all PIs are included; require each status to be represented
+    @quarters.each{|k,v| @all_my_new_projects_per_quarter[k] = 0 unless v["start"] > Time.now.to_date}
+
+    @projects.map{|p| @all_my_new_projects_per_quarter[@quarters.find{|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1 }
+
+
+    @all_my_released_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0 }
+    # initialize to make sure all PIs are included; require each status to be represented
+    @quarters.each{|k,v| @all_my_released_projects_per_quarter[k] = 0 unless v["start"] > Time.now.to_date}
+
+    @released_projects = @projects.find_all{|p| p.status=="released"}
+    #for now, will use the last updated date, but should probably find the release command, and use that
+    @released_projects.map{|p| @all_my_released_projects_per_quarter[@quarters.find{|k,v| p.updated_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1 }
+
+
+
   end
 
   def getProjectType(project)

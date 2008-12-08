@@ -23,8 +23,6 @@ class UnloadController < CommandController
         # Don't run this method, just pass it along to the super-super class
         return yield
       end
-      do_before
-
       command_object.status = Unload::Status::UNLOADING
       command_object.stdout = ""
       command_object.stderr = ""
@@ -96,19 +94,10 @@ class UnloadController < CommandController
     end
   end
 
-  def do_before(options = {})
-    command_object.project.status = Unload::Status::UNLOADING
-    command_object.project.save
-  end
-
   def do_after(options = {})
     if self.status == Unload::Status::UNLOAD_FAILED then
-      command_object.project.status = Unload::Status::UNLOAD_FAILED
-      command_object.project.save
       return false
     else
-      command_object.project.status = Unload::Status::UNLOADED
-      command_object.project.save
       return true
     end
   end

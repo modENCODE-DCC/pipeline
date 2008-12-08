@@ -4283,7 +4283,7 @@ CREATE TABLE wiggle_data (
     color wiggle.color DEFAULT wiggle.color(255, 255, 255) NOT NULL,
     altcolor wiggle.color DEFAULT wiggle.color(128, 128, 128) NOT NULL,
     priority integer DEFAULT 100 NOT NULL,
-    autoscale boolean DEFAULT false NOT NULL,
+    autoscale boolean DEFAULT true NOT NULL,
     griddefault boolean DEFAULT false NOT NULL,
     maxheightpixels wiggle.maxheightbounds DEFAULT wiggle.maxheightbounds(128, 128, 11) NOT NULL,
     graphtype character(6) DEFAULT 'bar'::bpchar NOT NULL,

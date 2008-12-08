@@ -1,8 +1,8 @@
 class LoadController < CommandController
   def initialize(options)
     super do
+      # Allow subclass to create command_object
       if block_given? then
-        # Don't create a Load object if a subclass gave us a block to use
         yield
         return if self.command_object
       end
@@ -24,7 +24,6 @@ class LoadController < CommandController
         # Don't run this method, just pass it along to the super-super class
         return yield
       end
-      do_before
 
       command_object.status = Load::Status::LOADING
       command_object.stdout = ""
@@ -97,19 +96,10 @@ class LoadController < CommandController
     end
   end
 
-  def do_before(options = {})
-    command_object.project.status = Load::Status::LOADING
-    command_object.project.save
-  end
-
   def do_after(options = {})
     if self.status == Load::Status::LOAD_FAILED then
-      command_object.project.status = Load::Status::LOAD_FAILED
-      command_object.project.save
       return false
     else
-      command_object.project.status = Load::Status::LOADED
-      command_object.project.save
       return true
     end
   end

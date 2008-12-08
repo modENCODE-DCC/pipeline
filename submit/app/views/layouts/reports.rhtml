@@ -1,0 +1,147 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1" />
+  <meta http-equiv="Content-Language" content="en-us" />
+  <title><%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] + " " +  ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%></title>
+  <%= stylesheet_link_tag "encode" %>
+  <%= javascript_include_tag "prototype" %>
+
+</head>
+<body id="encode-pipeline">
+  <script type="text/javascript">
+    // AJAX refresh. So fancy. Spinner GIF courtesy ajaxload.info
+    var spinner;
+    var spinnersForElements = new Hash();
+    function showSpinner(element) {
+      if (!spinnersForElements.get($(element).identify())) {
+        var newSpinner = makeNewSpinner();
+        spinnersForElements.set($(element).identify(), newSpinner);
+      }
+      var mySpinner = spinnersForElements.get($(element).identify());
+      mySpinner.clonePosition(element, { setWidth: false, setHeight: false });
+      mySpinner.style.left = ( parseInt(mySpinner.style.left) + $(element).getWidth() - mySpinner.getWidth() - 3) + "px";
+      mySpinner.style.top = ( parseInt(mySpinner.style.top) + 3) + "px";
+      mySpinner.show();
+    }
+
+    function hideSpinner(element) {
+      var mySpinner = spinnersForElements.get($(element).identify());
+      if (mySpinner) {
+        mySpinner.hide();
+      }
+    }
+
+    function makeNewSpinner() {
+      newSpinner = document.createElement('img');
+      newSpinner.src = "<%= image_path "ajax-loader.gif" %>";
+      newSpinner.style.position = "absolute";
+      newSpinner.style.top = "0px";
+      newSpinner.style.right = "0px";
+      newSpinner.style.display = "none";
+      document.body.insert(newSpinner, {position:top});
+      return newSpinner;
+    }
+
+
+    <% if @autoRefresh then %>
+      var prev = "";
+      new PeriodicalExecuter(function () {
+          new Ajax.Request("<%= @controller.request.request_uri %>", { 
+            method:'post',
+            onCreate:function() { showSpinner(document.body) },
+            onComplete:function() { hideSpinner(document.body); },
+            onSuccess:function(transport) { 
+          if (prev != transport.responseText) {
+            prev = transport.responseText;
+            if ($('content')) {
+              $('content').update(transport.responseText);
+            }
+          }
+        }}
+      )
+      }, 5
+      );
+    <% end %>
+    /*
+    function click(e) {
+      if (!e) var e = window.event;
+      if (e.target) targ = e.target;
+      else if (e.srcElement) targ = e.srcElement;
+      if (targ.nodeType == 3) // defeat Safari bug
+        targ = targ.parentNode;
+      if (targ) 
+        if (targ.href) {
+          var rightclick;
+          if (e.which) rightclick = (e.which == 3);
+          else if (e.button) rightclick = (e.button == 2);
+          if (!rightclick)
+            window.clearTimeout(myTimeout);
+        }
+    }
+    if (navigator.appName=="Netscape") {
+      document.addEventListener("click", click, true);
+    } else {
+      document.onclick  = click;
+    }
+    */
+  </script>
+<div id="container">
+  <img align="left" height="85"  src="/images/encode_logo.png">
+    <div id="header">
+        <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
+        <font size=-1 color="gray"> <em>
+        <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
+        </em></font>
+    </div>
+  <div id="user"> Logged In: <strong> <%= @current_user.login -%> </strong>
+  </div>
+
+    <div id="nav">
+      <span style="float:right; text-align:right">
+          <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
+          |
+        <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;de\
+scription=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
+        <% if current_user.is_a? Administrator then %>
+          | <%= link_to ' Administration', :controller => 'administration', :action => 'index' %>
+        <% end %>
+      </span>
+      <style type="text/css">
+        SPAN#list SPAN { font-weight: bold; }
+        SPAN#list A { font-weight: normal; }
+      </style>
+
+      <span>
+        List
+        [
+        <span id="list">
+          <span><%= link_to_unless_current 'all', :controller => 'pipeline', :action => 'list' %></span>
+          |
+          <span><%= link_to_unless_current 'my group', :controller => 'pipeline', :action => 'show_group' %></span>
+          |
+          <span><%= link_to_unless_current 'my', :controller => 'pipeline', :action => 'show_user' %></span>
+        </span>
+        ]
+        submissions
+        or <%= link_to_unless_current 'create a new submission', :controller => 'pipeline', :action => 'new' %>.
+      </span>
+    </div>
+
+  <div id="message">
+    <% if flash[:error] %><div id="error"><%= flash[:error] %></div><% end %>  
+    <% if flash[:warning] %><div id="warning"><%= flash[:warning] %></div><% end %>  
+    <% if flash[:notice] %><div id="notice"><%= flash[:notice] %></div><% end %>  
+  </div>
+  <div id="content">
+    <%= yield %>
+  </div>
+  <div id="footer">
+    <A HREF="/help.html">Help</A>
+    <%= ' | ' -%>
+    <A HREF="/contact.html">Contact Us</A>
+  </div>
+</div>
+</body>
+</html>

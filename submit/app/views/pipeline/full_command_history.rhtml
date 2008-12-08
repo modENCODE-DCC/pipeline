@@ -1,0 +1,106 @@
+<% require 'pp' %>
+
+<style type="text/css">
+  TABLE.commands {
+    width: 70%;
+    
+    margin-left: auto;
+    margin-right: auto;
+  }
+  TABLE.commands TD {
+    height: 10px;
+    padding: 4px;
+    text-align: center;
+  }
+  TABLE.commands TH {
+    padding: 5px;
+    text-align: center;
+  }
+  TD.green {
+    background-color: #d0ffd0;
+  }
+  TD.type {
+    width: 30%;
+  }
+  TABLE.commands TD.time {
+    text-align: right;
+  }
+  TABLE.commands TH.time {
+    text-align: right;
+  }
+
+</style>
+
+<div style="text-align: center;">
+<h1>Command History</h1><br/>
+<h2>Submission #<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
+<%
+  full_history = @project.commands
+  full_history = @project.commands.all.reject { |cmd| cmd.status == Command::Status::QUEUED }
+  #full_history = short_history + Array.new(10-short_history.size)
+%>
+<table class="commands">
+  <tr>
+    <th>ID</th><th>Command</th><th>Result</th><th>Date</th><th>Duration</th><th>&nbsp;</th>
+  </tr>  
+ <% 
+      colors = [ '#eeeeee', '#f2f2ff' ]
+      i = 0
+      color = colors[i%2]
+    %>
+
+
+
+<% full_history.reverse.each do |command| %>
+ <tr style="background-color: <%= color %>">
+    <td><%= command.id %></td>
+    <td class="type"><%= command.type %></td>
+    <td style="<%= Command::Status::is_failed_state(command.status) ? "color: red" : "color: black" %><%= command.id==Command.last.id ? ";text-decoration: blink" : "" %>"><%= command.status %></td>
+    <td><%= command.created_at.strftime("%y %b %d (%H:%M)") %></td>
+        <% 
+	  # command duration
+          # TODO: Time.now should be release data if there is a release date
+          s = (command.updated_at - command.created_at)
+          m = ((s / 60) % 60).to_i  #minutes
+          h = (((s/60)/60) % 24).to_i #hours
+          d = (((s/60)/60)/24).to_i #days
+          s = (s % 60).to_i #seconds
+          if d > 0 then
+            display = "#{d.to_s} d"
+          elsif d <= 0 && h > 0 then
+            display = "#{h.to_s} h"
+          elsif h<= 0 && m > 0 then
+            display = "#{m.to_s} m"
+	  else
+            display = "#{s.to_s} s"
+          end
+      %>
+       <td><%= display %></td>
+       <td><%= link_to "details...", { :action => :command_status, :id => command }, :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank", :class => "smallLink"  %></td>
+       <%
+        i += 1
+        color = colors[i%2]
+	%>
+    </tr>
+  <% end %>
+<tr style="background-color: <%= color %>">
+<td>--</td>
+<td><b>New Submission</b></td>
+<td>created</td>
+<td><%= @project.created_at.strftime("%y %b %d (%H:%M)")%></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+
+</table>
+<table class="stats">
+<%# command_stats.each do |c,n| %>
+<%# end %>
+<tr>
+<td>
+</td>
+</tr>
+
+</table>
+<br />
+</div>

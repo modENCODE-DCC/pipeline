@@ -1,6 +1,6 @@
 require 'open-uri'
 class Upload < Command
-  class Status < Command::Status
+  module Status
     UPLOADING = "uploading"
     UPLOADED = "uploaded"
     UPLOAD_FAILED = "upload failed"

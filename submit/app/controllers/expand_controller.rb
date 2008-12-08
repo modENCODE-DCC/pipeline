@@ -76,9 +76,6 @@ class ExpandController < CommandController
       pa.project_files.each do |pf|
         pf.destroy
       end
-
-      pa.project.status = Expand::Status::EXPANDING
-      pa.project.save
     end
   end
 
@@ -88,20 +85,11 @@ class ExpandController < CommandController
     return unless project_archive
     if self.status == Expand::Status::EXPAND_FAILED then
       project_archive.status = ProjectArchive::Status::EXPAND_FAILED
-      project_archive.project.status = Expand::Status::EXPAND_FAILED
       retval = false
     else
       project_archive.status = Expand::Status::EXPANDED
       project_archive.save
-
-      expand_commands = project_archive.project.commands.find_all_by_type(command_object.class.name)
-      unless (expand_commands.find_all { |e| e.status == Expand::Status::EXPANDING || e.status == Expand::Status::QUEUED }.size > 0) then
-        # Do not complete expansion unless all Expand objects have been expanded
-        project_archive.project.status = Expand::Status::EXPANDED
-      end
-
     end
-    project_archive.project.save
     return retval
   end
   def self.remove_extracted_folder(project_archive)

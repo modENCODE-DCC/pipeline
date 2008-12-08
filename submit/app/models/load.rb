@@ -1,5 +1,5 @@
 class Load < Command
-  class Status < Command::Status
+  module Status
     LOADING = "loading"
     LOADED = "loaded"
     LOAD_FAILED = "load failed"

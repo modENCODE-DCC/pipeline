@@ -1,0 +1,89 @@
+<% require 'pp' %>
+
+<style type="text/css">
+  TABLE.status TD {
+    vertical-align: middle;
+    height: 35px;
+    padding: 5px;
+  }
+  TABLE.status TH {
+    vertical-align: middle;
+    padding: 5px;
+  }
+  TD.green {
+    background-color: #d0ffd0;
+  }
+</style>
+
+<h1 align="center">Data Release Checklist</h1>
+<h2 align="center" style="margin-bottom: 2px;">Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
+<br />
+<p>
+Your dataset <i>must</i> pass the DCC automatic validation before it can be released to the community via the brower, modmine, and Worm/Flybase.  
+After your dataset passes our validation procedure, please verify its quality by browsing the dataset in the test-browser, and view the metadata in a test-modmine.  
+Once you have verified the dataset, checkoff the appropriate boxes.  When complete, select "release" for the DCC to do a final check before pushing the dataset "live".
+</p>
+<% if @project_needs_release %>
+<hr />
+
+<center>
+All of the following must be completed in order to release your data set:
+<br /><br />
+<table>
+<tr>
+<th align="center">Task</td>
+<th align="center">Complete</td>
+<th align="left" style="padding-left: 30px">Details</td>
+</tr>
+    <tr>
+      <td align="center">Submission Created</td>
+      <td>&nbsp</td>
+      <td style="padding-left: 30px">Created on <%= @project.created_at.strftime("%a, %b %d, %Y (%H:%M)")%></td>
+      <td></td>
+    </tr>
+
+  <% @checklist_for_data_validation.each do |task| %>
+    <tr>
+      <td align="center"><%= task[0] %></th>
+      <td align="center"> <%= check_box_tag(task[0], task[1], task[1], :disabled => true) %>
+      <td style="padding-left: 30px"<%= ' class="green"' if task[1]%>>
+        <i><%= task[1] ? "Last run on:" : "Last attempted:" %></i>
+        <%= task[2].class==Time ? task[2].strftime("%a, %b %d, %Y (%H:%M)") : task[2] %>
+      </td>
+      <td><%=link_to("...", {:action => :command_status, :id => task[3] }) if task[2]!="never" %> </td>
+    </tr>
+  <% end %>
+  <tr>
+  <td>&nbsp</td>
+  <td>&nbsp</td>
+  <td>&nbsp</td>
+  <td>&nbsp</td>
+  </tr>
+  <% @checklist_for_release_by_pi.each do |item| %>
+    <tr>
+      <td align="center"> <%= item %></td>
+      <td align="center"> <%= check_box_tag(item) %>
+      <td style="padding-left: 30px">
+        <%= link_to("view files...", { :controller => :public, :action => :download, :id => @project } ) if item=="Okay to go to FTP site"  %>
+        <%= link_to("preview tracks...", {}, {:title => "this feature not working at this time"}) if item=="Okay to go to Browser"  %>
+        <%= link_to("preview modmine...") if item=="Okay to go to modMine"  %>
+        <%= link_to("preview GEO submission...") if item=="Okay to go to GEO"  %>
+      </td>
+      <td>&nbsp</td>
+   </tr>
+  <% end %>
+</table>
+</center>
+<br />
+By clicking the 'release' button below, I understand this constitutes an electronic signature that approves this data set to be released
+for public viewing and downloading under the pervue of the modENCODE project.  Further information on the data release policy
+from the NIH can be found <a href="http://www.modencode.org/data_release_policy.pdf">here</a>
+<br />
+<br />
+<center><%= button_to("Release") %> </center>
+<br />
+<br />
+<br />
+<% else %>
+You released this data set on <%= Time.now.strftime("%A, %B %d, %Y at %H:%M") %>
+<% end %>

@@ -1,0 +1,183 @@
+<table class="archive_list2">
+    <tr><td colspan=16><hr noshade></td></tr>
+      <% if (@display_type == 'expanded') %>
+    <tr>
+    <th colspan=4></td><!-- id -->
+    <% "<th></th>" if Command.find_all_by_status(Command::Status::QUEUED).length > 0 %>
+    <th colspan="2">--------- Upload ---------</td><!--upload-->
+    <th colspan="2">------- Validation -------</td><!--validate-->
+    <th colspan="2">------- DB Loading -------</td><!--loaded-->
+    <th>Released</td><!--released-->
+      <td></td><td></td>
+      </tr>
+      <% end %>
+    <tr>
+    <th align="right"><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+      <th class="name" align="left"><%= link_to "Project Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+      <th align="left"><%= link_to "Current Status", :action => controller.action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
+      <% if Command.find_all_by_status(Command::Status::QUEUED).length > 0 %>
+      <th>Q</th> <!--Queue-->
+      <% end %>
+      <% if (@display_type == 'expanded') %>
+        <th align="left"><%= link_to "Created", :action => controller.action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
+        <th title="Most recent upload attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <th>% success <br/>(# attempts)</th>
+        <th title="Most recent validation attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <th>% success<br/>(# attempts)</th>
+        <th title="Most recent database load attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+        <th>% success<br/>(# attempts)</th>
+        <th><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
+      <% end %>
+      <th>Last Updated<br />(PST)</th>
+      <th align="center">Project<br />Duration</th>
+      <% if !defined? @user %> 
+        <th>Submitter</th>
+        <th>PI</th>
+      <% end %>
+    </tr>
+
+    <tr><td colspan=16><hr noshade></td></tr>
+
+    <% 
+      colors = [ '#eeeeee', '#f2f2ff' ]
+      i = 0
+    %>
+    <% @projects.each do |p| %>
+    <%
+        deleted_project = p.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false
+        queued_commands = p.commands.find_all_by_status(Command::Status::QUEUED).size
+        active_project = Command::Status::is_active_state(p.status)
+        failed_project = Command::Status::is_failed_state(p.status)
+	released_project = p.status == Project::Status::RELEASED
+	#released_project = Command::Status::is_released_state(p.status)
+	last_upload_command = p.commands.find_all_by_status(Upload::Status::UPLOADED).last if !p.commands.nil?
+	last_validate_command = p.commands.find_all_by_status(Validate::Status::VALIDATED).last if !p.commands.nil?
+	last_load_command = p.commands.find_all_by_status(Load::Status::LOADED).last if !p.commands.nil?
+	total_uploads = p.commands.find_all_by_status(Upload::Status::UPLOADED).length+p.commands.find_all_by_status(Upload::Status::UPLOAD_FAILED).length
+	total_validations = p.commands.find_all_by_status(Validate::Status::VALIDATED).length+p.commands.find_all_by_status(Validate::Status::VALIDATION_FAILED).length
+	total_dbloads = p.commands.find_all_by_status(Load::Status::LOADED).length+p.commands.find_all_by_status(Load::Status::LOAD_FAILED).length
+        color = active_project ? '#ffffbb' : colors[i%2]
+        i += 1
+      %>
+      <tr style="background-color: <%= color %>">
+        <td align="right" <%= ' style="text-decoration: line-through"' if deleted_project %>>
+
+    <%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
+    <td class="name"> <%= link_to p.name, {:action => 'show', :id => p.id, :controller => 'pipeline' } %></td>
+    <% foo = {:popup => true}
+        foo[:style] = "color: red" if failed_project
+	foo[:style] = "color: green" if released_project
+        -%>
+    <td><%= link_to p.status, {:controller => 'pipeline', :action => 'command_status', :id => p.commands.all.last }, foo %> </td>
+      <% if Command.find_all_by_status(Command::Status::QUEUED).length > 0 %>
+    <td title="Queued" align="right" style="align: right; font-size: x-large"><%= "*" if queued_commands > 0 %></td>
+    <% end %>
+    <% if (@display_type == 'expanded') %>
+      <td>
+      <% if (@display_date == 'quarter') %>
+        <%= @quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0] %>
+      <% else %>
+        <%=p.created_at.strftime("%y %b %d ") %>
+      <% end %>
+      </td>
+      <%= if (!p.commands.nil?) 
+      then if (p.commands.find_all_by_status(Upload::Status::UPLOADED).length > 0) 
+               then if (@display_date == 'quarter') 
+	            then "<td>"+@quarters.find {|k,v| last_upload_command.updated_at.to_date <= v["end"] && last_upload_command.updated_at.to_date >= v["start"]}[0] 
+	            else "<td>"+last_upload_command.updated_at.strftime("%y %b %d ")       
+		    end
+	       else "<td style='color: gray'>--     " 
+	       end     else " "    end %></td>
+    	    	
+
+      <%= if (!p.commands.nil?) 
+    	    then if (total_uploads > 0)
+		         then "<td>"+((p.commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")"
+		 else "<td style='color: gray'>(0)" 
+		 end 
+	    else " "   
+	    end %>
+      </td>
+      <%= if (!p.commands.nil?) then if (p.commands.find_all_by_status(Validate::Status::VALIDATED).length > 0) 
+                then if (@display_date == 'quarter') 
+	                then "<td>"+@quarters.find {|k,v| last_validate_command.updated_at.to_date <= v["end"] && 
+			                           last_validate_command.updated_at.to_date >= v["start"]}[0]
+                        else "<td>"+last_validate_command.updated_at.strftime("%y %b %d ")       
+	             end
+	       else "<td style='color: gray'>--" 
+	       end     else " "    end %>
+      </td>    
+      <%= if (!p.commands.nil?) 
+    	    then if (total_validations> 0) 
+		         then "<td>"+((p.commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")"
+		 else "<td style='color: gray'>(0)" 
+		 end 
+	    else " "   
+	    end %>
+      </td>
+
+
+      <%= if (!p.commands.nil?) then if (p.commands.find_all_by_status(Load::Status::LOADED).length > 0) 
+       then if (@display_date == 'quarter')
+	                then "<td>"+@quarters.find {|k,v| last_load_command.updated_at.to_date <= v["end"] && 
+			                           last_load_command.updated_at.to_date >= v["start"]}[0]
+       			else "<td>"+last_load_command.updated_at.strftime("%y %b %d ")       
+			end
+		   else "<td style='color: gray'>--" 
+		    end     else " "    end %></td>
+
+      <%= if (!p.commands.nil?) 
+    	    then if (total_dbloads> 0) 
+		         then "<td>"+((p.commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")"
+		 else "<td style='color: gray'>(0)" 
+		 end 
+	    else " "   
+	    end %></td>
+      <%= if (!p.commands.nil?) then if !p.commands.find_by_status(Release::Status::RELEASED).nil? 
+      then "<td>"+p.commands.find_by_status(Release::Status::RELEASED).updated_at.strftime("%y %b %d ")       
+		   else "<td style='color: gray'>--" 
+		    end     else " "    end %></td>
+
+   <% end %>
+       <td><%= p.updated_at.strftime("%y %b %d (%H:%M)") -%></td>
+      <td>
+      <% s = (p.updated_at - p.created_at)
+	 m = ((s / 60) % 60).to_i  #minutes
+	 h = (((s/60)/60) % 24).to_i #hours
+         d = (((s/60)/60)/24).to_i #days
+	 s = (s % 60).to_i #seconds
+      %>
+      <%= if (d>0)      
+      	  d.to_s+" days"
+	  else if (h > 0)
+	       then h.to_s+" hours"
+	       else m.to_s+" min"
+      	       end
+	  end %>
+      </td>
+
+       <% if !defined? @user %><td><%= p.user.login -%></td><% end %>
+      <% if !defined? @user %><td><%= p.user.pi.split(",")[0] -%></td><% end %>
+    </tr>
+  <% end %>
+  <tr><td colspan=17><hr noshade></td></tr>
+  <tr>
+  <td></td>
+  <td class="name" colspan="2">Summary:&nbsp;&nbsp; (<%= @projects.length %> projects)</td>
+  <% total_uploaded = @projects.find_all {|p| p.commands.find_by_status(Upload::Status::UPLOADED)}.length
+     total_validated = @projects.find_all {|p| p.commands.find_by_status(Validate::Status::VALIDATED)}.length
+     total_loaded   = @projects.find_all {|p| p.commands.find_by_status(Load::Status::LOADED)}.length
+     total_released = @projects.find_all {|p| p.commands.find_by_status(Release::Status::RELEASED)}.length
+     %>
+  <% if (@display_type=="expanded") %>
+    <% "<td></td><!-- queue -->" if Command.find_all_by_status(Command::Status::QUEUED).length > 0 %>
+    <td></td><!-- created-->
+    <td colspan="2"><%= total_uploaded %> uploaded</td><!--upload-->
+    <td colspan="2"><%= total_validated %> validated</td><!--validate-->
+    <td colspan="2"><%= total_loaded %> loaded</td><!--loaded-->
+    <td><%= total_released %> released</td><!--released-->
+    <% end %>
+  <td></td><td></td>
+
+  </tr>
+</table>

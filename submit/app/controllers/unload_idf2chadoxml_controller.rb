@@ -16,7 +16,6 @@ class UnloadIdf2chadoxmlController < UnloadController
 
   def run
     super do
-      do_before
 
       command_object.status = Unload::Status::UNLOADING
       command_object.stdout = ""
@@ -44,10 +43,20 @@ class UnloadIdf2chadoxmlController < UnloadController
         end
       end
 
+      possible_idfs = Dir.glob(File.join(lookup_dir, "*.idf")) + Dir.glob(File.join(lookup_dir, "*IDF*")) + Dir.glob(File.join(lookup_dir, "*idf*"))
+      if possible_idfs.empty? then
+        command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}"
+        command_object.status = Unload::Status::UNLOAD_FAILED
+        command_object.save
+        self.do_after
+        return false
+      end
+
+      idf_file = possible_idfs.first
+      output_file = idf_file + ".chadoxml"
       schema = "modencode_experiment_#{command_object.project.id}"
 
-      run_command = "#{unloader} #{params} #{database} -s \"#{schema}\""
-      puts run_command
+      run_command = "#{unloader} #{params} #{database} -s \"#{schema}\" #{output_file}"
 
       last_update = Time.now
       (exitvalue, errormessage) = Open5.popen5(run_command) { |stdin, stdout, stderr, exitvaluechannel, sidechannel|
@@ -117,7 +126,7 @@ class UnloadIdf2chadoxmlController < UnloadController
     if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
       db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read) }
 
-      args = "-d=\"#{db_definition['dsn']}\""
+      args = "-d=\"#{db_definition['perl_dsn']}\""
       args << " -user=\"#{db_definition['user']}\"" if db_definition['user']
       args << " -password=\"#{db_definition['password']}\"" if db_definition['password']
       return args

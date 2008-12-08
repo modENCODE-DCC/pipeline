@@ -4,9 +4,10 @@
   <p>
   <table id="projects" class="archive_list">
     <tr>
+      <th align="left"><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
       <th align="left"><%= link_to "Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
       <th align="left"><%= link_to "Status", :action => controller.action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
-      <% if !defined? @user %><th align="left">Investigator</th><% end %>
+      <% if !defined? @user %><th align="left">Investigator</th><th align="left">Submitter</th><% end %>
       <th align="left"><%= link_to "Updated PST", :action => controller.action_name, :sort => { 'updated_at' => @new_sort_direction['updated_at'] } %></th>
       <th colspan="2" align="left"><%= link_to "Created PST", :action => controller.action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
     </tr>
@@ -15,11 +16,20 @@
       <% 
         deleted_project = c.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false 
         queued_commands = c.commands.find_all_by_status(Command::Status::QUEUED).size
+	active_project = Command::Status::is_active_state(c.status)
+	failed_project = Command::Status::is_failed_state(c.status)
       %>
-      <tr>
-        <td<%= ' style="text-decoration: line-through"' if deleted_project %>><%= link_to c.name, {:action => 'show', :id => c.id} %></td>
-        <td><%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, :popup => true %></td>
+      <tr <%= ' style="BACKGROUND-COLOR: yellow" ' if active_project %>>
+        <td 
+<%= ' style="text-decoration: line-through"' if deleted_project %>><%= link_to c.id, {:action => 'show', :id => c.id} %></td>
+	<td><%= link_to c.name, {:action => 'show', :id => c.id} %></td>
+	<% foo = {:popup => true} 
+	foo[:style] = "color: red" if failed_project
+	-%>
+	<td><img src="/submit/images/progress/checkout_1_small_75x13.png"></td>
+        <!--<td><%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, foo %> </td> -->
         <% if !defined? @user %><td><%= c.user.pi -%></td><% end %>
+        <% if !defined? @user %><td><%= c.user.login -%></td><% end %>
         <td><%= c.updated_at.strftime("%b %d %H:%M") -%></td>
         <td><%= c.created_at.strftime("%b %d %H:%M") -%></td>
         <td>

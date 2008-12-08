@@ -1,0 +1,48 @@
+  <% form_remote_tag :update => :status_table, :user => @show_user, :url => { :action => :status_table, :user => @show_user }, :html => { :onsubmit => "if ($('display_type_expanded').checked) { $('tr_date_option').show(); } else { $('tr_date_option').hide(); }", :action => url_for(:action => :status) } do %>
+    <table class="table_buttons">
+      <tr>
+        <td class="left" width="20px">
+	  <table>
+	  <tr>
+            <td style= "font-size: 13px">
+              <b>Display:</b>
+	    </td>
+	    <td style="font-size: 13px">
+          <%= radio_button_tag :display_type, 'compact', 'compact' == @display_type, :onclick => "$('status_form_submit').click()" %> Compact or
+          <%= radio_button_tag :display_type, 'expanded', 'expanded' == @display_type, :onclick => "$('status_form_submit').click()" %> Expanded Table&nbsp;&nbsp;
+	  </td>
+	  </tr>
+	  <tr><td>&nbsp;</td>
+	  <td style= "font-size: 13px">
+          <%= radio_button_tag :display_type, 'graph', 'graph' == @display_type, :onclick => "$('status_form_submit').click()" %> Summary Graph&nbsp;
+          <%= submit_tag "Update", :id => "status_form_submit", :style => "visibility: hidden"  %>   
+	  </td>
+	  </tr>
+	  </table>
+        </td>
+        <td class="right" style="font-size: 13px">
+          <b>Filter:</b>
+          <%= radio_button_tag :show_status, 'all', 'all' == @show_status, :onclick => "$('status_form_submit').click()" %> All
+          <%= radio_button_tag :show_status, 'active', 'active' == @show_status, :onclick => "$('status_form_submit').click()" %> Active
+          <%= radio_button_tag :show_status, 'released', 'released' == @show_status, :onclick => "$('status_form_submit').click()" %> Released
+        </td>
+      </tr>
+      <tr id="tr_date_option" style="display:<%= @display_type == 'compact' ? 'none' : '' %>">
+        <td class="left" style="padding-left: 70px">
+          <%= radio_button_tag :display_date, 'quarter', 'quarter' == @display_date, :onclick => "$('status_form_submit').click()" %> Quarter &nbsp;&nbsp;
+          <%= radio_button_tag :display_date, 'date', 'date' == @display_date, :onclick => "$('status_form_submit').click()" %> Date
+        </td>
+      </tr>
+    </table>
+  <% end %>
+
+  <%= "<div style=\"font-style: italic\">Viewing projects for <b>#{@viewing_user.name}</b> (#{@viewing_user.login}).</div>" unless @viewing_user.nil? %>
+
+  <div id="status_table">
+    <%= render :partial => 'status_table', :user => @show_user  %>
+  </div>
+
+  <%= periodically_call_remote :url => { :action => "status_table", :user => @show_user }, :frequency => 15,
+  :before => "showSpinner('status_table')", :complete => "hideSpinner('status_table')", :update => "status_table" %>
+
+

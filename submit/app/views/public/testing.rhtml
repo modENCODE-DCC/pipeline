@@ -1,0 +1,27 @@
+<% if @projects.blank? %>
+  <p>There are no released projects.</p>
+  <% return %>
+<% end %>
+
+<table class="archive_list2">
+  <tr><td colspan=15><hr noshade></td></tr>
+  <tr>
+    <th align="left"><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+    <th class="name" align="left"><%= link_to "Project Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+    <th>Actions</th>
+    <th>#</th>
+    <th>Tags</th>
+  </tr>
+    
+  <% @projects.each do |project| %>
+    <tr>
+      <td><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
+      <td class="name"> <%= link_to project.name, {:action => 'show', :id => project.id, :controller => 'pipeline' } %></td>
+      <td>
+        <%= link_to "Download", :action => "download", :id => project %>
+      </td>
+      <td><%= TrackTag.find_all_by_project_id(project.id).length %></td>
+      <td><%= TrackTag.find_all_by_project_id(project.id).find_all{|t| t.cvterm=='string'}.each{|s| print s.value + ", "} %></td>
+    </tr>
+  <% end %>
+</table>

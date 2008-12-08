@@ -1,5 +1,5 @@
 class Unload < Command
-  class Status < Command::Status
+  module Status
     UNLOADING = "unloading"
     UNLOADED = "unloaded"
     UNLOAD_FAILED = "unload failed"

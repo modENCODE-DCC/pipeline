@@ -85,12 +85,12 @@ class CommandController < ApplicationController
   end
 
   def self.disable_related_commands(command)
-    command.project.status = command.status
-    command.project.save
     command.project.commands.find_all_by_status(Command::Status::QUEUED).each do |cmd|
       cmd.status = Command::Status::FAILED
       cmd.save
     end
+    command.project.status = command.status
+    command.project.save
   end
   def run
     # Quick 'n dirty distribution: command_object.command = "grid submit " + command_object.command

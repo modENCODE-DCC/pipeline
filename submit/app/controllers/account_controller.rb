@@ -35,6 +35,8 @@ class AccountController < ApplicationController
       @user = self.current_user
     end
     @pis = get_pis
+#    @project_pis = get_project_pis
+
     return unless request.post?
     unless params[:commit] == "Cancel"
       @user.update_attributes(params[:user])
@@ -50,6 +52,7 @@ class AccountController < ApplicationController
 
   def signup
     @pis = get_pis
+#    @project_pis = get_project_pis
     @user = User.new(params[:user])
     @user.host = request.host
     @user.port = request.port
@@ -198,15 +201,26 @@ class AccountController < ApplicationController
     pis = Array.new
     if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
       hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
-      while (hashes.length > 0) do
-        newhashes = Array.new
-        hashes.each { |hash|
-          pis = pis + hash.keys
-          newhashes = newhashes + hash.values.find_all { |val| val.is_a? Hash }
-        }
-        hashes = newhashes
-      end
+      pis = hashes.first.keys
+#      while (hashes.length > 0) do
+#        newhashes = Array.new
+#        hashes.each { |hash|
+#          pis = pis + hash.keys
+#          newhashes = newhashes + hash.values.find_all { |val| val.is_a? Hash }
+#        }
+#        hashes = newhashes
+#      end
     end
     return pis.uniq.sort
   end
+
+#  private
+#  def get_project_pis
+#    project_pis = Array.new
+#    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+#      hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+#          project_pis = hashes.first.keys
+#    end
+#    return project_pis.uniq.sort
+#  end
 end

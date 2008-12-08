@@ -1,0 +1,153 @@
+<div id="testing">
+<center>
+<h1>modENCODE DCC Statistics</h1>
+<p>
+This page provides an overview of all the modENCODE project submissions.</p>
+</center>
+<br />
+<div id="active_submissions">
+<hr />
+<h2 align=center>modENCODE-wide Data Submission Overview</h2>
+<br />
+<table>
+    <%    
+      data_hash = Hash.new{|k,v| k[v] = []} 
+      @all_active_by_status.sort.each{|stati,dist| dist.sort.map{|k,v| data_hash[k] += [v]}} 
+      legend = @all_active_by_status.map{|status,d| status}.sort
+
+      data_hash2 = Hash.new{|k,v| k[v] = []} 
+      temp = []
+      for i in 0..@all_active_by_status.length-1
+        temp += [@all_active_by_status.find{|k,v| k==@active_status[i] }] unless nil
+      end
+      temp.each{|stati,dist| dist.sort.map{|k,v| data_hash2[k] += [v]}} 
+      legend2 = @active_status
+    %>
+
+<tr><td align="center">
+    <%= google_stacked_vert_bar_chart([], :data => data_hash2.sort, :title => "Distribution of Active Submissions|as of #{Time.now.strftime("%b %d %Y")}", :width => 600, :height => 300, :legend => legend2, :color => "cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066",  :chbh => "35,30,20", :show_legend => true, :align => "center") %>
+</td>
+<td>
+<p class="caption">
+<b>Currently active modENCODE submissions, binned by status.</b> This represents the distribution of data validation status for each submission made to the DCC that has yet to be released, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.  
+Progression from "New" to "Released" is from left to right.
+Numbers above the bars depict the total number of submissions currently at that status.  
+Numbers in parentheses indicate the total active submissions for that particular project PI.  
+"n" value in the title represents the sum of all active projects for all PIs.  
+</p>
+</td></tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%    
+      data_hash = Hash.new{|k,v| k[v] = []} 
+      @all_projects_by_pi.sort.each{|pi,stati| stati.map{|k,v| data_hash[k] += [v]}} 
+      legend = @all_projects_by_pi.sort.map{|pi,stati| pi}
+    %>
+
+<%= google_stacked_vert_bar_chart([], :title => "Distribution of Submissions by Project PI|as of #{Time.now.strftime("%b %d %Y")}", :color =>"cccccc,00cc00", :chxt => "x,y", :width => 650, :min => 0, :data => data_hash, :legend => legend, :show_legend => true, :align => "right" ) %>
+</td>
+<td>
+<p class="caption">
+<b>Distribution of modENCODE submissions, binned by Project PI.</b> This represents the cumulative distribution of submissions made to the DCC (both active and released), by PI, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of submissions by that particular project.  
+Numbers in parentheses indicate the total for that particular status (active, released).  
+"n" value in the title represents the sum of all active and released projects.  
+</p> 
+</td>
+</tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%
+      data_hash = Hash.new{|k,v| k[v] = []}
+      @all_new_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
+}}
+      legend = @all_new_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
+
+    %>
+
+
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066", :show_legend => true) %>
+</td>
+<td>
+<p class="caption">
+<b>Submissions initiated to modENCODE DCC, binned by Quarter.</b> This represents the distribution of submissions initiated to the DCC, regardless of current status, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of submissions for all PIs for that quarter.  
+Numbers in parentheses indicate the total for that particular project PI.  
+"n" value in the title represents the sum of all initiated submissions.  
+<i>Individual quarters are broken down by project PI in the "New Submissions per quarter", below.</i>
+</p>
+</td></tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%
+      data_hash = Hash.new{|k,v| k[v] = []}
+      @all_released_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
+}}
+      legend = @all_released_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
+
+    %>
+
+
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066", :show_legend => true) %>
+</td>
+<td>
+<p class="caption">
+<b>Submissions released by modENCODE DCC, binned by Quarter.</b> This represents the distribution of submissions released by the modENCODE DCC to GBrowse, modMINE, and worm/flybase, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of released submissions for all PIs for that quarter.  
+Numbers in parentheses indicate the total for that particular project PI.  
+"n" value in the title represents the sum of all released submissions.  
+<i>Individual quarters are broken down by project PI in the "Released Submissions per quarter", below.</i>
+</p>
+</td></tr>
+</table>
+</div>
+
+<div>
+<br />
+    <hr />
+<br/>
+    <h2 align="center">Overview of modENCODE New Submissions per quarter</h2>
+<p>Each chart represents the total number of data submissions initiated per modENCODE project PI for the given quarter.
+Numbers above the bars depict the total number of new submissions by that particular project PI.
+"n" value in the title represents the sum of new submissions for the given quarter for all projects.  
+<% missing_quarters = @all_new_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
+<% if (missing_quarters.length > 0) %>
+     <i>There were no New Submissions during the following quarters: <%= missing_quarters.join(', ') %></i>
+   <%end%>
+</p> 
+    <%       legend = @all_new_projects_per_group_per_quarter.first[1].map{|p,d| p}.sort %>
+<center>    
+<%= @all_new_projects_per_group_per_quarter.sort.each { |h| }.map{|q,p|
+    google_vert_bar_chart([], :data => p.sort,
+      :title => "modENCODE Submissions Initiated in #{q}", :width => 535, :color => "660066")+"<br />" unless p.map{|pi,n| n}.sum ==0 } %></center>
+<br />
+
+</div>
+
+<div>
+<br />
+    <hr />
+<br />
+    <h2 align="center">Overview of modENCODE Released Submissions per quarter</h2>
+<p>Each chart represents the total number of data submissions released per modENCODE project PI for the given quarter.
+Numbers above the bars depict the total number of released submissions by that particular project PI.
+"n" value in the title represents the sum of released submissions for the given quarter for all projects.
+<% missing_quarters = @all_released_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
+
+<% if (missing_quarters.length > 0) %>
+     <i>There were no Released Submissions during the following quarters: <%= missing_quarters.join(', ') %></i>
+   <%end%>
+
+</p>
+    <%       legend = @all_released_projects_per_group_per_quarter.first[1].map{|p,d| p}.sort %>
+<center>    <%= @all_released_projects_per_group_per_quarter.sort.each { |h| }.map{|q,p|
+    google_vert_bar_chart([], :data => p.sort,
+      :title => "modENCODE Submissions Released in #{q}", :width => 535, :color => "00cc00")+"<br />"  unless p.map{|pi,n| n}.sum ==0  } %></center>
+
+</div>
+
+
+
+</div>
+<br />
+<br />

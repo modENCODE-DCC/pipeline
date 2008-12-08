@@ -30,6 +30,12 @@ div#header {
 }
 /* padding-bottom: 15px; */
 
+div#table_buttons {
+  float: left;
+  width: 1000px;
+  padding :10px;
+}
+
 div#content {
   float: left;
   width: 450px;

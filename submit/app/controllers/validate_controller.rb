@@ -24,7 +24,6 @@ class ValidateController < CommandController
         # Don't run this method, just pass it along to the super-super class
         return yield
       end
-      do_before
 
       command_object.status = Validate::Status::VALIDATING
       command_object.stdout = ""
@@ -98,19 +97,10 @@ class ValidateController < CommandController
     return self.do_after
   end
 
-  def do_before(options = {})
-    command_object.project.status = Validate::Status::VALIDATING
-    command_object.project.save
-  end
-
   def do_after(options = {})
     if self.status == Validate::Status::VALIDATION_FAILED then
-      command_object.project.status = Validate::Status::VALIDATION_FAILED
-      command_object.project.save
       return false
     else
-      command_object.project.status = Validate::Status::VALIDATED
-      command_object.project.save
       return true
     end
   end

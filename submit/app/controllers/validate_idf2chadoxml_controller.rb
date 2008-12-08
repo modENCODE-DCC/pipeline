@@ -16,7 +16,6 @@ class ValidateIdf2chadoxmlController < ValidateController
 
   def run
     super do
-      do_before
 
       command_object.status = Validate::Status::VALIDATING
       command_object.stdout = ""
@@ -38,8 +37,8 @@ class ValidateIdf2chadoxmlController < ValidateController
       # If the root of the extracted package just contains a single dir, assume
       # the IDF is in that dir
       lookup_dir = package_dir
-      if Dir.glob(File.join(lookup_dir, "*")).size == 1 then
-        entry = Dir.glob(File.join(lookup_dir, "*")).first
+      if Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$/ }.size == 1 then
+        entry = Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$/ }.first
         if File.directory? entry then
           lookup_dir = entry
         end
@@ -56,7 +55,7 @@ class ValidateIdf2chadoxmlController < ValidateController
 
 
       idf_file = possible_idfs.first
-      output_file = idf_file + ".chadoxml"
+      output_file = File.join(package_dir, "#{command_object.project.id}.chadoxml")
 
       run_command = "#{validator} #{params} #{idf_file} #{output_file}"
 
@@ -94,6 +93,15 @@ class ValidateIdf2chadoxmlController < ValidateController
               if command_object.status == Command::Status::CANCELING then
                 # TODO: Oh no, interrupt!!!
               end
+              last_update = Time.now
+            elsif (Time.now - last_update) > 60*2 then
+              # If it's been two minutes, write an update anyway
+              command_object.save
+              command_object.reload
+              if command_object.status == Command::Status::CANCELING then
+                # TODO: Oh no, interrupt!!!
+              end
+              last_update = Time.now
               last_update = Time.now
             end
           end

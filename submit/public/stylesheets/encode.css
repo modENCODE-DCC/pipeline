@@ -7,21 +7,42 @@ A { color: blue; }
 
 #command_panel {
   float: right;
-  width: 20%;
+  width: 25%;
+  overflow: hidden;
   font-size: 80%;
   border: thin solid #CCCCCC;
   border-bottom: medium solid #CCCCCC;
   border-right: medium solid #CCCCCC;
 }
 
-A.smallLink { font-size: 60% }
+#project_details {
+  align: left;
+}
+
+A.smallLink { font-size: 60%; padding-left: 4px; padding-right: 4px; }
+A.strong { font-weight: bold; font-size: 110% }
+A.green { font-color: green; }
+A.red { font-color: red; }
 
 TD { vertical-align: bottom }
 
 TABLE.status TH { text-align: right; padding-right: 15px; vertical-align: top; white-space: nowrap; }
 TABLE.archive_list TH, TABLE.archive_list TD { white-space: nowrap; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+
+TABLE.archive_list2 TH { white-space: nowrap; padding-top: 2px; text-align: center; padding-right: 10px; padding-left: 7px; vertical-align: top }
+TABLE.archive_list2 TD { white-space: nowrap; padding-top: 2px; text-align: center; padding-right: 10px; padding-left: 7px; vertical-align: top }
+TABLE.archive_list2 TH.name { width: 75%;  white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+TABLE.archive_list2 TD.name { width: 75%; white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+
 #container {
 }
+
+TABLE.table_buttons { vertical-align: top; width: 100%; white-space: nowrap }
+TABLE.table_buttons TD { vertical-align: top; padding-right: 10px }
+TABLE.table_buttons TD.left { vertical-align: top; text-align: left }
+TABLE.table_buttons TD.right { vertical-align: top; text-align: right }
+ 
+
 
 #header {
   padding: 5px;
@@ -49,6 +70,8 @@ TABLE.archive_list TH, TABLE.archive_list TD { white-space: nowrap; padding-top:
   text-decoration: none;
 }
 
+
+
 a {
 text-decoration: none;
 }
@@ -59,7 +82,9 @@ text-decoration: none;
 
 #content {
   font-size: 90%;
-  margin-left: 5%;
+  margin-left: 2%;
+  margin-right: 2%;
+  clear: both;
 }
 
 #welcome {
@@ -101,8 +126,8 @@ text-decoration: none;
 
 #message {
   font-size: 12pt;
-  margin-top: 18px;
-  margin-bottom: 9px;
+  margin-top: 2px;
+  margin-botom: 5px;
 }
 
 #notice  { background:#9e9; color:#222; padding: 5px }
@@ -134,4 +159,42 @@ input, select {
 
 .button-to {
     margin: 0;
+}
+
+ol.submission-progress {
+v   position: relative;
+    display: block;
+    width: 800px;
+    height: 40px;
+    padding: 0;
+    margin: 2px;
+}
+
+ol.submission-progress li { margin: 0; padding: 0; display: inline; }
+ol.submission-progress li span { position: absolute; left: -9999px; }
+ol.submission-progress#step1 { background: url("/submit/images/progress/checkout_1_800.png") no-repeat left; }
+ol.submission-progress#step2 { background: url("/submit/images/progress/checkout_2_800.png") no-repeat left; }
+ol.submission-progress#step3 { background: url("/submit/images/progress/checkout_3_800.png") no-repeat left; }
+ol.submission-progress#step4 { background: url("/submit/images/progress/checkout_4_800.png") no-repeat left; }
+ol.submission-progress#step5 { background: url("/submit/images/progress/checkout_5_800.png") no-repeat left; }
+ol.submission-progress#step6 { background: url("/submit/images/progress/checkout_6_800.png") no-repeat left; }
+ol.submission-progress#step7 { background: url("/submit/images/progress/checkout_7_800.png") no-repeat left; }
+ol.submission-progress#step8 { background: url("/submit/images/progress/checkout_8_800.png") no-repeat left; }
+ol.submission-progress#step9 { background: url("/submit/images/progress/checkout_9_800.png") no-repeat left; }
+ol.submission-progress#step10 { background: url("/submit/images/progress/checkout_10_800.png") no-repeat left; }
+
+a#step1-link { display: block; width: 70px; height: 50px; position: absolute; top: 150px; left: 30px; }
+a#step2-link { display: block; width: 65px; height: 50px; position: absolute; top: 150px; left: 110px; }
+a#step3-link { display: block; width: 75px; height: 50px; position: absolute; top: 150px; left: 180px; }
+a#step4-link { display: block; width: 70px; height: 50px; position: absolute; top: 150px; left: 280px; }
+a#step5-link { display: block; width: 110px; height: 50px; position: absolute; top: 150px; left: 350px; }
+a#step6-link { display: block; width: 75px; height: 50px; position: absolute; top: 150px; left: 470px; }
+a#step7-link { display: block; width: 75px; height: 50px; position: absolute; top: 150px; left: 550px; }
+a#step8-link { display: block; width: 75px; height: 50px; position: relative; top: 0px; left: 620px; }
+a#step9-link { display: block; width: 75px; height: 50px; position: relative; top: 0px; left: 690px; }
+a#step10-link { display: block; width: 75px; height: 50px; position: relative; top: 0px; left: 740px; }
+
+DIV#command_panel_content {
+  border: thin solid black;
+  padding: 2px;
 }

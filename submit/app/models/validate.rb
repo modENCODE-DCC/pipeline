@@ -1,5 +1,5 @@
 class Validate < Command
-  class Status < Command::Status
+  module Status
     VALIDATING = "validating"
     VALIDATED = "validated"
     VALIDATION_FAILED = "validation failed"

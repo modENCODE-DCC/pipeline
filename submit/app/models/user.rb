@@ -2,8 +2,9 @@ require 'digest/sha1'
 class User < ActiveRecord::Base
 
   self.inheritance_column = 'accesslevel'
-
+  belongs_to :groups
   has_many :projects
+  has_many :track_stanzas
 
   # Virtual attribute for the unencrypted password
   attr_accessor :password

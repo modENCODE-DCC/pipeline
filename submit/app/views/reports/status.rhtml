@@ -1,0 +1,54 @@
+<% if @projects.blank? %>
+  <p>There are no projects currently.</p>
+<% else %>
+  <div id="status_table">
+    <%= render :partial => 'status_table' %>
+  </div>
+
+<%= periodically_call_remote :url => { :action => "status_table", :id => @project }, :frequency => 15,
+  :before => "showSpinner('status_table')", :complete => "hideSpinner('status_table')", :update => "status_table" %>
+  <br />
+     Dates - listed are the most recent attempt of a given command (YY Month DD)<br />
+     % success - percentage of successful attempts of a command out of all attempts<br />
+     Q - indicates if a given project has commands in the queue.<br />
+     "--" as a date indicates that a given status has not yet been achieved <br />
+   <div>
+   <br />
+   <% form_remote_tag :update => :status_table, :url => { :action => :status_table }, :html => { :onsubmit => "if ($('display_type_expanded').checked) { $('tr_date_option').show(); } else { $('tr_date_option').hide(); }", :action => url_for(:action => :status) } do %>
+     <h3>Display:&nbsp;&nbsp;<%= submit_tag "Update", :id => "status_form_submit" %> 
+     </h3>   
+       <table>
+         <tr>
+           <td style="padding-right: 10px">
+             <%= radio_button_tag :display_type, 'expanded', 'expanded' == @display_type, :onclick => "$('status_form_submit').click()" %> Expanded
+           </td>
+           <td style="padding-right: 10px">
+             <%= radio_button_tag :display_type, 'compact', 'compact' == @display_type, :onclick => "$('status_form_submit').click()" %> Compact
+           </td>
+         </tr>
+
+         <tr id="tr_date_option" style="display:<%= @display_type == 'compact' ? 'none' : '' %>">
+           <td>
+             <%= radio_button_tag :display_date, 'quarter', 'quarter' == @display_date, :onclick => "$('status_form_submit').click()" %> Quarter
+           </td>
+           <td>
+             <%= radio_button_tag :display_date, 'date', 'date' == @display_date, :onclick => "$('status_form_submit').click()" %> Date
+           </td>
+         </tr>
+
+         <tr>
+           <td valign="top">
+             <%#= check_box_tag :show_dates, '', @show_dates , :disabled => (@display_type=='compact')%><!-- Show Dates &nbsp;&nbsp;&nbsp;-->
+           </td>
+           <td></td>
+         </tr>
+         <tr>
+           <td>        
+             <%#= check_box_tag(:show_tallies, '', @show_tallies, :disabled => (@display_type=='compact') )%> <!--Show Tallies&nbsp;&nbsp;&nbsp;-->
+           </td>
+           <td></td>
+         </tr>
+       </table>
+     <% end %>
+   </div>
+<% end %>
