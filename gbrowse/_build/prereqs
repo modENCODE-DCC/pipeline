@@ -1,0 +1,18 @@
+do{ my $x = {
+       'build_requires' => {},
+       'conflicts' => {},
+       'requires' => {
+                       'IO::String' => 0,
+                       'Storable' => 0,
+                       'Bio::Root::Version' => '1.005002',
+                       'perl' => '5.008',
+                       'CGI::Session' => '4.02',
+                       'File::Temp' => 0,
+                       'Digest::MD5' => 0,
+                       'JSON' => 0,
+                       'GD' => '2.07',
+                       'LWP' => 0
+                     },
+       'recommends' => {}
+     };
+$x; }

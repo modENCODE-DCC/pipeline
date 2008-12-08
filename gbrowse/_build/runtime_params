@@ -1,0 +1,12 @@
+do{ my $x = {
+       'cgibin' => '/var/www/pipeline/gbrowse/cgi-bin',
+       'config' => {
+                     'bin' => '/var/www/pipeline/gbrowse/bin'
+                   },
+       'conf' => '/var/www/pipeline/gbrowse/conf',
+       'htdocs' => '/var/www/pipeline/gbrowse/htdocs',
+       'install_path' => {
+                           'lib' => '/var/www/pipeline/gbrowse/lib'
+                         }
+     };
+$x; }

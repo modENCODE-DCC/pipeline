@@ -1,0 +1,31 @@
+D/ajax////
+D/bin////
+D/cgi-bin////
+D/conf////
+D/contrib////
+D/docs////
+D/htdocs////
+D/install_util////
+D/lib////
+D/libalign////
+D/sample_data////
+D/t////
+D/debian////
+D/etc////
+D/extras////
+D/libnew////
+/MANIFEST/1.144/Wed Dec  3 17:45:19 2008/-kb/THEAD
+/.cvsignore/1.2/Wed Dec  3 18:43:37 2008//THEAD
+/Build.PL/1.12/Wed Dec  3 18:43:37 2008//THEAD
+/Changes/1.48/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/DISCLAIMER/1.2/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/INSTALL/1.67/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/MANIFEST.SKIP/1.11/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/META.yml/1.6/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/Makefile.PL/1.140/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/README/1.35/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/README.GBrowse-2.00/1.1/Wed Dec  3 18:43:37 2008//THEAD
+/README.IF.GBROWSE.ISNT.WORKING/1.4/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/README.fedora_and_selinux/1.2/Wed Dec  3 18:43:37 2008//THEAD
+/README.gff3/1.2/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/TODO/1.15/Wed Dec  3 18:43:37 2008/-kb/THEAD

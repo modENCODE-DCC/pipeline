@@ -1,0 +1,7 @@
+do{ my $x = {
+       'config_done' => 1,
+       'cgibin' => '/var/www/pipeline/gbrowse/cgi-bin',
+       'htdocs' => '/var/www/pipeline/gbrowse/htdocs',
+       'conf' => '/var/www/pipeline/gbrowse/conf'
+     };
+$x; }
