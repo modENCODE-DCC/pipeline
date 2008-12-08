@@ -123,6 +123,10 @@ class ValidateIdf2chadoxmlController < ValidateController
           command_object.stderr = "#{exitvalue}:#{errormessage}"
           command_object.status = Validate::Status::VALIDATION_FAILED
           command_object.save
+        else
+          command_object.stderr += "Validator crashed! (See output.)"
+          command_object.status = Validate::Status::VALIDATION_FAILED
+          command_object.save
         end
       end
 
