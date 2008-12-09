@@ -8,7 +8,7 @@
   HR { margin-top: 4px; margin-bottom: 0px; width: 70% }
   DIV.action { width: 200px; float: left; line-height: 25px; height: 25px; }
   DIV.arrow { width: 25px; font-size: 5%; float: left; height: 25px; line-height: 25px; }
-  DIV.desc { width: 480px; float: left; font-size: 14px; height: 25px; }
+  DIV.desc { width: 500px; float: left; font-size: 14px; height: 25px; }
 </style>
 
 <div id="command_panel">
@@ -19,7 +19,7 @@
   <%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 5,
     :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
   <h2>Submission Details: <hr align="left"/></h2>
-  <table border="0" style="margin-left: 0px; margin-bottom:5px; margin-top: 0px;" class="status">
+  <table border="0" style="margin-left: 0px; margin-bottom: 5px; margin-top: 0px;" class="status">
     <tr>
       <th>Submission:</th>  
       <td>
@@ -178,7 +178,7 @@
 
   <br style="clear:both"/><br/></br/>
   <h2 align="left">Uploaded Data:<hr align="left"/></h2>
-    <table border="0" style="margin-top:10px;" class="status">
+    <table border="0" style="margin-top: 10px;" class="status">
       <tr>
         <th>&nbsp;</th>
         <td colspan="2">
