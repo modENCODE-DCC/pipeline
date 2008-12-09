@@ -99,7 +99,7 @@ text-decoration: none;
   font-size: 12pt;
   text-align: center;
   background: #ddd;
-  margin-left: 35%;
+  margin: 0 auto;
   width: 150px;
   padding: 0.4em;
 }
