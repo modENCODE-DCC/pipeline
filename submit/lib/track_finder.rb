@@ -882,7 +882,6 @@ class TrackFinder
     Find.find(directory) do |path|
       Find.prune if File.directory?(path) && path != directory # Don't recurse
       if matchdata = File.basename(path).match(/^(\d*)(_.*)?\.gff/) then
-        p matchdata[1]
         gff_files[matchdata[1]].push path if tracknums.include? matchdata[1].to_i
       end
     end
@@ -942,7 +941,6 @@ class TrackFinder
     end
 
     track_defs = Hash.new
-    p types
 
     types.each do |type|
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
