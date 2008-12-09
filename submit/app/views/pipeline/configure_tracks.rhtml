@@ -30,7 +30,7 @@
     $(gbtrack.track_image_id).setOpacity(0.3);
     this.set_last_update_key(gbtrack);
 
-    new Ajax.Request('http://smaug.lbl.gov/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
+    new Ajax.Request('/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
       method:     'post',
       parameters: {
         rerender_track:  1,
@@ -74,7 +74,7 @@
       return;
     }
 
-    new Ajax.Request('http://smaug.lbl.gov/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
+    new Ajax.Request('/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
       method:     'post',
       parameters: $H({ retrieve_multiple: 1, 
                        track_names:     track_names, 
@@ -141,7 +141,7 @@
     var gbtrack = Controller.gbtracks.get(trackname);
     $(gbtrack.track_image_id).setOpacity(0.3);
     
-    new Ajax.Request('http://smaug.lbl.gov/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
+    new Ajax.Request('/gbrowse/cgi-bin/gbrowse/modencode/?name=' + chr + '%3A' + fmin + '..' + fmax,{
       method:     'post',
       parameters: {navigate: action},
       onSuccess: function(transport) {
