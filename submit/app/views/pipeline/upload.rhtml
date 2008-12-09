@@ -8,13 +8,18 @@
   You can upload a file:<br/>
   <ul class="uploads">
     <li>
-      <label for="project_upload_url">From a URL:</label><br/>
+      <label for="upload_url">From a URL:</label><br/>
       <%= text_field_tag 'upload_url', "http://", :size => 40 %>
     </li>
 
     <li>
-      <label for="project_upload_file">From a local file:</label><br/>
+      <label for="upload_file">From a local file:</label><br/>
       <%= file_field_tag 'upload_file', :size => 25 %>
+    </li>
+
+    <li>
+      <label for="upload_comment">Comment (optional):</label><br/>
+      <%= text_field_tag 'upload_comment', "", :size => 40 %>
     </li>
 
     <% if @use_ftp then %>

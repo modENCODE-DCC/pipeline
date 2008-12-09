@@ -206,6 +206,7 @@
                 %></td>
                 <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_date.strftime("%b %d %H:%M") unless archive.file_date.nil? %></td>
                 <td style="padding-top: 10px; font-size: 80%"<%= " rowspan=\"#{archive.project_files.size+1}\"" if archive.is_active %>>
+                  <%= "(<i>#{archive.comment}</i>)<br/>" if !archive.comment.nil? && archive.comment.length > 0 %>
                   <% unless @project.status == Expand::Status::EXPANDING then -%>
                     <%=
                         if archive.status == ProjectArchive::Status::NOT_EXPANDED || (archive.project.project_archives.find_all { |pa| pa.is_active && pa != archive }.size > 0) then
