@@ -397,6 +397,7 @@ class PipelineController < ApplicationController
     # If submitted by another button, then it was an attempted upload
     upurl = params[:upload_url]
     upfile = params[:upload_file]
+    upcomment = params[:upload_comment]
     upftp = params[:ftp]
     upurl = "" if upurl.nil? or upurl == "http://" # If it's the default value, ignore it
     upftp = "" unless upftp # Don't let upftp be nil
@@ -450,7 +451,7 @@ class PipelineController < ApplicationController
     redirect_to :action => 'show', :id => @project
 
     # Upload in background
-    do_upload(upurl, upftp, upfile, filename, ftpFullPath)
+    do_upload(upurl, upftp, upfile, upcomment, filename, ftpFullPath)
  
   end
 
@@ -1026,7 +1027,7 @@ class PipelineController < ApplicationController
 
     expand_controller.queue options
   end
-  def do_upload(upurl, upftp, upfile, filename, ftpFullPath)
+  def do_upload(upurl, upftp, upfile, upcomment, filename, ftpFullPath)
     # TODO: Make this function private
 
     # Create a ProjectArchive to handle the upload
@@ -1034,6 +1035,7 @@ class PipelineController < ApplicationController
     project_archive.file_name = "#{"%03d" % project_archive.attributes[project_archive.position_column]}_#{filename}"
     project_archive.file_date = Time.now
     project_archive.is_active = false
+    project_archive.comment = upcomment
     project_archive.save
 
 
