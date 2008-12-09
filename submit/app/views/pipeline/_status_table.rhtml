@@ -48,7 +48,15 @@
       <th><span style="font-size:50%">(PST)</span><br/>Last<br/>Updated</th>
       <th>Duration</th>
       <th>Submitter</th>
-      <th>PI</th>
+      <th>
+        <% if current_user.is_a?(Moderator) && session[:show_filter].nil? then %>
+          <% form_tag url_for(:action => :show_group), :method => :get do %>
+            <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] } %></select>
+          <% end %>
+        <% else %>
+          PI
+        <% end %>
+      </th>
     </tr>
 
     <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>

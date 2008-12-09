@@ -1239,7 +1239,7 @@ class PipelineController < ApplicationController
     @my_projects_by_status = Hash.new {|status,count| status = count }
     @my_groups_projects_by_status = Hash.new {|status,count| status = count }
     @my_active_projects_by_status = Hash.new {|status,count| status = count }
-
+    @pis = Array.new
 
     @status.each {|s| @my_projects_by_status[s] = 0 }
     @status.each {|s| @my_groups_projects_by_status[s] = 0 }
@@ -1247,32 +1247,35 @@ class PipelineController < ApplicationController
     @active_status.each {|s| @my_active_projects_by_status[s] = 0 }
     
     @projects.each do |p|
-          step = 1
-          #identify what step its at
-          step = case p.status
-            when Project::Status::NEW : 1
-            when Upload::Status::UPLOAD_FAILED : 1
-            when Upload::Status::UPLOADED : 2
-            when Validate::Status::VALIDATION_FAILED : 2
-            when Expand::Status::EXPAND_FAILED : 2
-            when Validate::Status::VALIDATED : 3
-            when Load::Status::LOAD_FAILED : 3
-            when Load::Status::LOADED : 4
-            when 'tracks found' : 5
-            when 'submitter approval' : 6
-            when 'DCC approval' : 7
-            when 'released to gbrowse' : 8
-            when 'released to modmine' : 9
-            when 'released' : 10
-          else 1
-          end
-        @my_projects_by_status[@status[step-1]] += 1 unless p.user_id != user_to_view.id
-	@my_groups_projects_by_status[@status[step-1]] += 1 unless !same_group_users.index(p.user_id).nil?
-	@all_projects_by_status[@status[step-1]]+= 1
-	if (step < @active_status.length)
-	  @my_active_projects_by_status[@active_status[step-1]] += 1
-	end
+      step = 1
+      #identify what step its at
+      step = case p.status
+             when Project::Status::NEW : 1
+             when Upload::Status::UPLOAD_FAILED : 1
+             when Upload::Status::UPLOADED : 2
+             when Validate::Status::VALIDATION_FAILED : 2
+             when Expand::Status::EXPAND_FAILED : 2
+             when Validate::Status::VALIDATED : 3
+             when Load::Status::LOAD_FAILED : 3
+             when Load::Status::LOADED : 4
+             when 'tracks found' : 5
+             when 'submitter approval' : 6
+             when 'DCC approval' : 7
+             when 'released to gbrowse' : 8
+             when 'released to modmine' : 9
+             when 'released' : 10
+             else 1
+             end
+      @pis.push p.user.pi
+      @my_projects_by_status[@status[step-1]] += 1 unless p.user_id != user_to_view.id
+      @my_groups_projects_by_status[@status[step-1]] += 1 unless !same_group_users.index(p.user_id).nil?
+      @all_projects_by_status[@status[step-1]]+= 1
+      if (step < @active_status.length)
+        @my_active_projects_by_status[@active_status[step-1]] += 1
+      end
     end
+
+    @pis.uniq!
 
     @all_my_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0 }
     # initialize to make sure all PIs are included; require each status to be represented
