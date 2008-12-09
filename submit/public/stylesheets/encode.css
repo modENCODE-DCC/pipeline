@@ -16,13 +16,11 @@ A { color: blue; }
 }
 
 #project_details {
-  align: left;
+  text-align: left;
 }
 
 A.smallLink { font-size: 60%; padding-left: 4px; padding-right: 4px; }
 A.strong { font-weight: bold; font-size: 110% }
-A.green { font-color: green; }
-A.red { font-color: red; }
 
 TD { vertical-align: bottom }
 
@@ -127,7 +125,7 @@ text-decoration: none;
 #message {
   font-size: 12pt;
   margin-top: 2px;
-  margin-botom: 5px;
+  margin-bottom: 5px;
 }
 
 #notice  { background:#9e9; color:#222; padding: 5px }
@@ -162,7 +160,7 @@ input, select {
 }
 
 ol.submission-progress {
-v   position: relative;
+    position: relative;
     display: block;
     width: 800px;
     height: 40px;
