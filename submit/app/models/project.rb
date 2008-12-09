@@ -67,6 +67,9 @@ class Project < ActiveRecord::Base
         ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING ]
       when CONFIGURED
         ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, BEGIN_APPROVAL ]
+      when FAILED
+        ok = [ UPLOADING, DELETING ]
+        ok.push VALIDATING if project.project_archives.find_all { |pa| pa.is_active }.size > 0
       end
 
 
