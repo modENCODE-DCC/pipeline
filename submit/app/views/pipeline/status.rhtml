@@ -36,7 +36,13 @@
     </table>
   <% end %>
 
-  <%= "<div style=\"font-style: italic\">Viewing projects for <b>#{@viewing_user.name}</b> (#{@viewing_user.login}).</div>" unless @viewing_user.nil? %>
+  <%= 
+    if session[:show_filter] == :user then
+      "<div style=\"font-style: italic\">Viewing projects for <b>#{@viewing_user.name}</b> (#{@viewing_user.login}).</div>" unless @viewing_user.nil? 
+    elsif session[:show_filter] == :group then
+      "<div style=\"font-style: italic\">Viewing projects for group <b>#{@viewing_user.pi}</b>.</div>" unless @viewing_user.nil? 
+    end
+  %>
 
   <div id="status_table">
     <%= render :partial => 'status_table', :user => @show_user  %>
