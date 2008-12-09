@@ -23,13 +23,18 @@
       </tr>
     <% end %>
     <tr>
-      <th><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
-      <th><%= link_to "Submission<br/>Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
-      <th><%= link_to "Current<br/>Status", :action => controller.action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
+      <% 
+        refresh_action_name = :list
+        refresh_action_name = :show_user if session[:show_filter] == :user 
+        refresh_action_name = :show_group if session[:show_filter] == :group 
+      %>
+      <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+      <th><%= link_to "Submission<br/>Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+      <th><%= link_to "Current<br/>Status", :action => refresh_action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
       <% if @queued_commands.length > 0 %><th>Q</th><% end %>
 
       <% if (@display_type == 'expanded') %>
-        <th><%= link_to "Created", :action => controller.action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
+        <th><%= link_to "Created", :action => refresh_action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
         <th title="Most recent upload attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
         <!-- th>% success <br/>(# attempts)</th -->
         <th>#<br />attempts</th>
