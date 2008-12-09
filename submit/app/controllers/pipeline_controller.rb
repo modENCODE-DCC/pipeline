@@ -120,7 +120,7 @@ class PipelineController < ApplicationController
       return
     end
     @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
-    @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = @project.commands.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
  
     render :partial => "command_panel"
@@ -211,7 +211,7 @@ class PipelineController < ApplicationController
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
 
-    @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = @project.commands.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
 
     @user_can_write = check_user_can_write @project, :skip_redirect => true
@@ -228,9 +228,8 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    project_can_load = (OKAY_TO_LOAD.find { |s| s == @project.status }) && (@project.project_archives.size > 0) ? true : false
     project_is_modencode = (@project.project_type == ProjectType.find_by_name("modENCODE Project"))
-    unless project_can_load && project_is_modencode then
+    unless project_is_modencode && Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then
       # Project hasn't yet gotten to the point where it can be loaded (no chadoxml generated)
       # OR project is not a modENCODE project and thus does not have a chadoXML associated
       flash[:error] = "Project does not have generated a ChadoXML file"
@@ -427,16 +426,21 @@ class PipelineController < ApplicationController
           "application/x-gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"]
       }
       extensions = extensionsByMIME[upfile.content_type.chomp]
-      unless extensions
+      if params["skip_content_check"] == "yes" then
+        extensions = extensionsByMIME.values.flatten.find_all { |ext| filename.ends_with?(".#{ext}") }
+      end
+
+      unless extensions 
         flash[:error] = "Invalid content_type=#{upfile.content_type.chomp}."
+        @allow_skip_content_type = true
         return
       end
-    end
 
-    unless extensions.any? {|ext| filename.ends_with?("." + ext) }
-      flash[:error] = "File name <strong>#{filename}</strong> is invalid. " +
+      unless extensions.any? {|ext| filename.ends_with?("." + ext) }
+        flash[:error] = "File name <strong>#{filename}</strong> is invalid. " +
         "Only a compressed archive file (tar.gz, tar.bz2, zip) is allowed."
-      return
+        return
+      end
     end
 
     # Create a directory for putting the uploaded file into
@@ -822,16 +826,6 @@ class PipelineController < ApplicationController
     unless (@project.nil? && current_user.is_a?(Administrator)) then
       return false unless check_user_can_view @project
     end
-
-    #begin
-    #  command_type = base_command.class_name.singularize.camelize.constantize
-    #rescue
-    #  command_type = Command
-    #end
-
-    #@command = command_type.find(params[:id])
-    #render :action => "command_status", :layout => "popup"
-
   end
 
 
