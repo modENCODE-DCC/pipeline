@@ -28,35 +28,32 @@
   TABLE.commands TH.time {
     text-align: right;
   }
-
 </style>
 
-<div style="text-align: center;">
-<h1>Command History</h1><br/>
-<h2>Submission #<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
-<%
-  full_history = @project.commands
-  full_history = @project.commands.all.reject { |cmd| cmd.status == Command::Status::QUEUED }
-  #full_history = short_history + Array.new(10-short_history.size)
-%>
-<table class="commands">
-  <tr>
-    <th>ID</th><th>Command</th><th>Result</th><th>Date</th><th>Duration</th><th>&nbsp;</th>
-  </tr>  
- <% 
+<div style="text-align: center; margin-bottom: 20px">
+  <h1>Command History</h1><br/>
+  <h2>Submission #<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
+  <%
+    full_history = @project.commands
+    full_history = @project.commands.all.reject { |cmd| cmd.status == Command::Status::QUEUED }
+    #full_history = short_history + Array.new(10-short_history.size)
+  %>
+  <table class="commands">
+    <tr>
+      <th>ID</th><th>Command</th><th>Result</th><th>Date</th><th>Duration</th><th>&nbsp;</th>
+    </tr>  
+    <% 
       colors = [ '#eeeeee', '#f2f2ff' ]
       i = 0
       color = colors[i%2]
     %>
 
-
-
-<% full_history.reverse.each do |command| %>
- <tr style="background-color: <%= color %>">
-    <td><%= command.id %></td>
-    <td class="type"><%= command.type %></td>
-    <td style="<%= Command::Status::is_failed_state(command.status) ? "color: red" : "color: black" %><%= command.id==Command.last.id ? ";text-decoration: blink" : "" %>"><%= command.status %></td>
-    <td><%= command.created_at.strftime("%y %b %d (%H:%M)") %></td>
+    <% full_history.reverse.each do |command| %>
+      <tr style="background-color: <%= color %>">
+        <td><%= command.id %></td>
+        <td class="type"><%= command.type %></td>
+        <td style="<%= Command::Status::is_failed_state(command.status) ? "color: red" : "color: black" %><%= command.id==Command.last.id ? ";text-decoration: blink" : "" %>"><%= command.status %></td>
+        <td><%= command.created_at.strftime("%y %b %d (%H:%M)") %></td>
         <% 
 	  # command duration
           # TODO: Time.now should be release data if there is a release date
@@ -74,33 +71,22 @@
 	  else
             display = "#{s.to_s} s"
           end
-      %>
-       <td><%= display %></td>
-       <td><%= link_to "details...", { :action => :command_status, :id => command }, :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank", :class => "smallLink"  %></td>
-       <%
-        i += 1
-        color = colors[i%2]
-	%>
+        %>
+        <td><%= display %></td>
+        <td><%= link_to "details...", { :action => :command_status, :id => command }, :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank", :class => "smallLink"  %></td>
+        <%
+          i += 1
+          color = colors[i%2]
+        %>
+      </tr>
+    <% end %>
+    <tr style="background-color: <%= color %>">
+      <td>--</td>
+      <td><b>New Submission</b></td>
+      <td>created</td>
+      <td><%= @project.created_at.strftime("%y %b %d (%H:%M)")%></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
     </tr>
-  <% end %>
-<tr style="background-color: <%= color %>">
-<td>--</td>
-<td><b>New Submission</b></td>
-<td>created</td>
-<td><%= @project.created_at.strftime("%y %b %d (%H:%M)")%></td>
-<td>&nbsp;</td>
-<td>&nbsp;</td>
-</tr>
-
-</table>
-<table class="stats">
-<%# command_stats.each do |c,n| %>
-<%# end %>
-<tr>
-<td>
-</td>
-</tr>
-
-</table>
-<br />
+  </table>
 </div>
