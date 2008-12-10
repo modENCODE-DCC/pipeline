@@ -138,7 +138,13 @@ class PublicController < ApplicationController
         Find.prune
         next
       end
-      @listing.push relative_path
+      size = File.size(path)
+      if size.to_f >= (1024**2) then 
+        size = "#{(size.to_f / 1024**2).round(1)}M"
+      elsif size.to_f >= (1024) then
+        size = "#{(size.to_f / 1024).round(1)}K"
+      end
+      @listing.push [ relative_path, size ]
     end
   end
 

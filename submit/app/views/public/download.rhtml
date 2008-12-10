@@ -4,7 +4,7 @@
   up_img = "/submit/images/folder.open.png"
 %>
 <style type="text/css">
-  DIV.entry IMG { width: 16px; height: 16px; border: 1px; padding-right: 8px; padding-top: 4px }
+  DIV.entry IMG { width: 16px; height: 16px; border: 1px; padding-right: 8px; padding-top: 0px }
 </style>
 <h2><%= @current_directory %></h2>
 
@@ -13,11 +13,15 @@
 <% end %>
 
 <div style="margin-left: 16px">
-  <% @listing.each do |path| %>
+  <% @listing.each do |file| %>
+    <% (path, size) = file %>
     <% if path.is_a? Array %>
       <div class="entry folder"><%= link_to image_tag(folder_img, :alt => "\_") + File.basename(path[0]), { :action => :download, :id => @project, :path => path[0] } %></div>
     <% else %>
-      <div class="entry file"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>
+      <div class="entry file" style="clear: both; padding: 0 0 0 0">
+        <div style="float: left; width: 30%"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>
+        <%= size %>
+      </div>
     <% end %>
   <% end %>
 </div>
