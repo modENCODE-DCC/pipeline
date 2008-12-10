@@ -1,7 +1,6 @@
 require 'find'
 class PublicController < ApplicationController
-  before_filter :login_required
-  before_filter :new_check_user_can_view, :only => 
+  before_filter :download_check_user_can_view, :only => 
   [
     :get_gbrowse_stanzas,
     :get_file,
@@ -172,7 +171,7 @@ class PublicController < ApplicationController
   end
 
   private
-  def new_check_user_can_view
+  def download_check_user_can_view
     project = nil
     begin
       project = Project.find(params[:id])
@@ -182,7 +181,7 @@ class PublicController < ApplicationController
       return false
     end
 
-    if current_user.is_a?(Reviewer) || (project.status == Project::Status::RELEASED || project.user.pi == current_user.pi) then
+    if current_user.is_a?(Reviewer) || project.status == Project::Status::RELEASED || project.user.pi == current_user.pi then
       return true
     else
       redirect_to :action => "list"
