@@ -9,12 +9,15 @@
     TH.tophr { border-top: medium solid grey; }
     TH.bottomhr { border-bottom: medium solid grey; }
   </style>
-  <% @queued_commands = Command.find_all_by_status(Command::Status::QUEUED) %>
+  <%  %>
   <table class="archive_list2">
-    <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>
+    <tr><th colspan="<%= 
+        total_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).length
+        @display_type == "expanded" ? (total_queued_commands > 0 ? 16 : 15) : (total_queued_commands > 0 ? 8 : 7) 
+        %>" class="tophr">&nbsp;</td></tr>
     <% if (@display_type == 'expanded') %>
       <tr>
-        <th colspan="<%= @queued_commands.length > 0 ? 5 : 4 %>">&nbsp;</th>
+        <th colspan="<%= total_queued_commands > 0 ? 5 : 4 %>">&nbsp;</th>
         <th colspan="2" class="banner-top">Upload</th>
         <th colspan="2" class="banner-top">Validation</th>
         <th colspan="2" class="banner-top">DB Load</th>
@@ -31,7 +34,7 @@
       <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
       <th><%= link_to "Submission<br/>Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
       <th><%= link_to "Current<br/>Status", :action => refresh_action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
-      <% if @queued_commands.length > 0 %><th>Q</th><% end %>
+      <% if total_queued_commands > 0 %><th>Q</th><% end %>
 
       <% if (@display_type == 'expanded') %>
         <th><%= link_to "Created", :action => refresh_action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
@@ -59,7 +62,7 @@
       </th>
     </tr>
 
-    <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>
+    <tr><th colspan="<%= @display_type == "expanded" ? (total_queued_commands > 0 ? 16 : 15) : (total_queued_commands > 0 ? 8 : 7) %>" class="tophr">&nbsp;</td></tr>
 
     <% 
       colors = [ '#eeeeee', '#f2f2ff' ]
@@ -127,9 +130,9 @@
         <% end %>    
       </td>
 
-      <% if @queued_commands.length > 0 %>
+      <% if total_queued_commands > 0 %>
         <td title="Queued" align="right" style="align: right; font-size: x-large">
-          <%= @queued_commands.length > 0 ? "*" : "&nbsp;" %>
+          <%= queued_commands > 0 ? "*" : "&nbsp;" %>
         </td>
       <% end %>
 
@@ -237,9 +240,9 @@
     </tr>
   <% end %>
 
-  <tr><th colspan="<%= @display_type == "expanded" ? (@queued_commands.length > 0 ? 16 : 15) : (@queued_commands.length > 0 ? 8 : 7) %>" class="bottomhr">&nbsp;</td></tr>
+  <tr><th colspan="<%= @display_type == "expanded" ? (total_queued_commands > 0 ? 16 : 15) : (total_queued_commands > 0 ? 8 : 7) %>" class="bottomhr">&nbsp;</td></tr>
   <tr>
-    <th class="name" colspan="<%= @queued_commands.length > 0 ? 5 : 4 %>">
+    <th class="name" colspan="<%= total_queued_commands > 0 ? 5 : 4 %>">
       Summary:<br/>
       <span style="font-size:75%">(<%= @projects.length %> submissions listed)</span>
     </th>
@@ -263,7 +266,7 @@
 <br />
      Dates - listed are the most recent attempt of a given command (YY Month DD)<br />
      % success - percentage of successful attempts of a command out of all attempts<br />
-     <% if @queued_commands.length > 0 %>
+     <% if total_queued_commands > 0 %>
      Q - indicates if a given project has commands in the queue.<br />
      <% end %>
      "--" as a date indicates that a given status has not yet been achieved <br />
