@@ -134,7 +134,7 @@ class PublicController < ApplicationController
       next if File.basename(path) == File.basename(@current_directory)
       relative_path = path[@root_directory.length..-1]
       if File.directory? path
-        @listing.push [relative_path, Array.new]
+        @listing.push [ [relative_path, Array.new], 0 ]
         Find.prune
         next
       end
