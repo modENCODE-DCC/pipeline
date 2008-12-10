@@ -17,7 +17,7 @@
     <% if path.is_a? Array %>
       <div class="entry folder"><%= link_to image_tag(folder_img, :alt => "\_") + File.basename(path[0]), { :action => :download, :id => @project, :path => path[0] } %></div>
     <% else %>
-      <div class="entry file"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :path => path } %></div>
+      <div class="entry file"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>
     <% end %>
   <% end %>
 </div>

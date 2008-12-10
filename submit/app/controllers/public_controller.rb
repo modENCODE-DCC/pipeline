@@ -151,7 +151,8 @@ class PublicController < ApplicationController
       return
     end
     # TODO: Make sure that this project is actually released
-    @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), "extracted")
+    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
+    @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     file = File.expand_path(File.join(@root_directory, params[:path]))
 
