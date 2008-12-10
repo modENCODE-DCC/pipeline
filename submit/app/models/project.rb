@@ -23,6 +23,7 @@ class Project < ActiveRecord::Base
     include Load::Status
     include Unload::Status
     include FindTracks::Status
+    include Release::Status
     include Delete::Status
     # Status constants
     NEW = "new"
@@ -33,9 +34,6 @@ class Project < ActiveRecord::Base
     USER_APPROVED = "approved by user, awaiting DCC approval"
     DCC_APPROVED = "approved by DCC, awaiting user approval"
     USER_AND_DCC_APPROVED = "approved by user and DCC"
-
-    AWAITING_RELEASE = "approved. awaiting release"
-    RELEASED = "released"
 
     DELETED = "deleted" #i don't know if this is necessary
     FLAGGED = "flagged" #this could be useful for signaling between DCC and groups

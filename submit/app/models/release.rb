@@ -1,6 +1,6 @@
 class Release < Command
   module Status
-    RELEASING = "releasing"
+    AWAITING_RELEASE = "awaiting release"
     RELEASED = "released"
     RELEASE_FAILED = "release failed"
   end

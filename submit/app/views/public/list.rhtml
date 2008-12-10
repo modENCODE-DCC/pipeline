@@ -1,0 +1,51 @@
+<style type="text/css">
+  TH.banner-top { background-color: #FAFAFA; border-bottom: thin solid black }
+  TH.banner-bottom { background-color: #FAFAFA; border-top: thin solid black }
+  TH.tophr { border-top: medium solid grey; }
+  TH.bottomhr { border-bottom: medium solid grey; }
+</style>
+
+<% if @projects.blank? %>
+  <p>There are no released projects.</p>
+  <% return %>
+<% end %>
+
+<table class="archive_list2" style="width: 70%">
+  <tr><th colspan="5" class="tophr">&nbsp;</td></tr>
+  <tr>
+    <% refresh_action_name = :list -%>
+    <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+    <th style="text-align: left"><%= link_to "Submission Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+    <th>Status</th>
+    <th>PI</th>
+    <th>Actions</th>
+  </tr>
+  <tr><th colspan="5" class="tophr">&nbsp;</td></tr>
+    
+  <% 
+    colors = [ '#eeeeee', '#f2f2ff' ]
+    i = 0
+  %>
+  <% @projects.each do |project| %>
+    <%
+      color = colors[i%2]
+      i += 1
+    %>
+    <tr style="background-color: <%= color %>">
+      <td style="text-align: left"><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
+      <td class="name"> <%= link_to project.name, {:action => 'show', :id => project.id, :controller => 'pipeline' } %></td>
+      <td style="text-align: left"><%= project.status %></td>
+      <td style="text-align: left"><%= project.user.pi.split(",")[0] %></td>
+      <td style="text-align: left">
+        Download
+        <%= link_to "Submitted Data", :action => "download", :id => project, :root => :data %>
+        <% if Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) then %>
+          |
+          <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>
+          |
+          <%= link_to "GBrowse Stanza", :action => "get_gbrowse_stanzas", :id => project %>
+        <% end %>
+      </td>
+    </tr>
+  <% end %>
+</table>

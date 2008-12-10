@@ -17,7 +17,7 @@ class Command < ActiveRecord::Base
         Delete::Status::DELETING,
         Load::Status::LOADING,
         Expand::Status::EXPANDING,
-        Release::Status::RELEASING,
+        Release::Status::AWAITING_RELEASE,
         Unload::Status::UNLOADING,
         Upload::Status::UPLOADING,
         Validate::Status::VALIDATING,

@@ -1129,8 +1129,7 @@ class PipelineController < ApplicationController
     end
     unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
-#      redirect_to :action => 'list' unless options[:skip_redirect] == true 
-#      redirect_to :action => 'status' unless options[:skip_redirect] == true 
+      redirect_to :action => "list" unless options[:skip_redirect] == true 
       return false
     end
     return true
@@ -1180,7 +1179,7 @@ class PipelineController < ApplicationController
     return types
   end
 
-  def status(user = nil)
+  def status
 
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
 

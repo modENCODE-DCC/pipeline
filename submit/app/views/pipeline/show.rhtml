@@ -76,9 +76,21 @@
       this submission.
     </div>
   <% end %>
-  <% if Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then %>
+  <% pronoun = (current_user.is_a?(Moderator) && @project.user != current_user) ? "that've been" : "you've" %>
+  <% if Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then %>
     <div style="font-style: italic; padding-left: 5px">
-      Now that the project is validated, you can <%= link_to "download", { :action => :download_chadoxml, :id => @project } %> the ChadoXML.
+      You can browse and download the <%= link_to "files #{pronoun} uploaded", { :action => :download, :id => @project } %>, or<br/>
+      the <%= link_to "tracks #{pronoun} found", { :action => :download, :id => @project, :root => :tracks } %>, or 
+      fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
+    </div>
+  <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then %>
+    <div style="font-style: italic; padding-left: 5px">
+      You can browse and download the <%= link_to "files #{pronoun} uploaded", { :action => :download, :id => @project } %> or<br/>
+      fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
+    </div>
+  <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING) then %>
+    <div style="font-style: italic; padding-left: 5px">
+      You can <%= link_to "browse and download", { :action => :download, :id => @project } %> the files <%= pronoun %> uploaded.
     </div>
   <% end %>
   <br/>

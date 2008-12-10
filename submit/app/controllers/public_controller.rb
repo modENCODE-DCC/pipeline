@@ -1,11 +1,27 @@
 require 'find'
 class PublicController < ApplicationController
   before_filter :login_required
+  before_filter :new_check_user_can_view, :only => 
+  [
+    :get_gbrowse_stanzas,
+    :get_file,
+    :download
+  ]
+
 
   def index
-    @projects = Project.all
-    @released_projects = Project.find_all_by_status(Project::Status::RELEASED)
-    @projects = Project.find(:all)#, :order => 'name')
+    redirect_to :controller => :pipeline, :action => :index
+  end
+
+  def list
+    # Anyone can view released projects or those in their group
+    if current_user.is_a?(Moderator) then
+      @projects = Project.all
+    else
+      @projects = Project.all.find_all { |p|
+        p.status == Project::Status::RELEASED || p.user.pi == current_user.pi
+      }
+    end
 
     if params[:sort] then
       session[:sort_list] = Hash.new unless session[:sort_list]
@@ -25,16 +41,61 @@ class PublicController < ApplicationController
         p1_attrs <=> p2_attrs
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    else
+      @projects = @projects.sort { |p1, p2| p1.name <=> p2.name }
     end
 
-   @quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)}, 
-               "Y1Q4" => {"year" => "Y1", "quarter"=> "Q4", "start" => Date.civil(2008,2,1), "end" => Date.civil(2008,4,30)}, 
-               "Y2Q1" => {"year" => "Y2", "quarter"=> "Q1", "start" => Date.civil(2008,5,1), "end" => Date.civil(2008,7,31)}, 
-               "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
-               "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
-               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
+  end
 
+  def get_gbrowse_stanzas
+    config_text = ""
 
+    begin
+      project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return false
+    end
+
+    all_track_defs = TrackStanza.find_all_by_user_id_and_project_id(current_user, params[:id])
+    track_defs = Hash.new
+    all_track_defs.each { |td| track_defs.merge! td.stanza }
+
+    track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
+      num = database.gsub(/^modencode_preview_/, '')
+      config_text << "[#{database}:database]\n"
+      config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
+      config_text << "db_args       = -adaptor DBI::Pg\n"
+      config_text << "                -dsn     dbname=modencode_gffdb;host=localhost\n"
+      config_text << "                -user    '????????'\n"
+      config_text << "                -pass    '????????'\n"
+      config_text << "\n"
+    end
+
+    track_defs.each do |stanzaname, definition|
+      semantic_configs = definition[:semantic_zoom]
+
+      config_text << "[#{stanzaname}]\n"
+      definition.each do |option, value|
+        next if option.is_a? Symbol
+        config_text << "#{option} = #{value}\n"
+      end
+      config_text << "\n" if semantic_configs.size > 0
+      semantic_configs.each do |zoom_level, zoom_definition|
+        config_text << "[#{stanzaname}:#{zoom_level}]\n"
+        zoom_definition.each do |option, value|
+          config_text << "#{option} = #{value}\n"
+        end
+      end
+      config_text << "\n\n\n"
+    end
+    if config_text.length > 0 then
+      config_text = "# GBrowse stanza configuration for tracks generated\n# for project ##{project.id}: #{project.name}\n\n" + config_text
+      send_data config_text, :type => "text/plain", :filename => "stanzas.txt", :disposition => "inline"
+    else
+      render :text => "No tracks configured for this project."
+    end
   end
 
   def download
@@ -46,7 +107,12 @@ class PublicController < ApplicationController
       return
     end
     # TODO: Make sure that this project is actually released
-    @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), "extracted")
+    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
+    @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
+
+    unless File.directory?(@root_directory) then
+      redirect_to :action => :list
+    end
 
     @current_directory = params[:path] ? File.expand_path(File.join(@root_directory, params[:path])) : @root_directory
 
@@ -105,40 +171,24 @@ class PublicController < ApplicationController
     send_file file
   end
 
-  def testing
-    @projects = Project.all
-    @released_projects = Project.find_all_by_status(Project::Status::RELEASED)
-    @projects = Project.find(:all)#, :order => 'name')
-
-    if params[:sort] then
-      session[:sort_list] = Hash.new unless session[:sort_list]
-      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
-    end
-    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
-    if params[:sort] then
-      session[:sort_list] = Hash.new unless session[:sort_list]
-      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
-    end
-    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
-    if session[:sort_list] then
-      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
-      @projects = @projects.sort { |p1, p2|
-        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
-        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
-        p1_attrs <=> p2_attrs
-      }
-      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+  private
+  def new_check_user_can_view
+    project = nil
+    begin
+      project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return false
     end
 
-   @quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)}, 
-               "Y1Q4" => {"year" => "Y1", "quarter"=> "Q4", "start" => Date.civil(2008,2,1), "end" => Date.civil(2008,4,30)}, 
-               "Y2Q1" => {"year" => "Y2", "quarter"=> "Q1", "start" => Date.civil(2008,5,1), "end" => Date.civil(2008,7,31)}, 
-               "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
-               "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
-               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
-
-
+    if current_user.is_a?(Reviewer) || (project.status == Project::Status::RELEASED || project.user.pi == current_user.pi) then
+      return true
+    else
+      redirect_to :action => "list"
+      return false
+    end
   end
 
-
 end
+

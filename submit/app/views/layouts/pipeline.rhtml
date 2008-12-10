@@ -83,12 +83,14 @@
 
     <div id="nav">
       <span style="float:right; text-align:right">
+          <span><%= link_to_unless_current 'Downloads', :controller => 'public', :action => 'list' %></span>
+          |
           <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
           |
-        <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
-        <% if current_user.is_a? Administrator then %>
-          | <%= link_to ' Administration', :controller => 'administration', :action => 'index' %> 
-        <% end %>
+          <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
+          <% if current_user.is_a? Administrator then %>
+            | <%= link_to ' Administration', :controller => 'administration', :action => 'index' %> 
+          <% end %>
       </span>
       <style type="text/css">
         SPAN#list SPAN { font-weight: bold; }
@@ -109,15 +111,6 @@
         submissions
         or <%= link_to_unless_current 'create a new submission', :controller => 'pipeline', :action => 'new' %>.
       </span>
-    </div>
-
-    <div id="stuff_to_do">
-      <table align="center">
-        <tr>
-          <td align="center">
-          </td>
-        </tr>
-      </table>
     </div>
 
     <div id="message">
