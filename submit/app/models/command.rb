@@ -32,7 +32,6 @@ class Command < ActiveRecord::Base
         Delete::Status::DELETE_FAILED,
         Load::Status::LOAD_FAILED,
         Expand::Status::EXPAND_FAILED,
-        Release::Status::RELEASE_FAILED,
         Unload::Status::UNLOAD_FAILED,
         Validate::Status::VALIDATION_FAILED,
       ]

@@ -30,11 +30,6 @@ class Project < ActiveRecord::Base
     CONFIGURING = "configuring tracks"
     CONFIGURED = "tracks configured"
 
-    BEGIN_APPROVAL = "validated. awaiting user and DCC approval"
-    USER_APPROVED = "approved by user, awaiting DCC approval"
-    DCC_APPROVED = "approved by DCC, awaiting user approval"
-    USER_AND_DCC_APPROVED = "approved by user and DCC"
-
     DELETED = "deleted" #i don't know if this is necessary
     FLAGGED = "flagged" #this could be useful for signaling between DCC and groups
 
@@ -67,7 +62,15 @@ class Project < ActiveRecord::Base
       when FOUND
         ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING ]
       when CONFIGURED
-        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, BEGIN_APPROVAL ]
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+      when AWAITING_RELEASE
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE, USER_RELEASED, DCC_RELEASED ]
+      when USER_RELEASED
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE, DCC_RELEASED, RELEASED ]
+      when DCC_RELEASED
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE, USER_RELEASED, RELEASED ]
+      when RELEASE_REJECTED
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING ]
       when FAILED
         ok = [ UPLOADING, DELETING ]
         ok.push VALIDATING if project.project_archives.find_all { |pa| pa.is_active }.size > 0
