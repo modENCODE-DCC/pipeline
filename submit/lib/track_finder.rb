@@ -213,7 +213,7 @@ class TrackFinder
 
   def find_tracks(experiment_id)
     cmd_puts "Loading feature and wiggle data into GBrowse database..."
-    sth_datums = dbh_safe { 
+    sth_get_data_by_applied_protocols = dbh_safe { 
       @dbh.prepare("SELECT 
                    d.data_id,
                    d.heading, 
@@ -232,14 +232,15 @@ class TrackFinder
                    HAVING count(wig.*) > 0 OR COUNT(df.*) > 0") 
     }
 
-    sth_features = dbh_safe { 
+    sth_get_features_by_data_ids = dbh_safe { 
       @dbh.prepare("SELECT
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase,
+                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
                    src.name AS srcfeature,
+                   src.feature_id AS srcfeature_id,
                    srctype.name AS srctype
                    FROM data_feature df
                    INNER JOIN feature f ON f.feature_id = df.feature_id
@@ -248,16 +249,17 @@ class TrackFinder
                    LEFT JOIN featureloc fl ON df.feature_id = fl.feature_id
                    LEFT JOIN feature src ON src.feature_id = fl.srcfeature_id
                    LEFT JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
-                   WHERE df.data_id = ANY(?)") 
+                   WHERE df.data_id = ANY(?) ORDER BY fl.rank")
     }
-    sth_parts_of_features = dbh_safe {
+    sth_get_parts_of_features = dbh_safe {
       @dbh.prepare("SELECT
                    fr.object_id AS parent_id,
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase,
+                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
                    src.name AS srcfeature,
+                   src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
                    frtype.name AS relationship_type
                    FROM feature f
@@ -267,10 +269,10 @@ class TrackFinder
                    LEFT JOIN featureloc fl ON f.feature_id = fl.feature_id
                    LEFT JOIN feature src ON src.feature_id = fl.srcfeature_id
                    LEFT JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
-                   WHERE fr.object_id = ANY(?)")
+                   WHERE fr.object_id = ANY(?) ORDER BY fl.rank")
     }
 
-    sth_wiggles = dbh_safe { 
+    sth_get_wiggles_by_data_ids = dbh_safe { 
       @dbh.prepare("SELECT 
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
                    wiggle_data.name, 
@@ -296,14 +298,15 @@ class TrackFinder
     dbh_safe {
       usable_tracks.each do |col, set_of_tracks|
         set_of_tracks.each do |applied_protocols|
-          # Get the outputs for the applied_protocol
+
+          # Get the data objects for the applied_protocol
           ap_ids = applied_protocols.map { |ap| ap.applied_protocol_id }
-          sth_datums.execute(ap_ids)
+          sth_get_data_by_applied_protocols.execute(ap_ids)
 
           data_ids_with_features = Array.new
           data_ids_with_wiggles = Array.new
 
-          sth_datums.fetch_hash do |row|
+          sth_get_data_by_applied_protocols.fetch_hash do |row|
             if row['number_of_features'].to_i > 0 then
               data_ids_with_features.push row["data_id"].to_i
             elsif row['number_of_wiggles'].to_i > 0 then
@@ -311,13 +314,14 @@ class TrackFinder
             end
           end
 
+          # Get any features and wiggles associated with the each track's data objects
           features = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
           wiggles = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
           parent_feature_ids = Hash.new
           cmd_puts "    Getting features."
           if data_ids_with_features.size > 0 then
-            sth_features.execute data_ids_with_features.uniq
-            sth_features.fetch_hash { |row| 
+            sth_get_features_by_data_ids.execute data_ids_with_features.uniq
+            sth_get_features_by_data_ids.fetch_hash { |row| 
               feature_hash = row
               feature_hash["children"] = Array.new
               feature_hash["parents"] = Array.new
@@ -326,12 +330,12 @@ class TrackFinder
             }
           end
 
-
-
+          # Get any features that are the the subject to the found features' objects
+          # e.g. child features
           while parent_feature_ids.keys.size > 0
-            sth_parts_of_features.execute parent_feature_ids.keys
+            sth_get_parts_of_features.execute parent_feature_ids.keys
             new_parent_feature_ids = Hash.new
-            sth_parts_of_features.fetch_hash { |row|
+            sth_get_parts_of_features.fetch_hash { |row|
               subfeature_hash = row.reject { |column, value| column == "object_id" }
               subfeature_hash["children"] = Array.new
               subfeature_hash["parents"] = Array.new
@@ -348,12 +352,13 @@ class TrackFinder
             }
             parent_feature_ids = new_parent_feature_ids
           end
+
           cmd_puts "    Done."
 
           cmd_puts "    Getting wiggle files."
           if data_ids_with_wiggles.size > 0 then
-            sth_wiggles.execute data_ids_with_wiggles.uniq
-            sth_wiggles.fetch_hash { |row| wiggles[row["data_name"]].push row.reject { |column, value| column == "data_name" } }
+            sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
+            sth_get_wiggles_by_data_ids.fetch_hash { |row| wiggles[row["data_name"]].push row.reject { |column, value| column == "data_name" } }
           end
           cmd_puts "    Done."
 
@@ -362,7 +367,7 @@ class TrackFinder
           features.default = nil
 
           cmd_puts "    For the protocol in column #{col}:"
-          if features.size > 0 then
+          if features.size > 0  then
             cmd_puts "      There are #{features.size} features."
             features.each_pair do |datum_name, features|
               found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
@@ -547,17 +552,19 @@ class TrackFinder
             cmd_puts "  There are #{track_descriptor[:data].size} features for the #{track_descriptor[:name]} track"
 
 
+            has_chromosome_location = false
             merged_features = Hash.new
             track_descriptor[:data].each do |feature|
               if merged_features.has_key? feature['feature_id'] then
                 # Two locations?
+                has_chromosome_location = true if feature['srcfeature_id'] != feature['feature_id']
                 seen_feature = merged_features[feature['feature_id']]
                 if seen_feature['fmin'] != feature['fmin'] || seen_feature['fmax'] != feature['fmax'] || seen_feature['srcfeature'] != feature['srcfeature'] then
-                  if seen_feature['srctype'] == "chromosome_arm" then
-                    # The seen_feature is the match vs. the chromosome
+                  if feature['rank'].to_i == 1 then
+                    # The feature is the Target
                     seen_feature['target'] = "#{feature['srcfeature']} #{feature['fmin']} #{feature['fmax']}"
-                  elsif feature['srctype'] == "chromosome_arm" then
-                    # The seen_feature is the match vs. the target, because the current feature is the match vs. the chromosome
+                  elsif feature['rank'].to_i == 0 then
+                    # The seen_feature is the Target, because the current feature is the match vs. the chromosome
                     feature['target'] = "#{seen_feature['srcfeature']} #{seen_feature['fmin']} #{seen_feature['fmax']}"
                     merged_features[feature['feature_id']] = feature
                   end
@@ -566,6 +573,11 @@ class TrackFinder
               else
                 merged_features[feature['feature_id']] = feature
               end
+            end
+
+            unless has_chromosome_location then
+              cmd_puts "    No features mapped to a chromosome, not generating track."
+              next
             end
             
             cmd_puts  "    There are #{merged_features.size} features after removing duplicate features"
@@ -697,6 +709,7 @@ class TrackFinder
     else feature['strand'] = '.'
     end
     feature['phase'] = '.' if feature['phase'].nil?
+    feature['fmin'] = (feature['fmin'].to_i + 1).to_s unless feature['fmin'].nil? # Adjust coordinate system
     feature['fmin'] = '.' if feature['fmin'].nil?
     feature['fmax'] = '.' if feature['fmax'].nil?
 
@@ -1019,6 +1032,8 @@ class TrackFinder
           track_defs[stanzaname]['category'] = "Preview"
           track_defs[stanzaname]['feature'] = type
           track_defs[stanzaname]['fgcolor'] = fgcolor
+          track_defs[stanzaname]['stranded'] = 0
+          track_defs[stanzaname]['group_on'] = nil
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
           track_defs[stanzaname]['key'] = key
           track_defs[stanzaname]['label'] = label
@@ -1036,6 +1051,8 @@ class TrackFinder
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['label'] = label
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = glyph
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['fgcolor'] = fgcolor
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['stranded'] = 0
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['group_on'] = fgcolor
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['min_score'] = min_score unless min_score.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['max_score'] = max_score unless max_score.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['neg_color'] = neg_color unless neg_color.nil?

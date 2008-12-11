@@ -261,7 +261,7 @@
       fmin = definition[:fmin] || default_fmin
       semantic_configs = definition[:semantic_zoom]
     %>
-    <% definition.each do |option, value| %>
+    <% definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
       <% next if option.is_a? Symbol %>
 
       <% if @stanza_options[option] %>
@@ -280,7 +280,7 @@
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
             </script>
           <% elsif @stanza_options[option] == :text %>
-            <input type="text" style="display:none" name="<%=option%>" value="<%=value%>" id="<%="#{stanzaname}_#{option}"%>"/>
+            <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictText);
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
@@ -316,7 +316,7 @@
           </script>
         </span>
         <br/>
-        <% zoom_definition.each do |option, value| %>
+        <% zoom_definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
           <% if @stanza_options[option] %>
             <span class="flipfield">
               <span onmousedown="showForm(this, event)">
@@ -360,14 +360,15 @@
         type="text" value="<%=fmax%>" name="fmax" id="fmax_<%= stanzaname %>" size="5"/>
 
       <script type="text/javascript">
-        Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictNumeric);
+        Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictText);
         Event.observe($('fmin_<%=stanzaname%>'), 'keypress', restrictNumeric);
         Event.observe($('fmax_<%=stanzaname%>'), 'keypress', restrictNumeric);
       </script>
       <%= submit_tag "Update" %>
-      <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px">Loading image...</div><img id="<%= stanzaname %>_image"/></div>
     </div>
   </form>
+  <%= button_to "Delete stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
+  <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px">Loading image...</div><img id="<%= stanzaname %>_image"/></div>
   <script type="text/javascript">
     $('form_<%=stanzaname%>').reset();
     var gbtrack_<%= stanzaname %> = new GBrowseTrack('<%= stanzaname %>', 'notype', 'detail');
@@ -386,3 +387,6 @@
   <br/>
 <% end %>
 
+<div>
+  <%= button_to "Accept Configuration", { :action => :configure_tracks, :id => @project.id, :accept_config => true } %>
+</div>

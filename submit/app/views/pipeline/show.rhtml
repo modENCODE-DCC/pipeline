@@ -140,8 +140,8 @@
         "(Requires that tracks have been discovered.)"
       ],
       [
-        :approve_tracks,
-        Project::Status::BEGIN_APPROVAL,
+        :release,
+        Project::Status::AWAITING_RELEASE,
         "Approve for release",
         "Approve tracks for release by the DCC. (See #{link_to "checklist", { :action => :release, :id => @project }}.)",
         "(Requires that tracks have been configured.)"

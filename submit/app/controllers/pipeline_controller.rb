@@ -6,8 +6,10 @@ class PipelineController < ApplicationController
   STANZA_OPTIONS = {
     'fgcolor' => GD_COLORS,
     'bgcolor' => GD_COLORS,
+    'group_on' => [ nil, 'sub { return shift->name }' ],
+    'stranded' => [ 0, 1 ],
     'key' => :text,
-    'label' => [ 'sub { return shift->name; }', 'sub { return shift->source; }' ],
+    'label' => [ 'sub { return shift->name; }', 'sub { return shift->type; }', 'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }', 'sub { return shift->source; }', 'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' ],
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
@@ -455,25 +457,6 @@ class PipelineController < ApplicationController
  
   end
 
-  def begin_loading
-    # TODO: Delete this function
-    @project = Project.find(params[:id])
-    if @project.status == Validate::Status::VALIDATED
-      @project.status = Load::Status::LOADING
-      @project.save
-      log_project_status
-    end
-    redirect_to :action => 'show', :id => @project.id
-    galtDebug = false  # set to true to cause processing in parent without child 
-                       # for debugging so you can see the error messages
-    if galtDebug
-      load
-    else
-      # TODO: Used to fork
-        load 
-    end
-  end
-
   def deactivate_archive
     project_archive = ProjectArchive.find(params[:id])
     @project = project_archive.project
@@ -674,6 +657,26 @@ class PipelineController < ApplicationController
       return false
     end
 
+    if params[:delete_stanza] then
+      if @project.status == Project::Status::CONFIGURED then
+        @project.status = Project::Status::FOUND
+        @project.save
+      end
+      ts = TrackStanza.find_by_project_id(@project.id)
+      ts.stanza = ts.stanza.reject { |key, value| key == params[:delete_stanza] }
+      ts.save
+      redirect_to :action => :configure_tracks, :id => @project
+      return
+    end
+    
+    if params[:accept_config] then
+      @project.status = Project::Status::CONFIGURED
+      @project.save
+      redirect_to :action => :show, :id => @project
+      return
+    end
+
+
     ts = TrackStanza.find_by_project_id(@project.id)
     if ts.nil? || params[:reset_definitions] then
       @track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
@@ -690,6 +693,15 @@ class PipelineController < ApplicationController
   end
       
   def async_update_track_location
+
+    begin
+      @project = Project.find(params[:id])
+      if @project.status == Project::Status::CONFIGURED then
+        @project.status = Project::Status::FOUND
+        @project.save
+      end
+    rescue
+    end
     stanzaname = params[:stanzaname]
     changed = false
     user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
@@ -839,54 +851,51 @@ class PipelineController < ApplicationController
       return
     end
 
-    last_validation = @project.commands.find_all_by_type('ValidateIdf2chadoxml').sort { |a, b| a.id <=> b.id }.last
-    @is_validated = [ 
-      "Data Validated",
-      last_validation && last_validation.status == Validate::Status::VALIDATED, 
-      last_validation ? last_validation.updated_at : "never",
-      last_validation
-    ]
-
+    # Uploaded data?
     last_upload = (@project.commands.find_all_by_type('Upload::File')+@project.commands.find_all_by_type('Upload::Url')).sort { |a, b| a.id <=> b.id }.last
-    @is_uploaded = [ 
-      "Data Upload",
-      last_upload && last_upload.status == Upload::Status::UPLOADED, 
-      last_upload ? last_upload.updated_at : "never",
-      last_upload
-    ]
+    @is_uploaded = {
+      :done => Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING),
+      :description => "Data Upload",
+      :date => last_upload ? last_upload.updated_at : "never"
+    }
 
+    # Validated data?
+    last_validation = @project.commands.find_all_by_type('ValidateIdf2chadoxml').sort { |a, b| a.id <=> b.id }.last
+    @is_validated = {
+      :done => Project::Status::ok_next_states(@project).include?(Project::Status::LOADING),
+      :description => "Data Validated",
+      :date => last_validation ? last_validation.updated_at : "never"
+    }
 
     last_loading = @project.commands.find_all_by_type('LoadIdf2chadoxml').sort { |a, b| a.id <=> b.id }.last
-    @is_loaded = [
-      "Database loaded",
-      last_loading && last_loading.status == Load::Status::LOADED, 
-      last_loading ? last_loading.updated_at : "never",
-      last_loading
-    ]
+    @is_loaded = {
+      :done => Project::Status::ok_next_states(@project).include?(Project::Status::FINDING),
+      :description => "Database loaded",
+      :date => last_loading ? last_loading.updated_at : "never"
+    }
 
     last_track_finding = @project.commands.find_all_by_type('FindTracks').sort { |a, b| a.id <=> b.id }.last
-    @is_tracks_found = [
-      "Tracks found",
-      last_track_finding && last_track_finding.status == FindTracks::Status::FOUND, 
-      last_track_finding ? last_track_finding.updated_at : "never",
-      last_track_finding
-    ]
+    @is_tracks_found = {
+      :done => Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING),
+      :description => "Tracks found",
+      :date => last_track_finding ? last_track_finding.updated_at : "never"
+    }
 
-    last_track_configure = @project.commands.find_all_by_type('ConfigureTracks').sort { |a, b| a.id <=> b.id }.last
-    @is_tracks_configured = [
-      "Tracks configured",
-      false,
-      last_track_configure ? last_track_configure.updated_at : "never",
-      last_track_configure
-    ]
+    @is_tracks_configured = {
+      :done => Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE),
+      :description => "Tracks configured",
+      :date => (Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE)) ? @project.updated_at : "never",
+    }
 
     @checklist_for_data_validation = [@is_uploaded, @is_validated, @is_loaded, @is_tracks_found, @is_tracks_configured ]
 
-    @checklist_for_release_by_pi = ["Okay to go to Browser", 
-                                    "Okay to go to modMine", 
-				   "Okay to go to FTP site",
-				   "Okay to go to GEO",
-				   "Okay to go to Worm/Flybase" ]
+    @checklist_for_release_by_pi = [ 
+      [ "Submission files okay?", { :controller => :public, :action => :download, :id => @project } ],
+      [ "GBrowse tracks okay?", { :action => :configure_tracks, :id => @project } ],
+      [ "modMINE data okay?", {} ],
+      [ "GEO submission okay?", {} ],
+      # Worm/Flybase?
+    ]
 
     @project_needs_release = @project.status == "released" ? false : true
     #    TODO
