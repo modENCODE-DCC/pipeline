@@ -14,9 +14,11 @@
 
 <div style="margin-left: 16px">
   <% @listing.each do |file| %>
-    <% (path, size) = file %>
-    <% if path.is_a? Array %>
-      <div class="entry folder"><%= link_to image_tag(folder_img, :alt => "\_") + File.basename(path[0]), { :action => :download, :id => @project, :path => path[0] } %></div>
+    <% (type, path, children, size) = file %>
+    <% if children.is_a? Array %>
+      <div style="float: left; width: 30%" class="entry folder">
+        <%= link_to image_tag(folder_img, :alt => "\_") + File.basename(path), { :action => :download, :id => @project, :root => params[:root], :path => path } %>
+      </div>
     <% else %>
       <div class="entry file" style="clear: both; padding: 0 0 0 0">
         <div style="float: left; width: 30%"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>

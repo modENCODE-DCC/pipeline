@@ -78,12 +78,15 @@ class PublicController < ApplicationController
       config_text << "[#{stanzaname}]\n"
       definition.each do |option, value|
         next if option.is_a? Symbol
+        next if value.nil?
         config_text << "#{option} = #{value}\n"
       end
       config_text << "\n" if semantic_configs.size > 0
       semantic_configs.each do |zoom_level, zoom_definition|
         config_text << "[#{stanzaname}:#{zoom_level}]\n"
         zoom_definition.each do |option, value|
+          next if option.is_a? Symbol
+          next if value.nil?
           config_text << "#{option} = #{value}\n"
         end
       end
@@ -134,7 +137,7 @@ class PublicController < ApplicationController
       next if File.basename(path) == File.basename(@current_directory)
       relative_path = path[@root_directory.length..-1]
       if File.directory? path
-        @listing.push [ [relative_path, Array.new], 0 ]
+        @listing.push [ :folder, relative_path, Array.new, 0 ]
         Find.prune
         next
       end
@@ -144,8 +147,9 @@ class PublicController < ApplicationController
       elsif size.to_f >= (1024) then
         size = "#{(size.to_f / 1024).round(1)}K"
       end
-      @listing.push [ relative_path, size ]
+      @listing.push [ :file, relative_path, nil, size ]
     end
+    @listing.sort! { |l1, l2| (l1[0] == :folder ? "0" : 1) <=> (l2[0] == :folder ? 0 : 1) }
   end
 
   def get_file

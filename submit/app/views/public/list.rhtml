@@ -42,6 +42,8 @@
         <% if Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) then %>
           |
           <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>
+        <% end %>
+        <% if Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) then %>
           |
           <%= link_to "GBrowse Stanza", :action => "get_gbrowse_stanzas", :id => project %>
         <% end %>
