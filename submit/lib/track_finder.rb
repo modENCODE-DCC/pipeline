@@ -551,13 +551,12 @@ class TrackFinder
           if track_descriptor[:type] == :feature then
             cmd_puts "  There are #{track_descriptor[:data].size} features for the #{track_descriptor[:name]} track"
 
-
             has_chromosome_location = false
             merged_features = Hash.new
             track_descriptor[:data].each do |feature|
+              has_chromosome_location = true if feature['srcfeature_id'] != feature['feature_id']
               if merged_features.has_key? feature['feature_id'] then
                 # Two locations?
-                has_chromosome_location = true if feature['srcfeature_id'] != feature['feature_id']
                 seen_feature = merged_features[feature['feature_id']]
                 if seen_feature['fmin'] != feature['fmin'] || seen_feature['fmax'] != feature['fmax'] || seen_feature['srcfeature'] != feature['srcfeature'] then
                   if feature['rank'].to_i == 1 then
