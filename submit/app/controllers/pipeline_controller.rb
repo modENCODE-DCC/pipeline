@@ -2,14 +2,14 @@ require 'find'
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
-  GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'blue', 'lightgrey', 'grey']
+  GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
   STANZA_OPTIONS = {
     'fgcolor' => GD_COLORS,
     'bgcolor' => GD_COLORS,
     'group_on' => [ nil, 'sub { return shift->name }' ],
     'stranded' => [ 0, 1 ],
     'key' => :text,
-    'label' => [ 'sub { return shift->name; }', 'sub { return shift->type; }', 'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }', 'sub { return shift->source; }', 'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' ],
+    'label' => [ 'sub { return shift->name; }', 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }', 'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }', 'sub { return shift->source; }', 'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' ],
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
@@ -662,7 +662,14 @@ class PipelineController < ApplicationController
         @project.status = Project::Status::FOUND
         @project.save
       end
-      ts = TrackStanza.find_by_project_id(@project.id)
+
+      # Unaccept config(s) for this project if any have been accepted
+      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+        ts.released = false
+        ts.save
+      }
+
+      ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
       ts.stanza = ts.stanza.reject { |key, value| key == params[:delete_stanza] }
       ts.save
       redirect_to :action => :configure_tracks, :id => @project
@@ -672,20 +679,38 @@ class PipelineController < ApplicationController
     if params[:accept_config] then
       @project.status = Project::Status::CONFIGURED
       @project.save
+
+      # Unaccept config(s) for this project if any have been accepted
+      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+        ts.released = false
+        ts.save
+      }
+      ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+      ts.released = true
+      ts.save
       redirect_to :action => :show, :id => @project
       return
     end
 
 
-    ts = TrackStanza.find_by_project_id(@project.id)
+    released_ts = TrackStanza.find_by_project_id_and_released(@project.id, true)
+    ts = nil
+    if released_ts then
+      ts = released_ts
+      @released = true
+    else
+      ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+      @released = false
+    end
     if ts.nil? || params[:reset_definitions] then
       @track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
       # Delete old one
-      ts.destroy unless ts.nil?
+      TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id) unless ts.nil?
       ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(@track_defs)
       ts.save
       redirect_to :action => :configure_tracks, :id => @project
     else
+      @ts_user = ts.user
       @track_defs = ts.stanza
     end
 
@@ -702,10 +727,18 @@ class PipelineController < ApplicationController
       end
     rescue
     end
+
+    # Unaccept config(s) for this project if any have been accepted
+    TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+      ts.released = false
+      ts.save
+    }
+
     stanzaname = params[:stanzaname]
     changed = false
     user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
     user_stanza = user_stanzas.find { |ts| ts.stanza.has_key? stanzaname }
+
     stanzas = user_stanza.stanza
     if stanzas[stanzaname][:chr] != params[:chr] = params[:chr] then
       if params[:chr] =~ /^[a-zA-Z0-9_]+$/
@@ -822,7 +855,11 @@ class PipelineController < ApplicationController
     end
 
     headers["Content-Type"] = "application/javascript"
-    render :text => '1;'
+    if params[:reload] then
+      window.location.reload();
+    else
+      render :text => '1;'
+    end
   end
 
   def full_command_history

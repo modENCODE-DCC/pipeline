@@ -204,14 +204,12 @@
         // Arrow keys
         return true;
       } else {
-        Event.stop(keyEvent);
-        return false;
+        return restrictNumeric(keyEvent);
       }
     } else if (charCode == 8 || charCode == 46) {
       return true;
     } else {
-      Event.stop(keyEvent);
-      return false;
+      return restrictNumeric(keyEvent);
     }
   }
   function hideTextField(evt) {
@@ -244,15 +242,22 @@
 
 </script>
 <h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %><hr/></h2>
+<% if @released then %>
+  <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
+<% end %>
 <div style="float:right">
   <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/modencode/", :popup => true %>
   <br/>
-  <%= button_to "Reset All", { :action => :configure_tracks, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
+  <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
 </div>
 
 
 <% @track_defs.sort.each do |stanzaname, definition| %>
-  <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+  <% if @released then %>
+    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :confirm => "This configuration has been approved; are you sure you want to reconfigure it?", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+  <% else %>
+    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+  <% end %>
     <input type="hidden" name="stanzaname" value="<%=stanzaname%>"/>
     <b>[<%= stanzaname %>]</b><br/>
     <% 
@@ -388,5 +393,5 @@
 <% end %>
 
 <div>
-  <%= button_to "Accept Configuration", { :action => :configure_tracks, :id => @project.id, :accept_config => true } %>
+  <%= button_to "Accept Configuration", { :action => :configure_tracks, :id => @project.id, :accept_config => true }, :disabled => @released %>
 </div>
