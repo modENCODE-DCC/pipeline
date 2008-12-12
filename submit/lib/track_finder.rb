@@ -967,6 +967,7 @@ class TrackFinder
       neg_color = nil
       pos_color = nil
       fgcolor = "black"
+      bgcolor = "lightgrey"
       glyph = "generic"
       label = "sub { return shift->name; }"
       connector = "solid"
@@ -978,17 +979,17 @@ class TrackFinder
         label = "sub { my $f = shift; foreach (@{$f->each_tag_value('Target')}) { s/\s+\d+\s+\d+\s*$//g; return $_; } }"
       when "histone_binding_site" then
         glyph = "segments"
-        label = track_type
+        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
         connector = "0"
         connector_color = "white"
       when "TF_binding_site" then
         glyph = "segments"
-        label = track_type
+        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
         connector = "0"
         connector_color = "white"
       when "binding_site" then
         glyph = "segments"
-        label = track_type
+        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
         connector_color = "white"
       when "transcript_region" then
         glyph = "segments"
@@ -1031,6 +1032,7 @@ class TrackFinder
           track_defs[stanzaname]['category'] = "Preview"
           track_defs[stanzaname]['feature'] = type
           track_defs[stanzaname]['fgcolor'] = fgcolor
+          track_defs[stanzaname]['bgcolor'] = bgcolor
           track_defs[stanzaname]['stranded'] = 0
           track_defs[stanzaname]['group_on'] = nil
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
@@ -1050,8 +1052,9 @@ class TrackFinder
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['label'] = label
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = glyph
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['fgcolor'] = fgcolor
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['bgcolor'] = bgcolor
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['stranded'] = 0
-          track_defs[stanzaname][:semantic_zoom][zoomlevel]['group_on'] = fgcolor
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['group_on'] = group_on
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['min_score'] = min_score unless min_score.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['max_score'] = max_score unless max_score.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['neg_color'] = neg_color unless neg_color.nil?
