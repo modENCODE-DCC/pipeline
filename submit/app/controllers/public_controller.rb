@@ -18,7 +18,7 @@ class PublicController < ApplicationController
       @projects = Project.all
     else
       @projects = Project.all.find_all { |p|
-        p.status == Project::Status::RELEASED || p.user.pi == current_user.pi
+        p.status == Project::Status::RELEASED || (current_user.is_a?(User) && p.user.pi == current_user.pi)
       }
     end
 
@@ -149,7 +149,7 @@ class PublicController < ApplicationController
       end
       @listing.push [ :file, relative_path, nil, size ]
     end
-    @listing.sort! { |l1, l2| (l1[0] == :folder ? "0" : 1) <=> (l2[0] == :folder ? 0 : 1) }
+    @listing.sort! { |l1, l2| (l1[0] == :folder ? "0#{l1[1]}" : "1#{l1[1]}") <=> (l2[0] == :folder ? "0#{l2[1]}" : "1#{l2[1]}") }
   end
 
   def get_file
@@ -192,8 +192,13 @@ class PublicController < ApplicationController
       return false
     end
 
-    if current_user.is_a?(Reviewer) || project.status == Project::Status::RELEASED || project.user.pi == current_user.pi then
+    if (project.status == Project::Status::RELEASED) then
       return true
+    elsif (current_user.is_a? User) then
+      if current_user.is_a?(Reviewer) || project.user.pi == current_user.pi then
+        return true
+      end
+      return false
     else
       redirect_to :action => "list"
       return false
