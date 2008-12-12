@@ -51,6 +51,18 @@ else
 
   all_track_defs = TrackStanza.find_all_by_user_id(session[:user])
 end
+
+# Use released configs if they exist
+released_configs = Array.new
+all_track_defs.each { |td|
+  released_config = TrackStanza.find_by_project_id_and_released(td.project_id, true)
+  released_configs.push released_config if released_config
+}
+released_configs.each { |td|
+  all_track_defs.delete_if { |atd| atd.project_id == td.project_id }
+  all_track_defs.push td
+}
+
 track_defs = Hash.new
 all_track_defs.each { |td| track_defs.merge! td.stanza }
 
@@ -86,12 +98,15 @@ track_defs.each do |stanzaname, definition|
   config_text << "[#{stanzaname}]\n"
   definition.each do |option, value|
     next if option.is_a? Symbol
+    next if value.nil?
     config_text << "#{option} = #{value}\n"
   end
   config_text << "\n" if semantic_configs.size > 0
   semantic_configs.each do |zoom_level, zoom_definition|
     config_text << "[#{stanzaname}:#{zoom_level}]\n"
     zoom_definition.each do |option, value|
+      next if option.is_a? Symbol
+      next if value.nil?
       config_text << "#{option} = #{value}\n"
     end
   end
