@@ -254,7 +254,7 @@
 
 <% @track_defs.sort.each do |stanzaname, definition| %>
   <% if @released then %>
-    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :confirm => "This configuration has been approved; are you sure you want to reconfigure it?", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :confirm => "This configuration has been approved; are you sure you want to reconfigure it?", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
   <% else %>
     <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :html => { :id => "form_#{stanzaname}", :action => "#" } %>
   <% end %>

@@ -846,17 +846,21 @@ class PipelineController < ApplicationController
 
       # Update the track view with the new location
       headers["Content-Type"] = "application/javascript"
-      render :text => "
-        Controller.update_coordinates(
-          '#{stanzaname}', 'name:#{name}', '#{chr}', #{fmin}, #{fmax}
-        );
-      "
+      if params[:reload] then
+        render :text => "window.location.reload();"
+      else
+        render :text => "
+          Controller.update_coordinates(
+            '#{stanzaname}', 'name:#{name}', '#{chr}', #{fmin}, #{fmax}
+          );
+        "
+      end
       return
     end
 
     headers["Content-Type"] = "application/javascript"
     if params[:reload] then
-      window.location.reload();
+      render :text => "window.location.reload();"
     else
       render :text => '1;'
     end
