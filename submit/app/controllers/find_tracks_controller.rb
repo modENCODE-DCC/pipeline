@@ -25,6 +25,13 @@ class FindTracksController < CommandController
       schema = "modencode_experiment_#{command_object.project.id}"
       track_finder.search_path = schema
 
+      unless schemas[schema] then
+        command_object.stderr = "Couldn't find the loaded experiment in the #{schema} schema in the database.\nTry validating or loading the project again."
+        command_object.status = FindTracks::Status::FINDING_FAILED
+        command_object.save
+        return self.do_after
+      end
+
       experiment_id = schemas[schema][0]
 
       found_tracks = track_finder.find_tracks(experiment_id)
