@@ -9,7 +9,16 @@ class PipelineController < ApplicationController
     'group_on' => [ nil, 'sub { return shift->name }' ],
     'stranded' => [ 0, 1 ],
     'key' => :text,
-    'label' => [ 'sub { return shift->name; }', 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }', 'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }', 'sub { return shift->source; }', 'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' ],
+    'label' => {
+      nil => " [No label]",
+      'sub { return shift->name; }'                                              => "[Feature Name (for individual features)]", 
+      'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' => "[Feature Name (for groups)]",
+      'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for groups)]",
+      'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for individual features)]",
+      'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'         => "[Track Type]",
+      'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }'         => "[GFF ID]", 
+      'sub { return shift->source; }'                                            => "[Submission #]",
+    },
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
@@ -728,6 +737,7 @@ class PipelineController < ApplicationController
     rescue
     end
 
+    update_errors = Array.new
     # Unaccept config(s) for this project if any have been accepted
     TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
       ts.released = false
@@ -766,6 +776,8 @@ class PipelineController < ApplicationController
         okay_value = false
         if values.is_a? Array then
           okay_value = true if values.member?(value)
+        elsif values.is_a? Hash then
+          okay_value = true if values.keys.member?(value)
         elsif values.is_a? Symbol then
           # Controlled type
           case values
@@ -781,6 +793,8 @@ class PipelineController < ApplicationController
             stanzas[stanzaname][option] = value
             changed = true
           end
+        else
+          update_errors.push "#{value} is not okay for #{option}"
         end
       end
     end
@@ -788,6 +802,7 @@ class PipelineController < ApplicationController
 
     # Update semantic zoom tracks
     zoom_levels = params.keys.find_all { |key| key =~ /^zoom:\d+$/ }.map { |key| key[5..-1].to_i }
+
 
     zoom_levels.each do |zoom_level|
       next unless stanzas[stanzaname][:semantic_zoom] && stanzas[stanzaname][:semantic_zoom][zoom_level]
@@ -798,6 +813,8 @@ class PipelineController < ApplicationController
           okay_value = false
           if values.is_a? Array then
             okay_value = true if values.member?(value)
+          elsif values.is_a? Hash then
+            okay_value = true if values.keys.member?(value)
           elsif values.is_a? Symbol then
             # Controlled type
             case values
@@ -813,6 +830,8 @@ class PipelineController < ApplicationController
               stanzas[stanzaname][:semantic_zoom][zoom_level][option] = value
               changed = true
             end
+          else
+            update_errors.push "#{value} is not okay for #{option}"
           end
         end
       end
@@ -830,7 +849,6 @@ class PipelineController < ApplicationController
         end
       end
     end
-
 
     # If anything changed
     if (changed) then
@@ -862,7 +880,7 @@ class PipelineController < ApplicationController
     if params[:reload] then
       render :text => "window.location.reload();"
     else
-      render :text => '1;'
+      render :text => "1; // Errors:\n//  #{update_errors.join("\n//  ")}"
     end
   end
 

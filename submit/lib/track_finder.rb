@@ -972,11 +972,16 @@ class TrackFinder
       label = "sub { return shift->name; }"
       connector = "solid"
       connector_color = "solid"
+      group_on = nil
       zoomlevels = [ nil ]
       case track_type
       when "match" then
         glyph = "segments"
-        label = "sub { my $f = shift; foreach (@{$f->each_tag_value('Target')}) { s/\s+\d+\s+\d+\s*$//g; return $_; } }"
+        label = 'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
+      when "match_part" then
+        glyph = "segments"
+        label = 'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }', 
+        group_on = "sub { return shift->name }"
       when "histone_binding_site" then
         glyph = "segments"
         label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
@@ -998,6 +1003,7 @@ class TrackFinder
         glyph = "processed_transcript"
       when "intron" then
         glyph = "box"
+        label = nil
       when "gene" then
         glyph = "gene"
         zoomlevels = [ nil, 101, 10001, 100001 ]
@@ -1036,7 +1042,7 @@ class TrackFinder
           track_defs[stanzaname]['fgcolor'] = fgcolor
           track_defs[stanzaname]['bgcolor'] = bgcolor
           track_defs[stanzaname]['stranded'] = 0
-          track_defs[stanzaname]['group_on'] = nil
+          track_defs[stanzaname]['group_on'] = group_on
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
           track_defs[stanzaname]['key'] = key
           track_defs[stanzaname]['label'] = label

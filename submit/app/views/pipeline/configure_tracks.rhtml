@@ -233,7 +233,13 @@
   }
   function hideField(evt) {
     var elem = evt.element();
-    elem.previous().firstDescendant().innerHTML = elem.getValue();
+    var value = "";
+    if (elem.options) {
+      value = elem.options[elem.selectedIndex].innerHTML;
+    } else {
+      value = elem.getValue();
+    }
+    elem.previous().firstDescendant().innerHTML = value;
     elem.hide();
     elem.previous().firstDescendant().show();
   }
@@ -274,12 +280,23 @@
           <span onmousedown="showForm(this, event)">
             <%= option %> = 
             <span style="font-weight: bold" >
-              <%= value %>
+              <% if @stanza_options[option].is_a? Hash then %>
+                <%= @stanza_options[option][value] %>
+              <% else %>
+                <%= value %>
+              <% end %>
             </span>
           </span>
           <% if @stanza_options[option].is_a? Array then %>
             <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
               <%= options_for_select @stanza_options[option], value %>
+            </select>
+            <script type="text/javascript">
+              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
+            </script>
+          <% elsif @stanza_options[option].is_a? Hash then %>
+            <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
+              <%= options_for_select @stanza_options[option].invert.sort { |a, b| a[0] <=> b[0] }, value %>
             </select>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
