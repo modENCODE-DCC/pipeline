@@ -996,6 +996,8 @@ class TrackFinder
         fgcolor = "lightgrey"
       when "transcript" then
         glyph = "processed_transcript"
+      when "intron" then
+        glyph = "box"
       when "gene" then
         glyph = "gene"
         zoomlevels = [ nil, 101, 10001, 100001 ]
