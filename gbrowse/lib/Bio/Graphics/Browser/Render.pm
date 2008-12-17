@@ -2163,6 +2163,10 @@ sub asynchronous_update_coordinates {
             $state->{'flip'} = 0;
         }
     }
+    if ( $action =~ /name/) {
+        $self->move_to_name($state, $action);
+        $position_updated++;
+    }
 
     if ($position_updated) { # clip and update param
 	if (defined $whole_segment_start && $state->{start} < $whole_segment_start) {
@@ -2197,6 +2201,22 @@ sub zoom_to_span {
   my $range	    = int(($span)/2);
   $state->{start}   = $center - $range;
   $state->{stop }   = $state->{start} + $span - 1;
+}
+
+sub move_to_name {
+  my $self = shift;
+  my ( $state, $new_name ) = @_;
+
+  if ( $new_name =~ /:(.*):([\d+.-]+)\.\.([\d+.-]+)/ ) {
+    my $new_chr   = $1;
+    my $new_start = $2;
+    my $new_stop  = $3;
+
+    $state->{ref} = $new_chr;
+    $state->{start} = $new_start;
+    $state->{stop}  = $new_stop;
+    $self->background_track_render();
+  }
 }
 
 sub move_segment {
