@@ -715,7 +715,11 @@ class TrackFinder
     # Write out GFF
     srcfeature = (feature['srcfeature'] == feature['uniquename']) ? feature['srcfeature'] : feature['feature_id']
     out = "#{feature['srcfeature']}\t#{tracknum}\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t.\t#{feature['strand']}\t#{feature['phase']}\tID=#{srcfeature}"
-    out = out + ";Name=#{feature['name']}" unless feature['name'].nil?
+    if !feature['name'].nil? && feature['name'].length > 0 then
+      out = out + ";Name=#{feature['name']}"
+    elsif !feature['uniquename'].nil? && feature['uniquename'].length > 0 then
+      out = out + ";Name=#{feature['uniquename']}"
+    end
     out = out + ";Target=#{feature['target']}" unless feature['target'].nil?
   
     # Parental relationships
@@ -984,17 +988,17 @@ class TrackFinder
         group_on = "sub { return shift->name }"
       when "histone_binding_site" then
         glyph = "segments"
-        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
+        label = 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'
         connector = "0"
         connector_color = "white"
       when "TF_binding_site" then
         glyph = "segments"
-        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
+        label = 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'
         connector = "0"
         connector_color = "white"
       when "binding_site" then
         glyph = "segments"
-        label = "sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }"
+        nabel = 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'
         connector_color = "white"
       when "transcript_region" then
         glyph = "segments"
