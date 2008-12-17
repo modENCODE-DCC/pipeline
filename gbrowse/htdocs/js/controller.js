@@ -39,8 +39,14 @@ var GBrowseController = Class.create({
 
   // Class Utility Methods ******************************************
   
+  set_url:
+  function(url) {
+    this.url = url;
+  },
+
   initialize:
   function () {
+    this.url = '#';
     this.gbtracks                 = new Hash();
     this.segment_observers        = new Hash();
     this.retrieve_tracks          = new Hash();
@@ -84,7 +90,8 @@ var GBrowseController = Class.create({
   function (track_keys) {
     this.last_update_key = create_time_key();
 
-    for (var track_name in track_keys){
+    for (var i = 0; i < track_keys.length; ++i) {
+      var track_name = track_keys[i];
       var gbtrack = this.gbtracks.get(track_name);
       gbtrack.set_last_update_key(this.last_update_key);
     }
@@ -167,7 +174,7 @@ var GBrowseController = Class.create({
     for (var i = 0; i < section_names.length; i++) {
       request_str += "&section_names="+section_names[i];
     }
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: request_str,
       onSuccess: function(transport) {
@@ -187,7 +194,7 @@ var GBrowseController = Class.create({
 
      var param = {set_display_option: 1};
      param[option] = value;
-     new Ajax.Request('#',
+     new Ajax.Request(Controller.url,
             {
 		    method: 'post', 
 		    parameters: param,
@@ -210,7 +217,7 @@ var GBrowseController = Class.create({
       return;
     }
 
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: {
         set_track_visibility:  1,
@@ -232,7 +239,7 @@ var GBrowseController = Class.create({
   first_render:
   function()  {
 
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: {first_render: 1},
       onSuccess: function(transport) {
@@ -266,7 +273,7 @@ var GBrowseController = Class.create({
       }
     );
     
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: {navigate: action},
       onSuccess: function(transport) {
@@ -330,7 +337,7 @@ var GBrowseController = Class.create({
         return;
     }
 
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: request_str,
       onSuccess: function(transport) {
@@ -377,7 +384,7 @@ var GBrowseController = Class.create({
     $(gbtrack.track_image_id).setOpacity(0.3);
     this.set_last_update_key(gbtrack);
 
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: {
         rerender_track:  1,
@@ -441,7 +448,7 @@ var GBrowseController = Class.create({
       return;
     }
 
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: $H({ retrieve_multiple: 1, 
                        track_names:     track_names 
@@ -501,7 +508,7 @@ var GBrowseController = Class.create({
 
   reconfigure_track:
   function(track_name, serialized_form, show_track) {
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: serialized_form +"&"+ $H({
             reconfigure_track: track_name
@@ -536,7 +543,7 @@ var GBrowseController = Class.create({
   function(plugin_action,plugin_track_name,pc_div_id,plugin_type) {
     var gbtrack = this.gbtracks.get(plugin_track_name);
     var form_element = $("configure_plugin");
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: form_element.serialize() +"&"+ $H({
             plugin_action: plugin_action,
@@ -602,7 +609,7 @@ var GBrowseController = Class.create({
   function(edited_file) {
     var gbtrack = this.gbtracks.get(edited_file);
     var form_element = $(edit_upload_form_id);
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: form_element.serialize() +"&"+ $H({
             edited_file: edited_file,
@@ -632,7 +639,7 @@ var GBrowseController = Class.create({
   delete_upload_file:
   function(file_name) {
     var gbtrack = this.gbtracks.get(file_name);
-    new Ajax.Request('#',{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: {
         delete_upload_file: 1,
