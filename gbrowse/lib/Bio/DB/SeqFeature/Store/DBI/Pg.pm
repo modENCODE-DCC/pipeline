@@ -594,9 +594,10 @@ sub _add_SeqFeature {
   my $child_table = $self->_parent2child_table();
   my $count = 0;
 
-  my $sth = $self->_prepare(<<END);
-REPLACE INTO $child_table (id,child) VALUES (?,?)
-END
+  my $querydel = "DELETE FROM $child_table WHERE id = ? AND child = ?";
+  my $query = "INSERT INTO $child_table (id,child) VALUES (?,?)";
+  my $sthdel = $self->_prepare($querydel);
+  my $sth = $self->_prepare($query);
 
   my $parent_id = (ref $parent ? $parent->primary_id : $parent) 
     or $self->throw("$parent should have a primary_id");
@@ -606,6 +607,7 @@ END
     for my $child (@children) {
       my $child_id = ref $child ? $child->primary_id : $child;
       defined $child_id or die "no primary ID known for $child";
+      $sthdel->execute($parent_id, $child_id);
       $sth->execute($parent_id,$child_id);
       $count++;
     }
@@ -1290,9 +1292,13 @@ sub replace {
   my $id = $object->primary_id;
   my $features = $self->_feature_table;
 
-  my $sth = $self->_prepare(<<END);
-REPLACE INTO $features (id,object,indexed,seqid,start,end,strand,tier,bin,typeid) VALUES (?,?,?,?,?,?,?,?,?,?)
-END
+  my $query = "INSERT INTO $features (id,object,indexed,seqid,start,\"end\",strand,tier,bin,typeid) VALUES (?,?,?,?,?,?,?,?,?,?)";
+  my $query_noid = "INSERT INTO $features (object,indexed,seqid,start,\"end\",strand,tier,bin,typeid) VALUES (?,?,?,?,?,?,?,?,?)";
+  my $querydel = "DELETE FROM $features WHERE id = ?";
+
+  my $sthdel = $self->_prepare($querydel);
+  my $sth = $self->_prepare($query);
+  my $sth_noid = $self->_prepare($query_noid);
 
   my @location = $index_flag ? $self->_get_location_and_bin($object) : (undef)x6;
 
@@ -1300,14 +1306,19 @@ END
   my $source_tag  = $object->source_tag || '';
   $primary_tag    .= ":$source_tag";
   my $typeid   = $self->_typeid($primary_tag,1);
-  print STDERR "Typeid is $typeid for $primary_tag\n";
 
-  $sth->execute($id,encode_base64($self->freeze($object), ''),$index_flag||0,@location,$typeid) or $self->throw($sth->errstr);
+  if ($id) {
+    $sthdel->execute($id);
+    $sth->execute($id,encode_base64($self->freeze($object), ''),$index_flag||0,@location,$typeid) or $self->throw($sth->errstr);
+  } else {
+    $sth_noid->execute(encode_base64($self->freeze($object), ''),$index_flag||0,@location,$typeid) or $self->throw($sth->errstr);
+  }
 
   my $dbh = $self->dbh;
-  $object->primary_id($dbh->{Pg_insertid}) unless defined $id;
 
-  $self->flag_for_indexing($dbh->{Pg_insertid}) if $self->{bulk_update_in_progress};
+  $object->primary_id($dbh->last_insert_id(undef, undef, undef, undef, {sequence=>$features."_id_seq"})) unless defined $id;
+
+  $self->flag_for_indexing($dbh->last_insert_id(undef, undef, undef, undef, {sequence=>$features."_id_seq"})) if $self->{bulk_update_in_progress};
 }
 
 ###
@@ -1386,7 +1397,13 @@ sub flag_for_indexing {
   my $self = shift;
   my $id   = shift;
   my $needs_updating = $self->_update_table;
-  my $sth = $self->_prepare("REPLACE INTO $needs_updating VALUES (?)");
+
+  my $querydel = "DELETE FROM $needs_updating WHERE id = ?";
+  my $query = "INSERT INTO $needs_updating VALUES (?)";
+  my $sthdel = $self->_prepare($querydel);
+  my $sth = $self->_prepare($query);
+
+  $sthdel->execute($id);
   $sth->execute($id) or $self->throw($self->dbh->errstr);
 }
 
