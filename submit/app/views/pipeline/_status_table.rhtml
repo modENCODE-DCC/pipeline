@@ -105,9 +105,9 @@
             step=2
           when (p.status==Validate::Status::VALIDATED || p.status==Load::Status::LOAD_FAILED) 
             step=3
-          when (p.status==Load::Status::LOADED)
+          when (p.status==Load::Status::LOADED || Project::Status::FOUND )
             step=4
-          when (p.status=='tracks found')
+          when (p.status=='tracks found' || Project::Status::CONFIGURED)
             step=5
           when (p.status=='submitter approval')
             step=6
