@@ -7,7 +7,7 @@ class PipelineController < ApplicationController
     'fgcolor' => GD_COLORS,
     'bgcolor' => GD_COLORS,
     'group_on' => [ nil, 'sub { return shift->name }' ],
-    'stranded' => [ 0, 1 ],
+    'stranded' => [ "0", "1" ],
     'key' => :text,
     'label' => {
       nil => " [No label]",
