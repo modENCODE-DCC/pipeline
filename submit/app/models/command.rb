@@ -11,6 +11,7 @@ class Command < ActiveRecord::Base
     FAILED = "failed" # Generic failure case; not to be used by subclasses
     CANCELING = "canceling"
     CANCELED = "canceled"
+    PAUSED = "paused"
 
     def self.is_active_state(state)
       active_states = [
