@@ -3,9 +3,16 @@
   HR { margin-top: 4px; margin-bottom: 0px; width: 70%; text-align: left; margin: 0 auto 0 0; }
 </style>
 <%
+  gbrowse_source = "modencode_flybase"
   default_chr = "3L"
   default_fmin = 6066513
   default_fmax = 6266513
+  if @organism == "Caenorhabditis elegans" then
+    gbrowse_source = "modencode_wormbase"
+    default_chr = "III"
+    default_fmin = 30000
+    default_fmax = 30000
+  end
 %>
 <script src="/gbrowse/js/prototype.js" type="text/javascript"></script>
 <script src="/gbrowse/js/scriptaculous.js" type="text/javascript"></script>
@@ -26,6 +33,7 @@
 
 <script type="text/javascript">
 
+  var tracksToUpdate = new Array();
   Controller.update_coordinates = function(trackname, action, chr, fmin, fmax, extraOnSuccess) {
 
     if (!extraOnSuccess) { extraOnSuccess = function() {}; }
@@ -54,9 +62,11 @@
       
     }); // end Ajax.Request
   }; // end update_coordinates
-
-  Controller.set_url('/gbrowse/cgi-bin/gbrowse/modencode_flybase/');
-
+  Controller.old_get_remaining_tracks = Controller.get_remaining_tracks;
+  Controller.get_remaining_tracks = function (track_keys, timeout, expiration, time_key) {
+    Controller.old_get_remaining_tracks(track_keys, timeout, expiration, time_key);
+    updateNextTrack();
+  }
   // Allow number keys only (cribbed and adapted from T-mobile's website)
   function restrictNumeric(keyEvent) {
     var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
@@ -142,15 +152,9 @@
     elem.previous().firstDescendant().show();
   }
 
-  Controller.old_get_remaining_tracks = Controller.get_remaining_tracks;
-  Controller.get_remaining_tracks = function (track_keys, timeout, expiration, time_key) {
-    Controller.old_get_remaining_tracks(track_keys, timeout, expiration, time_key);
-    updateTracksOneByOne();
-  }
-  var tracksToUpdate = new Array();
-  function updateTracksOneByOne() {
+  function updateNextTrack() {
     if (tracksToUpdate.length > 0) {
-      var track_name = tracksToUpdate.pop();
+      var track_name = tracksToUpdate.shift();
       Controller.update_coordinates(
         track_name,
         'name:' + $('chr_'+track_name).getValue() + ':' + $('fmin_'+track_name).getValue() + '..' + $('fmax_'+track_name).getValue(),
@@ -169,24 +173,46 @@
       onSuccess:  function(transport) { 
         Controller.set_last_update_keys(Controller.gbtracks.keys());
         tracksToUpdate = Controller.gbtracks.keys();
-        updateTracksOneByOne(Controller.gbtracks.keys());
+        updateNextTrack(Controller.gbtracks.keys());
       },
     });
   }
+
+  // Set up GBrowse controller and tooltip
+  Controller.set_url('/gbrowse/cgi-bin/gbrowse/<%= gbrowse_source %>/');
 
   var GBubble = new Balloon;
   BalloonConfig(GBubble,'GBubble');
   GBubble.images = "/gbrowse/images/balloons/GBubble";
 </script>
+<%= @organism %>
 <h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %><hr/></h2>
 <% if @released then %>
   <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
 <% end %>
 <div style="float:right">
-  <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/modencode_flybase/", :popup => true %>
+  <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %>
   <br/>
   <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
 </div>
+<%= form_tag :action => :configure_tracks, :id => @project.id %>
+  <span class="flipfield" style="clear:both">
+    <span onmousedown="showForm(this, event)">
+      Organism = 
+      <span style="font-weight: bold" >
+        <%= @organism %>
+      </span>
+    </span>
+    <select style="display:none" name="organism" id="organism">
+      <%= options_for_select [ 'Drosophila melanogaster', 'Caenorhabditis elegans'], @organism %>
+    </select>
+    <script type="text/javascript">
+      Event.observe($('organism'), 'blur', hideField);
+    </script>
+  </span><br/>
+  <%= submit_tag "Change Organism" %>
+</form>
+<br/><hr/><br/>
 
 
 <% @track_defs.sort.each do |stanzaname, definition| %>
@@ -321,7 +347,7 @@
     </div>
   </form>
   <%= button_to "Delete stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
-  <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px">Loading image...</div><img id="<%= stanzaname %>_image"/></div>
+  <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
   <script type="text/javascript">
     $('form_<%=stanzaname%>').reset();
     var gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %> = new GBrowseTrack('<%= stanzaname %>', 'notype', 'detail');

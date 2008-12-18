@@ -211,7 +211,7 @@ class TrackFinder
       dbh_safe { @dbh.do "SET search_path = #{search_path}, wiggle, pg_catalog" }
   end
 
-  def find_tracks(experiment_id)
+  def find_tracks(experiment_id, project_id)
     cmd_puts "Loading feature and wiggle data into GBrowse database..."
     sth_get_data_by_applied_protocols = dbh_safe { 
       @dbh.prepare("SELECT 
@@ -241,9 +241,11 @@ class TrackFinder
                    fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
-                   srctype.name AS srctype
+                   srctype.name AS srctype,
+                   o.genus, o.species
                    FROM data_feature df
                    INNER JOIN feature f ON f.feature_id = df.feature_id
+                   INNER JOIN organism o ON f.organism_id = o.organism_id
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN data d ON df.data_id = d.data_id
                    LEFT JOIN featureloc fl ON df.feature_id = fl.feature_id
@@ -290,7 +292,7 @@ class TrackFinder
     }
 
     cmd_puts "  Detecting tracks included in submission."
-    usable_tracks = find_usable_tracks(experiment_id)
+    usable_tracks = find_usable_tracks(experiment_id, project_id)
     cmd_puts "  Done."
     cmd_puts "  Finding features and wiggle files attached to tracks."
     # Get all of the datums of all protocols
@@ -373,6 +375,7 @@ class TrackFinder
               found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
               found_tracks[col][datum_name].push({
                 :experiment_id => experiment_id,
+                :project_id => project_id,
                 :type => :feature,
                 :name => datum_name,
                 :data => features,
@@ -386,6 +389,7 @@ class TrackFinder
               found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
               found_tracks[col][datum_name].push({
                 :experiment_id => experiment_id,
+                :project_id => project_id,
                 :type => :wiggle,
                 :name => datum_name,
                 :data => wiggles,
@@ -405,7 +409,7 @@ class TrackFinder
     return found_tracks
   end
 
-  def find_usable_tracks(experiment_id)
+  def find_usable_tracks(experiment_id, project_id)
 
     usable_tracks = Hash.new { |hash, column| hash[column] = Array.new }
     cmd_puts "    Scanning protocols for inputs or outputs that could make tracks."
@@ -672,16 +676,20 @@ class TrackFinder
           end
 
           # Write metadata tags
-          cmd_puts "  Saving metadata to database."
+          cmd_puts "  Saving metadata for #{track_descriptor[:tracknum]} to database."
           dbh_safe {
             track_descriptor[:tags].each { |experiment_id, value, type, history_depth|
-              TrackTag.new(
-                :project_id => experiment_id,
+              tt = TrackTag.new(
+                :experiment_id => experiment_id,
+                :project_id => track_descriptor[:project_id],
                 :track => track_descriptor[:tracknum],
                 :value => value,
                 :cvterm => type,
                 :history_depth => history_depth
-              ).save
+              )
+              unless tt.save then
+                $stderr.puts "Errors: " + tt.errors.full_messages.join("\n  ")
+              end
             }
           }
         end
@@ -841,6 +849,9 @@ class TrackFinder
             track_descriptor[:data].each do |feature|
               tags.push [ track_descriptor[:experiment_id], feature['name'], feature['type'], 0 ]
             end
+            feature = track_descriptor[:data].first
+            tags.push [ track_descriptor[:experiment_id], feature['genus'] + " " + feature['species'], 'organism', 0 ]
+
           end
           tags.push [ track_descriptor[:experiment_id], track_descriptor[:type].to_s, 'track_type', 0 ]
           track_descriptor[:tags] = tags.uniq
@@ -891,7 +902,7 @@ class TrackFinder
   def load_into_gbrowse(project_id, directory)
     schemas = self.get_experiments
     experiment_id = schemas["modencode_experiment_#{project_id}"][0]
-    tags = TrackTag.find_all_by_project_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
+    tags = TrackTag.find_all_by_experiment_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
     tracknums = tags.map { |t| t.track }.uniq
 
     gff_files = Hash.new { |hash, key| hash[key] = Array.new }
@@ -942,7 +953,7 @@ class TrackFinder
     experiment_id = schemas[schema][0]
     schema << "_data"
 
-    tags = TrackTag.find_all_by_project_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
+    tags = TrackTag.find_all_by_experiment_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
 
     tracknums = tags.map { |t| t.track }.uniq
 
@@ -993,7 +1004,7 @@ class TrackFinder
         connector_color = "white"
       when "TF_binding_site" then
         glyph = "segments"
-        label = 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'
+        label = ''
         connector = "0"
         connector_color = "white"
       when "binding_site" then
@@ -1007,7 +1018,7 @@ class TrackFinder
         glyph = "processed_transcript"
       when "intron" then
         glyph = "box"
-        label = nil
+        label = ''
       when "gene" then
         glyph = "gene"
         zoomlevels = [ nil, 101, 10001, 100001 ]
@@ -1026,7 +1037,7 @@ class TrackFinder
         end
       end
       
-      tag_track_type = TrackTag.find_by_project_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'track_type')
+      tag_track_type = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'track_type')
       if tag_track_type then
         if tag_track_type.value == "wiggle" then
           glyph = "wiggle_xyplot"

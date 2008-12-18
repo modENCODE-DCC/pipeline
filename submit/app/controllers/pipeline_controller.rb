@@ -6,11 +6,11 @@ class PipelineController < ApplicationController
   STANZA_OPTIONS = {
     'fgcolor' => GD_COLORS,
     'bgcolor' => GD_COLORS,
-    'group_on' => [ nil, 'sub { return shift->name }' ],
+    'group_on' => [ '', 'sub { return shift->name }' ],
     'stranded' => [ "0", "1" ],
     'key' => :text,
     'label' => {
-      nil => " [No label]",
+      '' => " [No label]",
       'sub { return shift->name; }'                                              => "[Feature Name (for individual features)]", 
       'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' => "[Feature Name (for groups)]",
       'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for groups)]",
@@ -666,6 +666,16 @@ class PipelineController < ApplicationController
       return false
     end
 
+    if params[:organism] then
+      params[:organism] = "Drosophila melanogaster" unless params[:organism] == "Caenorhabditis elegans"
+      TrackStanza.find_all_by_project_id_and_user_id(@project.id, current_user.id).each { |ts|
+        stanza = ts.stanza
+        stanza.each { |track, config| config[:organism] = params[:organism] }
+        ts.stanza = stanza
+        ts.save
+      }
+    end
+
     if params[:delete_stanza] then
       if @project.status == Project::Status::CONFIGURED then
         @project.status = Project::Status::FOUND
@@ -723,6 +733,14 @@ class PipelineController < ApplicationController
       @track_defs = ts.stanza
     end
 
+    if @track_defs.values.first[:organism].nil? then
+      @organism = "Drosophila melanogaster"
+      @track_defs.each { |track, config| config[:organism] = "Drosophila melanogaster" }
+      ts.stanza = @track_defs
+      ts.save
+    end
+    @organism = @track_defs.values.first[:organism]
+    
     @stanza_options = STANZA_OPTIONS
   end
       
@@ -769,34 +787,38 @@ class PipelineController < ApplicationController
       end
     end
 
+      $stderr.puts "Current value is #{stanzas[stanzaname]['label'].class.name}"
+
     # Update main track
     STANZA_OPTIONS.each do |option, values|
       value = params[option]
-      if value then
-        okay_value = false
-        if values.is_a? Array then
-          okay_value = true if values.member?(value)
-        elsif values.is_a? Hash then
-          okay_value = true if values.keys.member?(value)
-        elsif values.is_a? Symbol then
-          # Controlled type
-          case values
-          when :integer
-            okay_value = true if value.to_i.to_s == value.to_s
-          when :text
-            okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
-          end
-        end
 
-        if okay_value then
-          if (stanzas[stanzaname][option] != value) then
-            stanzas[stanzaname][option] = value
-            changed = true
-          end
-        else
-          update_errors.push "#{value} is not okay for #{option}"
+      $stderr.puts "Value is #{value}:#{value.class.name} for #{option}"
+
+      okay_value = false
+      if values.is_a? Array then
+        okay_value = true if values.member?(value)
+      elsif values.is_a? Hash then
+        okay_value = true if values.keys.member?(value)
+      elsif values.is_a? Symbol then
+        # Controlled type
+        case values
+        when :integer
+          okay_value = true if value.to_i.to_s == value.to_s
+        when :text
+          okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
         end
       end
+
+      if okay_value then
+        if (stanzas[stanzaname][option] != value) then
+          stanzas[stanzaname][option] = value
+          changed = true
+        end
+      else
+        update_errors.push "#{value} is not okay for #{option}"
+      end
+
     end
 
 
@@ -957,8 +979,6 @@ class PipelineController < ApplicationController
     ]
 
     @project_needs_release = @project.status == "released" ? false : true
-    #    TODO
-#    @project_ready_for_release = OKAY_TO_RELEASE_BY_PI.find { |s| s == @project.status } ? true : false
   end
   def project=(proj)
     @project = proj
@@ -966,7 +986,7 @@ class PipelineController < ApplicationController
 
   def do_find_tracks(project, options = {})
     # Get the *Controller class to be used to do track finding
-    TrackStanza.destroy_all "project_id = #{@project.id} AND user_id = #{current_user.id}"
+    TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
     find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
     find_tracks_controller.queue options
   end
