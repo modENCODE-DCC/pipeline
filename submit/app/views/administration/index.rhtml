@@ -1,22 +1,24 @@
 <div style="float: left">
   <h1>Active (...ing)</h1>
   <table>
-    <tr><th colspan="2">Command</th></tr>
+    <tr><th colspan="2">Command</th><th>Owner</th></tr>
     <% @active_commands.each do |command| %>
     <tr>
       <td><%= command.id %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+      <td><%= command.project.user.login %></td> 
     </tr>
     <% end %>
   </table>
   <h1>Queue</h1>
   <table>
-    <tr><th colspan="2">Command</th><th>Position in queue</th></tr>
+    <tr><th colspan="2">Command</th><th>Position in queue</th><th>Owner</th></tr>
     <% @all_queued_commands.each do |command| %>
     <tr>
       <td><%= command.id %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
       <td><%= Inflector.ordinalize(@all_queued_commands.index(command)+1) %></td>
+      <td><%= command.project.user.login %></td> 
     </tr>
     <% end %>
   </table>
