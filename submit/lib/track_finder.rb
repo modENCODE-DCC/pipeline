@@ -558,7 +558,7 @@ class TrackFinder
             has_chromosome_location = false
             merged_features = Hash.new
             track_descriptor[:data].each do |feature|
-              has_chromosome_location = true if feature['srcfeature_id'] != feature['feature_id']
+              has_chromosome_location = true if (feature['srcfeature_id'] != feature['feature_id'] && !feature['srcfeature_id'].nil? && !feature['feature_id'].nil?)
               if merged_features.has_key? feature['feature_id'] then
                 # Two locations?
                 seen_feature = merged_features[feature['feature_id']]
@@ -995,7 +995,7 @@ class TrackFinder
         label = 'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
       when "match_part" then
         glyph = "segments"
-        label = 'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }', 
+        label = 'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
         group_on = "sub { return shift->name }"
       when "histone_binding_site" then
         glyph = "segments"
@@ -1047,8 +1047,10 @@ class TrackFinder
           pos_color = "blue"
         end
       end
+      tag_track_organism = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'organism')
 
       track_defs[stanzaname] = Hash.new if track_defs[stanzaname].nil?
+      track_defs[stanzaname][:organism] = tag_track_organism.value unless tag_track_organism.nil?
       track_defs[stanzaname][:semantic_zoom] = Hash.new if track_defs[stanzaname][:semantic_zoom].nil?
       zoomlevels.each { |zoomlevel|
         if zoomlevel.nil? then
