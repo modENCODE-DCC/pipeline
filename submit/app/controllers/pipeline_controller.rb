@@ -724,7 +724,7 @@ class PipelineController < ApplicationController
     if ts.nil? || params[:reset_definitions] then
       @track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
       # Delete old one
-      TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id) unless ts.nil?
+      TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id)
       ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(@track_defs)
       ts.save
       redirect_to :action => :configure_tracks, :id => @project
@@ -786,8 +786,6 @@ class PipelineController < ApplicationController
         changed = true
       end
     end
-
-      $stderr.puts "Current value is #{stanzas[stanzaname]['label'].class.name}"
 
     # Update main track
     STANZA_OPTIONS.each do |option, values|
