@@ -104,6 +104,10 @@
       // A-Z
       return true;
     }
+    if (charCode == 58) {
+      // :
+      return true;
+    }
     if (charCode > 31 && (charCode < 48 || charCode > 57)) {
       // 0-9, _, -, ' '
       if (charCode == 32 || charCode == 95 || charCode == 189 || charCode == 45) {
@@ -122,7 +126,7 @@
   }
   function hideTextField(evt) {
     var value = evt.element().getValue();
-    evt.element().value = value.gsub(/[^a-zA-Z0-9_ -]/, '');
+    evt.element().value = value.gsub(/[^a-zA-Z0-9_ :-]/, '');
     hideField(evt);
   }
   function hideNumberField(evt) {
