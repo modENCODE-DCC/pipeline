@@ -969,6 +969,7 @@ class TrackFinder
 
     track_defs = Hash.new
 
+    default_organism = "Drosophila melanogaster"
     types.each do |type|
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
       track_type = matchdata[1]
@@ -1051,6 +1052,7 @@ class TrackFinder
 
       track_defs[stanzaname] = Hash.new if track_defs[stanzaname].nil?
       track_defs[stanzaname][:organism] = tag_track_organism.value unless tag_track_organism.nil?
+      default_organism = track_defs[stanzaname][:organism] unless track_defs[stanzaname][:organism].nil?
       track_defs[stanzaname][:semantic_zoom] = Hash.new if track_defs[stanzaname][:semantic_zoom].nil?
       zoomlevels.each { |zoomlevel|
         if zoomlevel.nil? then
@@ -1086,6 +1088,10 @@ class TrackFinder
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['pos_color'] = pos_color unless pos_color.nil?
         end
       }
+    end
+
+    track_defs.each do |stanzaname, config|
+      config[:organism] = default_organism if config[:organism].nil?
     end
 
     return track_defs
