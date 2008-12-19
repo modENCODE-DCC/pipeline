@@ -733,13 +733,14 @@ class PipelineController < ApplicationController
       @track_defs = ts.stanza
     end
 
-    if @track_defs.values.first[:organism].nil? then
+
+    if @track_defs.values.first && @track_defs.values.first[:organism].nil? then
       @organism = "Drosophila melanogaster"
       @track_defs.each { |track, config| config[:organism] = "Drosophila melanogaster" }
       ts.stanza = @track_defs
       ts.save
     end
-    @organism = @track_defs.values.first[:organism]
+    @organism = @track_defs.values.first[:organism] if @track_defs.values.first
     
     @stanza_options = STANZA_OPTIONS
   end
@@ -790,8 +791,6 @@ class PipelineController < ApplicationController
     # Update main track
     STANZA_OPTIONS.each do |option, values|
       value = params[option]
-
-      $stderr.puts "Value is #{value}:#{value.class.name} for #{option}"
 
       okay_value = false
       if values.is_a? Array then
