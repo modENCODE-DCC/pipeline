@@ -228,6 +228,17 @@ class PipelineController < ApplicationController
     @user_can_write = check_user_can_write @project, :skip_redirect => true
     @user_is_owner = check_user_is_owner @project
 
+    # GBrowse link if available
+    ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+    if ts && ts.stanza.values.size > 0 then
+      organism = ts.stanza.values.first[:organism]
+      if organism == "Caenorhabditis elegans" then
+        @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_wormbase/?name=3L:6066513..6266513;grid=1;label=_scale-_scale:overview-_scale:region"
+      else
+        @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_flybase/?name=III:4200000..4300000;grid=1;label=_scale-_scale:overview-_scale:region"
+      end
+      @gbrowse_url += "-" + ts.stanza.keys.join("-")
+    end
   end
 
   def download_chadoxml
@@ -672,6 +683,11 @@ class PipelineController < ApplicationController
         stanza = ts.stanza
         stanza.each { |track, config| config[:organism] = params[:organism] }
         ts.stanza = stanza
+        ts.save
+      }
+      # Unaccept config(s) for this project if any have been accepted
+      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+        ts.released = false
         ts.save
       }
     end

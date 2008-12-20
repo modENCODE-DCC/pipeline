@@ -77,19 +77,30 @@
     </div>
   <% end %>
   <% pronoun = (current_user.is_a?(Moderator) && @project.user != current_user) ? "that've been" : "you've" %>
-  <% if Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then %>
-    <div style="font-style: italic; padding-left: 5px">
+  <% if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then %>
+    <div style="font-style: italic; padding-left: 5px; width: 70%">
       You can browse and download the <%= link_to "files #{pronoun} uploaded", { :controller => :public, :action => :download, :id => @project } %>, or<br/>
       the <%= link_to "tracks #{pronoun} found", { :controller => :public, :action => :download, :id => @project, :root => :tracks } %>, or 
       fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
+      <br/>You can also <%= link_to "preview the tracks in GBrowse", @gbrowse_url, :popup => true %> or 
+      <%= link_to "download the GBrowse configuration stanza", { :controller => :public, :action => :get_gbrowse_stanzas, :id => @project } %>.
+    </div>
+  <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then %>
+    <div style="font-style: italic; padding-left: 5px; width: 70%">
+      You can browse and download the <%= link_to "files #{pronoun} uploaded", { :controller => :public, :action => :download, :id => @project } %>, or<br/>
+      the <%= link_to "tracks #{pronoun} found", { :controller => :public, :action => :download, :id => @project, :root => :tracks } %>, or 
+      fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
+      <% if @gbrowse_url then %>
+        <br/>You can also <%= link_to "preview the tracks in GBrowse", @gbrowse_url, :popup => true %>.
+      <% end %>
     </div>
   <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then %>
-    <div style="font-style: italic; padding-left: 5px">
+    <div style="font-style: italic; padding-left: 5px; width: 70%">
       You can browse and download the <%= link_to "files #{pronoun} uploaded", { :controller => :public, :action => :download, :id => @project } %> or<br/>
       fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
     </div>
   <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING) then %>
-    <div style="font-style: italic; padding-left: 5px">
+    <div style="font-style: italic; padding-left: 5px; width: 70%">
       You can <%= link_to "browse and download", { :controller => :public, :action => :download, :id => @project } %> the files <%= pronoun %> uploaded.
     </div>
   <% end %>
