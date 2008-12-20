@@ -976,7 +976,7 @@ class TrackFinder
       track_source = matchdata[2]
       tracknum = matchdata[3]
 
-      key = "#{project.id} #{project.name[0..8]} #{track_type}:#{tracknum}"
+      key = "#{project.id} #{project.name[0..10]} #{track_type}:#{tracknum}"
 
       min_score = nil
       max_score = nil
@@ -1025,7 +1025,7 @@ class TrackFinder
         zoomlevels = [ nil, 101, 10001, 100001 ]
       end
 
-      stanzaname = "#{project.name[0..8]}_#{track_type.gsub(/:/, '_')}_#{tracknum}_#{project.id}"
+      stanzaname = "#{project.name[0..10].gsub(/\s/, "_")}_#{track_type.gsub(/:/, '_')}_#{tracknum}_#{project.id}"
 
       if track_source !~ /\d*_details/ then
         # If this is not a details track...
