@@ -31,7 +31,7 @@ class PipelineController < ApplicationController
       'line', 'primers', 'saw_teeth', 'span', 'splice_site',
       'translation', 'triangle' 'two_bolts', 'wave', 'wiggle_density', 'wiggle_xyplot'
     ],
-    'connector' => [ 'solid', 'dashed', 'none' ],
+    'connector' => [ 'solid', 'dashed', 'quill', 'none' ],
     'min_score' => :integer,
     'max_score' => :integer,
     'neg_color' => GD_COLORS,
