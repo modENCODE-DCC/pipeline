@@ -189,7 +189,7 @@
   BalloonConfig(GBubble,'GBubble');
   GBubble.images = "/gbrowse/images/balloons/GBubble";
 </script>
-<h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %><hr/></h2>
+<h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %> - <%= @project.name %><hr/></h2>
 <% if @released then %>
   <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
 <% end %>

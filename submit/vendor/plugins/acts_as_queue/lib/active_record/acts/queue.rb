@@ -20,7 +20,7 @@ module ActiveRecord
       #     acts_as_queue :scope => :todo_queue
       #   end
       #
-      #   todo_queue.first.move_to_bottom
+      #   todo_queue.first.move_to_bottom_in_queue
       #   todo_queue.last.move_higher
       module ClassMethods
         # Configuration options are:
@@ -101,7 +101,7 @@ module ActiveRecord
 
         # Move to the bottom of the queue. If the item is already in the queue, the items below it have their
         # queue_position adjusted accordingly.
-        def move_to_bottom
+        def move_to_bottom_in_queue
           return unless in_queue?
           acts_as_queue_class.transaction do
             decrement_queue_positions_on_lower_items

@@ -6,7 +6,11 @@ class PipelineController < ApplicationController
   STANZA_OPTIONS = {
     'fgcolor' => GD_COLORS,
     'bgcolor' => GD_COLORS,
-    'group_on' => [ '', 'sub { return shift->name }' ],
+    'group_on' => {
+      '' => " [No grouping]", 
+      'sub { return shift->name }' => "Feature Name",
+      'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name]",
+    },
     'stranded' => [ "0", "1" ],
     'key' => :text,
     'label' => {

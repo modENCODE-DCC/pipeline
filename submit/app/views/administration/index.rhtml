@@ -1,10 +1,28 @@
+<style type="text/css">
+  TH { 
+    padding-right: 15px;
+    min-width: 100px;
+    text-align: left;
+  }
+  TD {
+    padding-right: 15px;
+  }
+</style>
 <div style="float: left">
   <h1>Active (...ing)</h1>
+  <div style="padding-left: 3px">
+  <b>Running state:</b> 
+  <% confirm = "Setting to false will background any running job and start the next command in the queue (if any). Continue?" if CommandController.running_flag %>
+  <%= form_tag url_for(:action => :set_running_flag), { :style => "display: inline" } %>
+    <select name="running_flag"><%= options_for_select [ true, false ], CommandController.running_flag %></select>
+    <%= submit_tag "Set", :confirm => confirm %>
+  </form>
+  </div>
   <table>
     <tr><th colspan="2">Command</th><th>Owner</th></tr>
     <% @active_commands.each do |command| %>
     <tr>
-      <td><%= command.id %></td> 
+      <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
       <td><%= command.project.user.login %></td> 
     </tr>
@@ -12,13 +30,29 @@
   </table>
   <h1>Queue</h1>
   <table>
-    <tr><th colspan="2">Command</th><th>Position in queue</th><th>Owner</th></tr>
-    <% @all_queued_commands.each do |command| %>
     <tr>
-      <td><%= command.id %></td> 
+      <th colspan="2">Command</th>
+      <th>Position in queue</th>
+      <th>Owner</th>
+      <th>Control</th>
+    </tr>
+    <% @all_waiting_commands.each do |command| %>
+    <tr>
+      <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
-      <td><%= Inflector.ordinalize(@all_queued_commands.index(command)+1) %></td>
+      <td><%= Inflector.ordinalize(@all_waiting_commands.index(command)+1) %></td>
       <td><%= command.project.user.login %></td> 
+      <td>
+        <% if command.status == Command::Status::QUEUED then %>
+          <%= link_to "Pause", :action => :pause, :id => command.id %>,
+        <% else %>
+          Unpause and
+          <%= link_to "keep queue position", :action => :unpause, :id => command.id %>,
+        <% end %>
+        <%= link_to "requeue at bottom", :action => :requeue, :id => command.id %>
+        or
+        <%= link_to "destroy", url_for(:action => :pause, :id => command.id), :confirm => "Really destroy? Not just pause?" %>.
+      </td>
     </tr>
     <% end %>
   </table>
@@ -27,7 +61,7 @@
     <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th></tr>
     <% @commands.sort { |a,b| b.id <=> a.id }.each do |command| %>
       <tr>
-        <td><%= command.id %></td>
+        <td><a style="text-decoration: none; color: black" name="<%= "cmd_#{command.id}" %>"><%= command.id %></a></td>
         <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
         <td><%= command.project ? link_to(command.project.name, url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %></td>
         <td><%= command.status %></td>

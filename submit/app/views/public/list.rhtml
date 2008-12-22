@@ -39,6 +39,10 @@
       <td style="text-align: left">
         Download
         <%= link_to "Submitted Data", :action => "download", :id => project, :root => :data %>
+        <% if Project::Status::ok_next_states(project).include?(Project::Status::LOADING) then %>
+          |
+          <%= link_to "ChadoXML", :action => :get_file, :id => project, :root => "data", :path => "/#{project.id}.chadoxml" %>
+        <% end %>
         <% if Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) then %>
           |
           <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>

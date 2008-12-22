@@ -997,7 +997,7 @@ class TrackFinder
       when "match_part" then
         glyph = "segments"
         label = 'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
-        group_on = "sub { return shift->name }"
+        group_on = 'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
       when "histone_binding_site" then
         glyph = "segments"
         label = 'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'
