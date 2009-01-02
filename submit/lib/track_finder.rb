@@ -18,6 +18,7 @@ class TrackFinder
     return File.join(gbrowse_root, 'lib')
   end
 
+  DEBUG = true
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
   GFF_TO_WIGDB_PERL = <<-EOP
@@ -332,27 +333,36 @@ class TrackFinder
             }
           end
 
+          sth_get_num_feature_relationhips = dbh_safe { @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id") }
+          sth_get_num_feature_relationships.execute
+          there_are_feature_relationships = (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
+ 
+
           # Get any features that are the the subject to the found features' objects
           # e.g. child features
-          while parent_feature_ids.keys.size > 0
-            sth_get_parts_of_features.execute parent_feature_ids.keys
-            new_parent_feature_ids = Hash.new
-            sth_get_parts_of_features.fetch_hash { |row|
-              subfeature_hash = row.reject { |column, value| column == "object_id" }
-              subfeature_hash["children"] = Array.new
-              subfeature_hash["parents"] = Array.new
+          # (Don't do this if there aren't any feature_relationships, as in the case of Lai's data)
+          if there_are_feature_relationships then
+            cmd_puts "      Get child features."
+            while parent_feature_ids.keys.size > 0
+              sth_get_parts_of_features.execute parent_feature_ids.keys
+              new_parent_feature_ids = Hash.new
+              sth_get_parts_of_features.fetch_hash { |row|
+                subfeature_hash = row.reject { |column, value| column == "object_id" }
+                subfeature_hash["children"] = Array.new
+                subfeature_hash["parents"] = Array.new
 
-              new_parent_feature_ids[row["feature_id"]] = subfeature_hash
+                new_parent_feature_ids[row["feature_id"]] = subfeature_hash
 
-              subfeature_hash["data_name"] = parent_feature_ids[row["parent_id"]]["data_name"]
-              
-              # Add this feature to the relationships from the previous pass
-              parent_feature_ids[row["parent_id"]]["children"].push [row["relationship_type"], subfeature_hash]
-              subfeature_hash["parents"].push [row["relationship_type"], parent_feature_ids[row["parent_id"]]]
+                subfeature_hash["data_name"] = parent_feature_ids[row["parent_id"]]["data_name"]
+                
+                # Add this feature to the relationships from the previous pass
+                parent_feature_ids[row["parent_id"]]["children"].push [row["relationship_type"], subfeature_hash]
+                subfeature_hash["parents"].push [row["relationship_type"], parent_feature_ids[row["parent_id"]]]
 
-              features[subfeature_hash["data_name"]].push subfeature_hash if subfeature_hash['fmin'] && subfeature_hash['fmax']
-            }
-            parent_feature_ids = new_parent_feature_ids
+                features[subfeature_hash["data_name"]].push subfeature_hash if subfeature_hash['fmin'] && subfeature_hash['fmax']
+              }
+              parent_feature_ids = new_parent_feature_ids
+            end
           end
 
           cmd_puts "    Done."
