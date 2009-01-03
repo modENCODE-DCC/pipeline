@@ -124,7 +124,7 @@ class ExpandController < CommandController
       Dir.mkdir(upload_dir, 0775)
     rescue
       # Fail expansion if we couldn't make the temp directory
-      command_object.stderr = "Error creating folder for uploaded package."
+      command_object.stderr = "Error creating folder #{upload_dir} for uploaded package."
       command_object.status = Expand::Status::EXPAND_FAILED
       command_object.save
       return false

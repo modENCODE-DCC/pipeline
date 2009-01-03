@@ -47,6 +47,8 @@ class Project < ActiveRecord::Base
         ok.push VALIDATING if project.project_archives.find_all { |pa| pa.is_active }.size > 0
       when UPLOADED
         ok = [ UPLOADING, DELETING, VALIDATING ]
+      when EXPAND_FAILED
+        ok = [ UPLOADING, DELETING, VALIDATING ]
       when EXPANDED
         ok = [ UPLOADING, DELETING, VALIDATING ]
       when VALIDATION_FAILED
