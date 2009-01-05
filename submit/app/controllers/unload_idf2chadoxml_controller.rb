@@ -45,11 +45,11 @@ class UnloadIdf2chadoxmlController < UnloadController
 
       possible_idfs = Dir.glob(File.join(lookup_dir, "*.idf")) + Dir.glob(File.join(lookup_dir, "*IDF*")) + Dir.glob(File.join(lookup_dir, "*idf*"))
       if possible_idfs.empty? then
-        command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}"
-        command_object.status = Unload::Status::UNLOAD_FAILED
+        command_object.stderr = command_object.stderr + "Can't find any IDF matching *.idf, *IDF* or *idf* in #{lookup_dir}; assuming nothing was loaded into the DB."
+        command_object.status = Unload::Status::UNLOADED
         command_object.save
         self.do_after
-        return false
+        return true
       end
 
       idf_file = possible_idfs.first
