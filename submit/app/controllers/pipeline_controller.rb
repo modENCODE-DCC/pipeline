@@ -233,7 +233,12 @@ class PipelineController < ApplicationController
     @user_is_owner = check_user_is_owner @project
 
     # GBrowse link if available
-    ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+    ts = nil
+    if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then
+      ts = TrackStanza.find_by_project_id_and_released(@project.id, true)
+    else
+      ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+    end
     if ts && ts.stanza.values.size > 0 then
       organism = ts.stanza.values.first[:organism]
       if organism == "Caenorhabditis elegans" then
