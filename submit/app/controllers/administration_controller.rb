@@ -23,6 +23,7 @@ class AdministrationController < ApplicationController
       CommandController.running_flag = true
     else
       CommandController.running_flag = false
+      sleep 1 # Because otherwise do_queued_commands doesn't always work?
       CommandController.do_queued_commands
     end
     redirect_to :action => :index
@@ -31,8 +32,7 @@ class AdministrationController < ApplicationController
   def pause
     command = Command.find(params[:id])
     if command && command.status == Command::Status::QUEUED then
-      command.status = Command::Status::PAUSED
-      command.save
+      command.controller.queue
     else
       flash[:warning] = "Couldn't find command #{params[:id]} to pause."
     end

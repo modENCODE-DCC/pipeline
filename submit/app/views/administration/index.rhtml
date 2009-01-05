@@ -13,10 +13,14 @@
   <div style="padding-left: 3px">
   <b>Running state:</b> 
   <% confirm = "Setting to false will background any running job and start the next command in the queue (if any). Continue?" if CommandController.running_flag %>
-  <%= form_tag url_for(:action => :set_running_flag), { :style => "display: inline" } %>
+  <%= form_tag url_for(:action => :set_running_flag), { :id => "running_form", :style => "display: inline" } %>
     <select name="running_flag"><%= options_for_select [ true, false ], CommandController.running_flag %></select>
     <%= submit_tag "Set", :confirm => confirm %>
   </form>
+  <script type="text/javascript">
+    $('running_form').reset();
+  </script>
+
   </div>
   <table>
     <tr><th colspan="2">Command</th><th>Owner</th></tr>
