@@ -22,7 +22,7 @@ class DeleteController < CommandController
 
       project = command_object.project
       if project.nil? then
-        command_object.stderr = "#{command_object.command} has already been deleted"
+        command_object.stderr = "Project #{command_object.command} has already been deleted"
         command_object.status = Delete::Status::DELETE_FAILED
         command_object.save
         return false
@@ -40,7 +40,13 @@ class DeleteController < CommandController
       Find.find(project_dir) do |file|
         next if project_dir == file
         next if project_archive_files.find { |paf| paf == file }
-        File.delete(file)
+        if File.directory? file then
+          if File.basename(file) == "tracks" then
+            FileUtils.remove_entry_secure(file)
+          end
+        else
+          File.delete(file)
+        end
       end
 
       # Dissasociate this command object from the project it's deleting so we have a record of it
