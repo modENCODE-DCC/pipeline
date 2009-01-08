@@ -55,7 +55,7 @@
         <% end %>
         <%= link_to "requeue at bottom", :action => :requeue, :id => command.id %>
         or
-        <%= link_to "destroy", url_for(:action => :pause, :id => command.id), :confirm => "Really destroy? Not just pause?" %>.
+        <%= link_to "destroy", url_for(:action => :destroy_from_queue, :id => command.id), :confirm => "Really destroy? Not just pause?" %>.
       </td>
     </tr>
     <% end %>
