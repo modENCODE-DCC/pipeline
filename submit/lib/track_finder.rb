@@ -300,6 +300,7 @@ class TrackFinder
     found_tracks = Hash.new { |hash, protocol_column| hash[protocol_column] = Hash.new }
     dbh_safe {
       usable_tracks.each do |col, set_of_tracks|
+        cmd_puts "    For the protocol in column #{col}:"
         set_of_tracks.each do |applied_protocols|
 
           # Get the data objects for the applied_protocol
@@ -321,7 +322,8 @@ class TrackFinder
           features = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
           wiggles = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
           parent_feature_ids = Hash.new
-          cmd_puts "    Getting features."
+          cmd_puts "      Getting features."
+          cmd_puts "        Getting top-level features."
           if data_ids_with_features.size > 0 then
             sth_get_features_by_data_ids.execute data_ids_with_features.uniq
             sth_get_features_by_data_ids.fetch_hash { |row| 
@@ -329,23 +331,25 @@ class TrackFinder
               feature_hash["children"] = Array.new
               feature_hash["parents"] = Array.new
               parent_feature_ids[row["feature_id"]] = feature_hash
+
               features[row["data_name"]].push feature_hash if feature_hash['fmin'] && feature_hash['fmax']
             }
           end
+          cmd_puts "        Done fetching top-level features."
 
-          sth_get_num_feature_relationhips = dbh_safe { @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id") }
+          sth_get_num_feature_relationships = dbh_safe { @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id") }
           sth_get_num_feature_relationships.execute
           there_are_feature_relationships = (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
- 
 
           # Get any features that are the the subject to the found features' objects
           # e.g. child features
           # (Don't do this if there aren't any feature_relationships, as in the case of Lai's data)
           if there_are_feature_relationships then
-            cmd_puts "      Get child features."
+            cmd_puts "        Getting child features."
             while parent_feature_ids.keys.size > 0
               sth_get_parts_of_features.execute parent_feature_ids.keys
               new_parent_feature_ids = Hash.new
+  
               sth_get_parts_of_features.fetch_hash { |row|
                 subfeature_hash = row.reject { |column, value| column == "object_id" }
                 subfeature_hash["children"] = Array.new
@@ -363,22 +367,22 @@ class TrackFinder
               }
               parent_feature_ids = new_parent_feature_ids
             end
+            cmd_puts "        Done getting child features."
           end
 
-          cmd_puts "    Done."
+          cmd_puts "      Done."
 
-          cmd_puts "    Getting wiggle files."
+          cmd_puts "      Getting wiggle files."
           if data_ids_with_wiggles.size > 0 then
             sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
             sth_get_wiggles_by_data_ids.fetch_hash { |row| wiggles[row["data_name"]].push row.reject { |column, value| column == "data_name" } }
           end
-          cmd_puts "    Done."
+          cmd_puts "      Done."
 
           # Remove default value from hash
           wiggles.default = nil
           features.default = nil
 
-          cmd_puts "    For the protocol in column #{col}:"
           if features.size > 0  then
             cmd_puts "      There are #{features.size} features."
             features.each_pair do |datum_name, features|
@@ -572,6 +576,7 @@ class TrackFinder
               if merged_features.has_key? feature['feature_id'] then
                 # Two locations?
                 seen_feature = merged_features[feature['feature_id']]
+                seen_feature["parents"] = feature["parents"] if feature["parents"].size > seen_feature["parents"].size
                 if seen_feature['fmin'] != feature['fmin'] || seen_feature['fmax'] != feature['fmax'] || seen_feature['srcfeature'] != feature['srcfeature'] then
                   if feature['rank'].to_i == 1 then
                     # The feature is the Target
@@ -658,6 +663,7 @@ class TrackFinder
             gff_file.close
           end
 
+
           # Input was wiggle:
           if track_descriptor[:type] == :wiggle then
             cmd_puts "  There are #{track_descriptor[:data].size} wiggles for the #{track_descriptor[:name]} track"
@@ -739,9 +745,9 @@ class TrackFinder
       out = out + ";Name=#{feature['uniquename']}"
     end
     out = out + ";Target=#{feature['target']}" unless feature['target'].nil?
-  
+
     # Parental relationships
-    feature['parents'].each do |reltype, parent|
+    feature["parents"].each do |reltype, parent|
       # Make sure the parent is written before this feature
       out = feature_to_gff(features, tracknum, parent['feature_id']) + out if features[parent['feature_id']]
       # Write the parental relationship
@@ -1108,6 +1114,7 @@ class TrackFinder
   end
   def cmd_puts(message)
     return if @command_object.nil?
+    puts message + "\n" if DEBUG
     @command_object.stdout = @command_object.stdout + message + "\n";
     @command_object.save
   end
