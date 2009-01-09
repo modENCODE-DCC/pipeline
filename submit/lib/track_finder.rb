@@ -373,29 +373,30 @@ class TrackFinder
                 new_parent_feature_ids[row["feature_id"]] = subfeature_hash
 
                 subfeature_hash["data_name"] = parent_feature_ids[row["parent_id"]]["data_name"]
+                subfeature_hash["genus"] = parent_feature_ids[row["parent_id"]]["genus"]
+                subfeature_hash["species"] = parent_feature_ids[row["parent_id"]]["species"]
                 
                 # Add this feature to the relationships from the previous pass
                 subfeature_hash["parents"].push [row["relationship_type"], parent_feature_ids[row["parent_id"]]]
+                seen_subfeature = features[subfeature_hash["data_name"]][row["feature_id"]]
 
-                seen_subfeature = features[row["data_name"]][row["feature_id"]]
-                seen_subfeature["parents"] = subfeature_hash["parents"] if subfeature_hash["parents"].size > seen_subfeature["parents"].size
                 unless seen_subfeature.nil? then
-                  if seen_subfeature['fmin'] != subfeature_hash['fmin'] || seen_subfeature['fmax'] != subfeature_hash['fmax'] || seen_subfeature['srcfeature'] != subfeature_hash['srcfeature'] then
-                    if subfeature_hash['rank'].to_i == 1 then
-                      # The subfeature_hash is the Target
-                      seen_subfeature['target'] = "#{subfeature_hash['srcfeature']} #{subfeature_hash['fmin']} #{subfeature_hash['fmax']}"
-                    elsif subfeature_hash['rank'].to_i == 0 then
-                      # The seen_subfeature is the Target, because the current subfeature_hash is the match vs. the chromosome
-                      subfeature_hash['target'] = "#{seen_subfeature['srcfeature']} #{seen_subfeature['fmin']} #{seen_subfeature['fmax']}"
-                      features[row["data_name"]][row['feature_id']] = subfeature_hash
+                  seen_subfeature["parents"] = subfeature_hash["parents"] if subfeature_hash["parents"].size > seen_subfeature["parents"].size
+                  if (seen_subfeature['target'].nil?) then
+                    if seen_subfeature['fmin'] != subfeature_hash['fmin'] || seen_subfeature['fmax'] != subfeature_hash['fmax'] || seen_subfeature['srcfeature'] != subfeature_hash['srcfeature'] then
+                      if subfeature_hash['rank'].to_i == 1 then
+                        # The subfeature_hash is the Target
+                        seen_subfeature['target'] = "#{subfeature_hash['srcfeature']} #{subfeature_hash['fmin']} #{subfeature_hash['fmax']}"
+                      elsif subfeature_hash['rank'].to_i == 0 then
+                        # The seen_subfeature is the Target, because the current subfeature_hash is the match vs. the chromosome
+                        subfeature_hash['target'] = "#{seen_subfeature['srcfeature']} #{seen_subfeature['fmin']} #{seen_subfeature['fmax']}"
+                        features[subfeature_hash["data_name"]][row['feature_id']] = subfeature_hash
+                      end
                     end
                   end
                 else
-                  features[row["data_name"]][row["feature_id"]] = subfeature_hash
+                  features[subfeature_hash["data_name"]][row["feature_id"]] = subfeature_hash
                 end
-
-
-                features[subfeature_hash["data_name"]].push subfeature_hash if subfeature_hash['fmin'] && subfeature_hash['fmax']
               }
               parent_feature_ids = new_parent_feature_ids
             end
@@ -745,7 +746,7 @@ class TrackFinder
     end
     @features_processed += 1
     if @features_processed % 20000 == 0 then
-      puts "      Processed #{@features_processed} features..."
+      cmd_puts "      Processed #{@features_processed} features..."
     end
 
     # Format for GFF
@@ -1031,7 +1032,10 @@ class TrackFinder
       zoomlevels = [ nil ]
       case track_type
       when "match" then
-        glyph = "segments"
+        glyph = "box"
+        label = 'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
+      when "EST_match" then
+        glyph = "box"
         label = 'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }'
       when "match_part" then
         glyph = "segments"
