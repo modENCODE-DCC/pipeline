@@ -82,7 +82,9 @@
       You can browse and download the <%= link_to "files #{pronoun} uploaded", { :controller => :public, :action => :download, :id => @project } %>, or<br/>
       the <%= link_to "tracks #{pronoun} found", { :controller => :public, :action => :download, :id => @project, :root => :tracks } %>, or 
       fetch the <%= link_to "ChadoXML", { :action => :download_chadoxml, :id => @project } %>.
-      <br/>You can also <%= link_to "preview the tracks in GBrowse", @gbrowse_url, :popup => true %> or 
+      <% if @gbrowse_url then %>
+        <br/>You can also <%= link_to "preview the tracks in GBrowse", @gbrowse_url, :popup => true %> or 
+      <% end %>
       <%= link_to "download the GBrowse configuration stanza", { :controller => :public, :action => :get_gbrowse_stanzas, :id => @project } %>.
     </div>
   <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then %>
