@@ -6,6 +6,7 @@ require 'pg_database_patch'
 require 'find'
 
 class TrackFinder
+  @features_processed = 0
   def self.gbrowse_root
     if File.exists? "#{RAILS_ROOT}/config/gbrowse.yml" then
       gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml") { |f| YAML.load(f.read) }
@@ -48,8 +49,8 @@ class TrackFinder
   my $accum = 0;
   while (<>) {
     my ($start, $end, $value) = split / /;
-    $startmin = $start if ($start < $startmin) || (!defined($startmin));
-    $endmax = $end if ($end > $endmax) || (!defined($endmax));
+    $startmin = $start if (($start < $startmin) || (!defined($startmin)));
+    $endmax = $end if (($end > $endmax) || (!defined($endmax)));
     $wigfile->set_range($start => $end, $value);
     $accum += ($end-$start);
   }
@@ -319,7 +320,7 @@ class TrackFinder
           end
 
           # Get any features and wiggles associated with the each track's data objects
-          features = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
+          features = Hash.new { |hash, datum_name| hash[datum_name] = Hash.new }
           wiggles = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
           parent_feature_ids = Hash.new
           cmd_puts "      Getting features."
@@ -328,11 +329,26 @@ class TrackFinder
             sth_get_features_by_data_ids.execute data_ids_with_features.uniq
             sth_get_features_by_data_ids.fetch_hash { |row| 
               feature_hash = row
-              feature_hash["children"] = Array.new
+              next unless feature_hash['fmin'] && feature_hash['fmax']
+
               feature_hash["parents"] = Array.new
               parent_feature_ids[row["feature_id"]] = feature_hash
 
-              features[row["data_name"]].push feature_hash if feature_hash['fmin'] && feature_hash['fmax']
+              seen_feature = features[row["data_name"]][row["feature_id"]]
+              unless seen_feature.nil? then
+                if seen_feature['fmin'] != feature_hash['fmin'] || seen_feature['fmax'] != feature_hash['fmax'] || seen_feature['srcfeature'] != feature_hash['srcfeature'] then
+                  if feature_hash['rank'].to_i == 1 then
+                    # The feature_hash is the Target
+                    seen_feature['target'] = "#{feature_hash['srcfeature']} #{feature_hash['fmin']} #{feature_hash['fmax']}"
+                  elsif feature_hash['rank'].to_i == 0 then
+                    # The seen_feature is the Target, because the current feature_hash is the match vs. the chromosome
+                    feature_hash['target'] = "#{seen_feature['srcfeature']} #{seen_feature['fmin']} #{seen_feature['fmax']}"
+                    features[row["data_name"]][row['feature_id']] = feature_hash
+                  end
+                end
+              else
+                features[row["data_name"]][row["feature_id"]] = feature_hash
+              end
             }
           end
           cmd_puts "        Done fetching top-level features."
@@ -352,7 +368,6 @@ class TrackFinder
   
               sth_get_parts_of_features.fetch_hash { |row|
                 subfeature_hash = row.reject { |column, value| column == "object_id" }
-                subfeature_hash["children"] = Array.new
                 subfeature_hash["parents"] = Array.new
 
                 new_parent_feature_ids[row["feature_id"]] = subfeature_hash
@@ -360,8 +375,25 @@ class TrackFinder
                 subfeature_hash["data_name"] = parent_feature_ids[row["parent_id"]]["data_name"]
                 
                 # Add this feature to the relationships from the previous pass
-                parent_feature_ids[row["parent_id"]]["children"].push [row["relationship_type"], subfeature_hash]
                 subfeature_hash["parents"].push [row["relationship_type"], parent_feature_ids[row["parent_id"]]]
+
+                seen_subfeature = features[row["data_name"]][row["feature_id"]]
+                seen_subfeature["parents"] = subfeature_hash["parents"] if subfeature_hash["parents"].size > seen_subfeature["parents"].size
+                unless seen_subfeature.nil? then
+                  if seen_subfeature['fmin'] != subfeature_hash['fmin'] || seen_subfeature['fmax'] != subfeature_hash['fmax'] || seen_subfeature['srcfeature'] != subfeature_hash['srcfeature'] then
+                    if subfeature_hash['rank'].to_i == 1 then
+                      # The subfeature_hash is the Target
+                      seen_subfeature['target'] = "#{subfeature_hash['srcfeature']} #{subfeature_hash['fmin']} #{subfeature_hash['fmax']}"
+                    elsif subfeature_hash['rank'].to_i == 0 then
+                      # The seen_subfeature is the Target, because the current subfeature_hash is the match vs. the chromosome
+                      subfeature_hash['target'] = "#{seen_subfeature['srcfeature']} #{seen_subfeature['fmin']} #{seen_subfeature['fmax']}"
+                      features[row["data_name"]][row['feature_id']] = subfeature_hash
+                    end
+                  end
+                else
+                  features[row["data_name"]][row["feature_id"]] = subfeature_hash
+                end
+
 
                 features[subfeature_hash["data_name"]].push subfeature_hash if subfeature_hash['fmin'] && subfeature_hash['fmax']
               }
@@ -384,7 +416,7 @@ class TrackFinder
           features.default = nil
 
           if features.size > 0  then
-            cmd_puts "      There are #{features.size} features."
+            cmd_puts "      There are #{features.size} feature tracks."
             features.each_pair do |datum_name, features|
               found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
               found_tracks[col][datum_name].push({
@@ -567,41 +599,19 @@ class TrackFinder
       found_tracks[column].each_pair do |datum_name, tracks|
         tracks.each do |track_descriptor|
           if track_descriptor[:type] == :feature then
-            cmd_puts "  There are #{track_descriptor[:data].size} features for the #{track_descriptor[:name]} track"
 
-            has_chromosome_location = false
-            merged_features = Hash.new
-            track_descriptor[:data].each do |feature|
-              has_chromosome_location = true if (feature['srcfeature_id'] != feature['feature_id'] && !feature['srcfeature_id'].nil? && !feature['feature_id'].nil?)
-              if merged_features.has_key? feature['feature_id'] then
-                # Two locations?
-                seen_feature = merged_features[feature['feature_id']]
-                seen_feature["parents"] = feature["parents"] if feature["parents"].size > seen_feature["parents"].size
-                if seen_feature['fmin'] != feature['fmin'] || seen_feature['fmax'] != feature['fmax'] || seen_feature['srcfeature'] != feature['srcfeature'] then
-                  if feature['rank'].to_i == 1 then
-                    # The feature is the Target
-                    seen_feature['target'] = "#{feature['srcfeature']} #{feature['fmin']} #{feature['fmax']}"
-                  elsif feature['rank'].to_i == 0 then
-                    # The seen_feature is the Target, because the current feature is the match vs. the chromosome
-                    feature['target'] = "#{seen_feature['srcfeature']} #{seen_feature['fmin']} #{seen_feature['fmax']}"
-                    merged_features[feature['feature_id']] = feature
-                  end
-                  # else skip
-                end
-              else
-                merged_features[feature['feature_id']] = feature
-              end
-            end
+            merged_features = track_descriptor[:data]
+            cmd_puts "  There are #{merged_features.size} features for the #{track_descriptor[:name]} track"
+            has_chromosome_location = (merged_features.values.find { |f| !f["srcfeature_id"].nil? && !f["feature_id"].nil? && f["srcfeature_id"] != f["feature_id"] }) ? true : false
 
             unless has_chromosome_location then
               cmd_puts "    No features mapped to a chromosome, not generating track."
               next
             end
-            
-            cmd_puts  "    There are #{merged_features.size} features after removing duplicate features"
 
             too_many_features = false
             if merged_features.size > MAX_FEATURES_PER_CHR then
+              cmd_puts "    Generating wiggle file for zoomed-out view."
               # Figure out how many features there are per chromosome
               count = Hash.new { |hash, srcfeature| hash[srcfeature] = 0 }
               merged_features.values.each { |f|
@@ -612,7 +622,7 @@ class TrackFinder
                 # Wigglefy
                 # One wiggle db file per chr and feature type
                 # One GFF per track
-                unique_types = track_descriptor[:data].map { |feature| feature['type'] }.uniq
+                unique_types = merged_features.values.map { |feature| feature['type'] }.uniq
                 chromosomes = count.keys
 
                 # Make a GFF for wigglefied tracks ALSO
@@ -621,6 +631,14 @@ class TrackFinder
                 unique_types.each do |type|
 
                   chromosomes.each do |chromosome|
+                    all_chr_features = merged_features.values.find_all { |feature| feature['type'] == type && feature['srcfeature'] == chromosome }
+                    if all_chr_features.size > 0 then
+                      cmd_puts "      Generating wiggle for features of type #{type} on chromosome #{chromosome}."
+                    else
+                      cmd_puts "      There are no features of type #{type} on chromosome #{chromosome}. Skipping."
+                      next
+                    end
+
                     wiggle_db_file_path = File.join(directory, "#{track_descriptor[:tracknum]}_#{chromosome}_#{type}.wigdb")
 
                     wiggle_writer = IO.popen("perl", "w")
@@ -632,7 +650,7 @@ class TrackFinder
                     wiggle_writer.puts "#{min} #{max}"
                     fmin = nil
                     fmax = nil
-                    track_descriptor[:data].find_all { |feature| feature['type'] == type && feature['srcfeature'] == chromosome }.each do |feature|
+                    all_chr_features.each do |feature|
                       if feature['fmin'] && feature['fmax'] then
                         wiggle_writer.puts "#{(feature['fmin'].to_i+1).to_s} #{feature['fmax']} #{max}"
                         
@@ -646,21 +664,25 @@ class TrackFinder
                 end
                 gff_file.close
               end
+              cmd_puts "    Done."
             end
 
+            cmd_puts "    Generating GFF file."
             gff_file = File.new(File.join(directory, "#{track_descriptor[:tracknum]}.gff"), "w")
             gff_file.puts("##gff-version 3")
             merged_features.values.each { |f| if f['srcfeature'].nil? then f['srcfeature'] = f['uniquename'] end }
 
+            @features_processed = 0
             while merged_features.size > 0
               if too_many_features then
-                out = feature_to_gff(merged_features, "#{track_descriptor[:tracknum]}_details")
+                out = self.feature_to_gff(merged_features, "#{track_descriptor[:tracknum]}_details")
               else
-                out = feature_to_gff(merged_features, track_descriptor[:tracknum])
+                out = self.feature_to_gff(merged_features, track_descriptor[:tracknum])
               end
               gff_file.puts(out)
             end
             gff_file.close
+            cmd_puts "    Done."
           end
 
 
@@ -716,9 +738,14 @@ class TrackFinder
 
   def feature_to_gff(features, tracknum, parent_id = nil)
     if parent_id.nil? then
-      (feature_id, feature) = features.shift
+      (feature_id, feature) = features.first
+      features.delete(feature_id)
     else
       feature = features.delete(parent_id)
+    end
+    @features_processed += 1
+    if @features_processed % 20000 == 0 then
+      puts "      Processed #{@features_processed} features..."
     end
 
     # Format for GFF
@@ -749,7 +776,7 @@ class TrackFinder
     # Parental relationships
     feature["parents"].each do |reltype, parent|
       # Make sure the parent is written before this feature
-      out = feature_to_gff(features, tracknum, parent['feature_id']) + out if features[parent['feature_id']]
+      out = self.feature_to_gff(features, tracknum, parent['feature_id']) + out if features[parent['feature_id']]
       # Write the parental relationship
       out = out + ";Parent=#{parent['feature_id']}"
       out = out + ";parental_relationship=#{reltype}/#{parent['feature_id']}"
@@ -757,9 +784,6 @@ class TrackFinder
 
     out = out + "\n"
 
-#    feature["feature_relationships"].each { |type, child|
-#      out = out + "\n" + feature_to_gff(child, tracknum, type, feature)
-#    }
     out
   end
 
@@ -862,12 +886,11 @@ class TrackFinder
           end
           # Add a tag for every feature (name as value, type as type)
           if track_descriptor[:type] == :feature then
-            track_descriptor[:data].each do |feature|
+            track_descriptor[:data].values.each do |feature|
               tags.push [ track_descriptor[:experiment_id], feature['name'], feature['type'], 0 ]
             end
-            feature = track_descriptor[:data].first
+            feature = track_descriptor[:data].values.first
             tags.push [ track_descriptor[:experiment_id], feature['genus'] + " " + feature['species'], 'organism', 0 ]
-
           end
           tags.push [ track_descriptor[:experiment_id], track_descriptor[:type].to_s, 'track_type', 0 ]
           track_descriptor[:tags] = tags.uniq

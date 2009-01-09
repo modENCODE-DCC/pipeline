@@ -41,6 +41,7 @@ class FindTracksController < CommandController
       track_finder.attach_metadata(found_tracks)
 
       track_finder.generate_output(found_tracks, tracks_dir)
+      found_tracks = nil
 
       track_finder.load_into_gbrowse(command_object.project.id, tracks_dir)
 
