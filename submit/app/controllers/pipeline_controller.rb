@@ -8,7 +8,7 @@ class PipelineController < ApplicationController
     'bgcolor' => GD_COLORS,
     'group_on' => {
       '' => " [No grouping]", 
-      'sub { return shift->name }' => "Feature Name",
+      'sub { return shift->name }' => "[Feature Name]",
       'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name]",
     },
     'stranded' => [ "0", "1" ],
@@ -26,7 +26,7 @@ class PipelineController < ApplicationController
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
-      'segments', 'arrow', 'anchored_arrow', 'box',
+      'generic', 'segments', 'arrow', 'anchored_arrow', 'box',
       'crossbox', 'dashed_line', 'diamond', 'dna', 'dot', 'dumbbell', 'ellipse' 'ex',
       'line', 'primers', 'saw_teeth', 'span', 'splice_site',
       'translation', 'triangle' 'two_bolts', 'wave', 'wiggle_density', 'wiggle_xyplot'
