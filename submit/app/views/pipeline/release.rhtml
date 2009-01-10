@@ -26,53 +26,64 @@ Once you have verified the dataset, checkoff the appropriate boxes.  When comple
 <% if @project_needs_release %>
 <hr />
 
-<center>
-All of the following must be completed in order to release your data set:
-<br /><br />
-<table>
-<tr>
-<th align="center">Task</td>
-<th align="center">Complete</td>
-<th align="left" style="padding-left: 30px">Details</td>
-</tr>
-    <tr>
-      <td align="center">Submission Created</td>
-      <td>&nbsp</td>
-      <td style="padding-left: 30px">Created on <%= @project.created_at.strftime("%a, %b %d, %Y (%H:%M)")%></td>
-      <td></td>
-    </tr>
+<%= form_tag url_for(:action => :release), :method => "post" %>
+  <center>
+    All of the following must be completed in order to release your data set:
+    <br /><br />
+    <table>
+      <tr>
+        <th align="center">Task</td>
+        <th align="center">Complete</td>
+        <th align="left" style="padding-left: 30px">Details</td>
+      </tr>
+      <tr>
+        <td align="center">Submission Created</td>
+        <td>&nbsp;</td>
+        <td style="padding-left: 30px">Created on <%= @project.created_at.strftime("%a, %b %d, %Y (%H:%M)")%></td>
+        <td></td>
+      </tr>
 
-  <% @checklist_for_data_validation.each do |task| %>
-    <tr>
-      <td align="center"><%= task[:description] %></th>
-      <td align="center"> <%= check_box_tag(task[:description], task[:done], task[:done], :disabled => true) %>
-      <td style="padding-left: 30px"<%= ' class="green"' if task[1]%>>
-        <i>Last completed:</i>
-        <%= task[:date].class==Time ? task[:date].strftime("%a, %b %d, %Y (%H:%M)") : task[:date] %>
-      </td>
-      <td><%=link_to("...", {:action => :command_status, :id => task[3] }) if task[2]!="never" %> </td>
-    </tr>
-  <% end %>
-  <tr><td colspan="4">&nbsp</td></tr>
-  <% @checklist_for_release_by_pi.each do |item, link| %>
-    <tr>
-      <td align="center"> <%= item %></td>
-      <td align="center"> <%= check_box_tag(item) %>
-      <td style="padding-left: 30px">
-        <%= link_to "Preview...", link %>
-      </td>
-      <td>&nbsp;</td>
-   </tr>
-  <% end %>
-</table>
-</center>
-<br />
-By clicking the 'release' button below, I understand this constitutes an electronic signature that approves this data set to be released
-for public viewing and downloading under the purview of the modENCODE project.  Further information on the data release policy
-from the NIH can be found <a href="http://www.modencode.org/data_release_policy.pdf">here</a>
-<br />
-<br />
-<center><%= button_to("Release") %> </center>
+      <% @checklist_for_data_validation.each do |task| %>
+        <tr>
+          <td align="center"><%= task[:description] %></th>
+          <td align="center"> <%= check_box_tag(task[:description], task[:done], task[:done], :disabled => true) %></td>
+          <td style="padding-left: 30px"<%= ' class="green"' if task[1]%>>
+            <i>Last completed:</i>
+            <%= task[:date].class==Time ? task[:date].strftime("%a, %b %d, %Y (%H:%M)") : task[:date] %>
+          </td>
+          <td><%=link_to("...", {:action => :command_status, :id => task[3] }) if task[2]!="never" %> </td>
+        </tr>
+      <% end %>
+      <tr><td colspan="4">&nbsp;</td></tr>
+      <% @checklist_for_release_by_pi.each do |item, link| %>
+        <tr>
+          <td align="center"> <%= item %></td>
+          <td align="center"> <%= check_box_tag(item) %></td>
+          <td style="padding-left: 30px">
+            <%= link_to "Preview...", link %>
+          </td>
+          <td>&nbsp;</td>
+        </tr>
+      <% end %>
+    </table>
+  </center>
+  <br />
+  By clicking the 'release' button below, I understand this constitutes an electronic signature that approves this data set to be released
+  for public viewing and downloading under the purview of the modENCODE project.  Further information on the data release policy
+  from the NIH can be found <a href="http://www.modencode.org/data_release_policy.pdf">here</a>
+  <br />
+  <br />
+  <center>
+    <input type="hidden" name="reason" id="reason"/>
+    <%= submit_tag("Release", :disabled => (@project.status == Release::Status::USER_RELEASED || @project.status == Release::Status::RELEASED)) %>
+    <% if @project.status == Release::Status::USER_RELEASED && !current_user.is_a?(Moderator) then %>
+      Awaiting DCC approval
+    <% end %>
+    <%= submit_tag("Release as DCC", :disabled => (@project.status == Release::Status::DCC_RELEASED || @project.status == Release::Status::RELEASED)) if current_user.is_a? Moderator %>
+    <%= submit_tag("Reject as DCC", :onclick => "var reply = prompt('Why are you rejecting this submission?'); $('reason').value = reply; return true") if current_user.is_a? Moderator %>
+  </center>
+</form>
+
 <br />
 <br />
 <br />

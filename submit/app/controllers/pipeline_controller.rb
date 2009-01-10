@@ -695,7 +695,7 @@ class PipelineController < ApplicationController
         ts.save
       }
       # Unaccept config(s) for this project if any have been accepted
-      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
         ts.released = false
         ts.save
       }
@@ -708,7 +708,7 @@ class PipelineController < ApplicationController
       end
 
       # Unaccept config(s) for this project if any have been accepted
-      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
         ts.released = false
         ts.save
       }
@@ -725,7 +725,7 @@ class PipelineController < ApplicationController
       @project.save
 
       # Unaccept config(s) for this project if any have been accepted
-      TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
         ts.released = false
         ts.save
       }
@@ -783,7 +783,7 @@ class PipelineController < ApplicationController
 
     update_errors = Array.new
     # Unaccept config(s) for this project if any have been accepted
-    TrackStanza.find_all_by_project_id(@project.id, current_user.id).each { |ts|
+    TrackStanza.find_all_by_project_id(@project.id).each { |ts|
       ts.released = false
       ts.save
     }
@@ -1000,8 +1000,82 @@ class PipelineController < ApplicationController
       # Worm/Flybase?
     ]
 
-    @project_needs_release = @project.status == "released" ? false : true
+    @project_needs_release = (Project::Status::ok_next_states(@project).include?(Release::Status::AWAITING_RELEASE))
+
+    # Handle form click
+    if params[:commit] == "Release" then
+      is_okay = true
+      @checklist_for_data_validation.each { |task| 
+        is_okay = false unless task[:done]
+      }
+      @checklist_for_release_by_pi.each { |task| 
+        is_okay = false unless params[task[0]]
+      }
+      if is_okay then
+        do_user_release(@project)
+        redirect_to :action => :show, :id => @project
+        return
+      else
+        flash[:error] = "All checkboxes must be checked to release this submission."
+      end
+    end
+    if params[:commit] == "Release as DCC" then
+      is_okay = true
+      @checklist_for_data_validation.each { |task| 
+        is_okay = false unless task[:done]
+      }
+      @checklist_for_release_by_pi.each { |task| 
+        is_okay = false unless params[task[0]]
+      }
+      if is_okay then
+        do_dcc_release(@project)
+        redirect_to :action => :show, :id => @project
+        return
+      else
+        flash[:error] = "All checkboxes must be checked to release this submission -- even for you, DCC user."
+      end
+    end
+    if params[:commit] == "Reject as DCC" then
+      do_dcc_reject(@project, :reason => params[:reason])
+      redirect_to :action => :show, :id => @project
+      return
+    end
+    if params[:commit] then
+      redirect_to :action => :release, :id => @project
+    end
+
   end
+
+  def do_user_release(project, options = {})
+    release_controller = nil
+    if Release::Status::constants.map { |c| Release::Status::const_get(c) }.include?(project.status) then
+      release_controller = UserReleaseController.new(:project => project, :status => project.status)
+    else
+      release_controller = UserReleaseController.new(:project => project)
+    end
+    release_controller.run
+  end
+
+  def do_dcc_release(project, options = {})
+    release_controller = nil
+    if Release::Status::constants.map { |c| Release::Status::const_get(c) }.include?(project.status) then
+      release_controller = DccReleaseController.new(:project => project, :status => project.status)
+    else
+      release_controller = DccReleaseController.new(:project => project)
+    end
+    release_controller.run
+  end
+
+  def do_dcc_reject(project, options = {})
+    reject_controller = DccRejectController.new(:project => project, :stderr => options[:reason]);
+    reject_controller.run
+    # Unaccept config(s) for this project if any have been accepted
+    TrackStanza.find_all_by_project_id(project.id).each { |ts|
+      ts.released = false
+      ts.save
+    }
+  end
+
   def project=(proj)
     @project = proj
   end
