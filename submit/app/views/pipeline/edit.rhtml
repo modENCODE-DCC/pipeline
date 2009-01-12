@@ -1,27 +1,15 @@
-<p>
+<br/>
 <b>Rename project '<%= @project.name -%>':</b>
-<p>
 
-<%= error_messages_for 'project' -%>
-
-  <% if current_user.login == "admin" %>
-    <p><label for="project_project_type_id">Type</label><br/>
-    <select id="project_project_type_id" name="project[project_type_id]">
-    <% @projectTypes.each do |t| %>
-      <option value="<%= t.id -%>" <%= (t.id==@project.project_type_id ? 
-                        " selected" : "") -%>><%= t.short_label -%></option>
-    <% end %>
-    </select></p>
-  <% end %>
- 
 <% form_tag :action => 'edit', :id => @project do %>
-
-  <p><label for="project_name">Name</label><br/>
-  <%= text_field 'project', 'name'  %></p>
-
-<table><tr>
-<td > <%= submit_tag 'Save' -%></td>
+  <label for="project_name">Name</label>
+  <%= text_field 'project', 'name'  %><br/>
+  <div style="float: left; margin-right: 15px;">
+    <% if Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then %>
+      <%= submit_tag 'Save', :confirm => "You will have to revalidate your project if you rename it! Continue?" -%>
+    <% else %>
+      <%= submit_tag 'Save' -%>
+    <% end %>
+  </div>
 <% end %>
-<td> <%= button_to 'Cancel', {:controller => 'pipeline', :action => 'show', :id => @project.id } -%></td>
-</tr></table>
-  
+<div style="float: left"><%= button_to 'Cancel', :action => :show, :id => @project.id %></div>

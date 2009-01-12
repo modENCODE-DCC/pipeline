@@ -72,16 +72,18 @@ class PipelineController < ApplicationController
   def edit
     begin
       @project = Project.find(params[:id])
+      return false unless check_user_can_write @project
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
       return
     end
-    @projectTypes = getProjectTypes
 
     if params[:commit] then
       old_project_type_id = @project.project_type_id
       if @project.update_attributes(params[:project]) then
+        @project.status = Project::Status::UPLOADED
+        @project.save
         redirect_to :action => 'show', :id => @project
       else
         flash[:error] = "Couldn't save project #{$!}."
