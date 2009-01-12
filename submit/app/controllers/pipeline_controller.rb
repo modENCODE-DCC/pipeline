@@ -754,7 +754,13 @@ class PipelineController < ApplicationController
       TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id)
       ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(@track_defs)
       ts.save
+      # Unaccept config(s) for this project if any have been accepted
+      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
+        ts.released = false
+        ts.save
+      }
       redirect_to :action => :configure_tracks, :id => @project
+      return
     else
       @ts_user = ts.user
       @track_defs = ts.stanza
