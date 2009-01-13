@@ -252,6 +252,10 @@ class PipelineController < ApplicationController
       end
       @gbrowse_url += "-" + ts.stanza.keys.join("-")
     end
+
+    if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then
+      flash[:warning] = "This project is awaiting release and approval!"
+    end
   end
 
   def download_chadoxml
@@ -1291,6 +1295,11 @@ class PipelineController < ApplicationController
       flash[:warning] = "Note: This project (#{project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
       flash.discard(:warning)
     end
+    if project.status == Project::Status::RELEASED then
+      flash[:notice] = "This project has been released and cannot be modified."
+      return false
+    end
+
     return true
   end
 
