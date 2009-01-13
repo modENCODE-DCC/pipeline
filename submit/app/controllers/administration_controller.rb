@@ -112,9 +112,7 @@ class AdministrationController < ApplicationController
 
       highest_position = all_waiting_commands.map { |cmd| cmd.queue_position }.max
 
-      while command.queue_position < highest_position do
-        command.move_lower_in_queue
-      end
+      command.move_to_bottom_in_queue
 
       command.controller.queue
     else
