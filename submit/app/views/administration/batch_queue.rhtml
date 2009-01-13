@@ -1,0 +1,26 @@
+Batch Queueing<br/><br/>
+
+<%= form_tag :action => :batch_queue %>
+  
+
+<%= form_tag :action => :batch_queue %>
+  Show me projects I can:
+  <select name="filter" onchange="this.form.submit()">
+    <%= options_for_select(@tasks, @next_status) %>
+  </select>
+  <br/>
+  <% if @do_task then %>
+    Okay! Click: <%= submit_tag @do_task %>
+    <br/>
+  <% end %>
+
+  <table>
+  <% @projects.each do |project| %>
+    <tr>
+      <td><%= check_box_tag "selected_projects[]", project.id, @selected_projects.include?(project.id.to_s) %></td>
+      <td><%= link_to project.id, :controller => :pipeline, :action => :show, :id => project %></td>
+      <td><%= link_to project.name, :controller => :pipeline, :action => :show, :id => project %></td>
+    </tr>
+  <% end %>
+  </table>
+</form>

@@ -18,6 +18,55 @@ class AdministrationController < ApplicationController
     @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
   end
 
+  def batch_queue
+    @projects = Project.all
+    @selected_projects = Array.new
+    @tasks = [
+      ["", ""],
+      ["validate", "VALIDATING"],
+      ["load", "LOADING"],
+      ["find tracks", "FINDING"]
+    ]
+    @next_status = params[:filter]
+    if @next_status then
+      next_state = @tasks.find { |t| t[1] == @next_status }
+      @do_task = next_state[0].capitalize
+      @projects.reject! { |p| !Project::Status::ok_next_states(p).include?(Project::Status::const_get(next_state[1])) }
+    else
+      @projects = Array.new
+    end
+    @projects.sort! { |a, b| a.id <=> b.id }
+    if params[:commit] then
+      @next_state = Project::Status::const_get(@tasks.find { |t| t[0] == params[:commit].downcase }[1])
+
+      @selected_projects = params[:selected_projects]
+
+      case @next_state
+      when Project::Status::VALIDATING
+        pc = PipelineController.new
+        @selected_projects.each { |proj_id|
+          p = Project.find(proj_id)
+          next unless Project::Status::ok_next_states(p).include?(Project::Status::VALIDATING)
+          pc.do_validate(p)
+        }
+      when Project::Status::LOADING
+        pc = PipelineController.new
+        @selected_projects.each { |proj_id|
+          p = Project.find(proj_id)
+          next unless Project::Status::ok_next_states(p).include?(Project::Status::LOADING)
+          pc.do_load(p)
+        }
+      when Project::Status::FINDING
+        pc = PipelineController.new
+        @selected_projects.each { |proj_id|
+          p = Project.find(proj_id)
+          next unless Project::Status::ok_next_states(p).include?(Project::Status::FINDING)
+          pc.do_find_tracks(p)
+        }
+      end
+    end
+  end
+
   def set_running_flag
     if params[:running_flag].to_s == true.to_s then
       CommandController.running_flag = true
