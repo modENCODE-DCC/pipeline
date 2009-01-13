@@ -904,6 +904,8 @@ class PipelineController < ApplicationController
           # Trying to change the actual zoom_level
           stanzas[stanzaname][:semantic_zoom][new_zoom_level] = stanzas[stanzaname][:semantic_zoom][zoom_level]
           stanzas[stanzaname][:semantic_zoom].delete(zoom_level)
+          user_stanza.stanza = stanzas
+          user_stanza.save
 
           # We should go ahead and force a refresh since this changes lots of underlying form fields
           headers["Content-Type"] = "application/javascript"
