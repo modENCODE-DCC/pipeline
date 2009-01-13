@@ -1024,6 +1024,7 @@ class TrackFinder
       pos_color = nil
       smoothing = nil
       smoothing_window = nil
+      bicolor_pivot = nil
       fgcolor = "black"
       bgcolor = "lightgrey"
       glyph = "generic"
@@ -1093,6 +1094,7 @@ class TrackFinder
           pos_color = "blue"
           smoothing = "mean"
           smoothing_window = 10
+          bicolor_pivot = "zero"
         end
       end
       tag_track_organism = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'organism')
@@ -1123,7 +1125,8 @@ class TrackFinder
           track_defs[stanzaname]['neg_color'] = neg_color unless neg_color.nil?
           track_defs[stanzaname]['pos_color'] = pos_color unless pos_color.nil?
           track_defs[stanzaname]['smoothing'] = smoothing unless smoothing.nil?
-          track_defs[stanzaname]['smoothing window'] = smoothing_window unless smoothing_window.nil?
+          track_defs[stanzaname]['smoothing_window'] = smoothing_window unless smoothing_window.nil?
+          track_defs[stanzaname]['bicolor_pivot'] = bicolor_pivot unless bicolor_pivot.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type

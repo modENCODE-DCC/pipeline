@@ -37,7 +37,12 @@ class PipelineController < ApplicationController
     'neg_color' => GD_COLORS,
     'pos_color' => GD_COLORS,
     'smoothing' => [ '', 'mean' ],
-    'smoothing window' => :integer,
+    'smoothing_window' => :integer,
+    'bicolor_pivot' => {
+      'zero' => 'zero',
+      'mean' => 'mean',
+      '' => '[avg of min/max]',
+    },
   }
 
   before_filter :login_required, :except => [ :get_gbrowse_config ]
