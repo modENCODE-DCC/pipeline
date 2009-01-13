@@ -1022,6 +1022,8 @@ class TrackFinder
       max_score = nil
       neg_color = nil
       pos_color = nil
+      smoothing = nil
+      smoothing_window = nil
       fgcolor = "black"
       bgcolor = "lightgrey"
       glyph = "generic"
@@ -1089,6 +1091,8 @@ class TrackFinder
           max_score = 20
           neg_color = "orange"
           pos_color = "blue"
+          smoothing = "mean"
+          smoothing_window = 10
         end
       end
       tag_track_organism = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'organism')
@@ -1112,10 +1116,14 @@ class TrackFinder
           track_defs[stanzaname]['label density'] = 100
           track_defs[stanzaname]['glyph'] = glyph
           track_defs[stanzaname]['connector'] = connector
+
+          # Wiggle-only stuff
           track_defs[stanzaname]['min_score'] = min_score unless min_score.nil?
           track_defs[stanzaname]['max_score'] = max_score unless max_score.nil?
           track_defs[stanzaname]['neg_color'] = neg_color unless neg_color.nil?
           track_defs[stanzaname]['pos_color'] = pos_color unless pos_color.nil?
+          track_defs[stanzaname]['smoothing'] = smoothing unless smoothing.nil?
+          track_defs[stanzaname]['smoothing window'] = smoothing_window unless smoothing_window.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type
