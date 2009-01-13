@@ -35,7 +35,9 @@ class PipelineController < ApplicationController
     'min_score' => :integer,
     'max_score' => :integer,
     'neg_color' => GD_COLORS,
-    'pos_color' => GD_COLORS
+    'pos_color' => GD_COLORS,
+    'smoothing' => [ '', 'mean' ],
+    'smoothing window' => :integer,
   }
 
   before_filter :login_required, :except => [ :get_gbrowse_config ]
