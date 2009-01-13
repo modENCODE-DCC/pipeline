@@ -57,12 +57,11 @@ class PublicController < ApplicationController
       return false
     end
 
-    all_track_defs = TrackStanza.find_all_by_user_id_and_project_id(current_user, params[:id])
-    released_configs = Array.new
-    all_track_defs.each { |td|
-      released_config = TrackStanza.find_by_project_id_and_released(td.project_id, true)
-      released_configs.push released_config if released_config
-    }
+    all_track_defs = Array.new
+    released_configs = TrackStanza.find_all_by_project_id_and_released(params[:id], true)
+    unless current_user == :false then
+      all_track_defs = TrackStanza.find_all_by_project_id(current_user, params[:id])
+    end
     released_configs.each { |td|
       all_track_defs.delete_if { |atd| atd.project_id == td.project_id }
       all_track_defs.push td
