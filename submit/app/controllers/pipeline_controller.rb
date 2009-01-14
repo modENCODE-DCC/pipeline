@@ -51,6 +51,7 @@ class PipelineController < ApplicationController
           :show,
           :new,
           :list,
+          :view_my_queue,
           :status_table,
           :show_user,
 	  :show_group,
@@ -66,6 +67,7 @@ class PipelineController < ApplicationController
         [
           :new,
           :list,
+          :view_my_queue,
           :status_table,
           :show_user,
 	  :show_group,
@@ -118,6 +120,12 @@ class PipelineController < ApplicationController
     session[:show_filter] = :user
     status
     render :action => "status"
+  end
+
+  def view_my_queue
+    user_to_view = (params[:user_id] && User.find(params[:user_id]) && current_user.is_a?(Moderator)) ? User.find(params[:user_id]) : current_user
+    @my_queued_commands = Project.find_all_by_user_id(user_to_view).map { |p| p.commands.find_all { |c| c.status == Command::Status::QUEUED } }.flatten.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    render :action => "view_my_queue", :layout => "popup"
   end
 
   def show_group
@@ -1389,6 +1397,52 @@ class PipelineController < ApplicationController
     return types
   end
 
+  def getProjectType(project)
+    # --- read one project type from config file into hash -------
+    projectTypes = getProjectTypes
+    projectTypes.each do |x|
+      if x['id'] == project.project_type_id
+        return x
+      end
+    end
+  end
+
+  def run_with_timeout(cmd, myTimeout)
+    # --- run process with timeout ---- (probably should move this to an application helper location)
+    # run process, kill it if exceeds specified timeout in seconds
+    sleepInterval = 0.5  #seconds
+    if ( (cpid = fork) == nil)
+      exec(cmd)
+    else
+      before = Time.now
+      while (true)
+	pid, status = Process.wait2(cpid,Process::WNOHANG)
+        if pid == cpid
+          return status.exitstatus
+        end
+        if ( (Time.now - before) > myTimeout)
+          Process.kill("ABRT",cpid)
+	  pid, status = Process.wait2(cpid) # clean up zombies
+          return -1
+        end
+        sleep(sleepInterval)
+      end
+    end
+  end
+
+  def log_project_status
+    # add new projectArchive record
+    project_status_log = ProjectStatusLog.new
+    project_status_log.project_id = @project.id 
+    project_status_log.status = @project.status
+    unless project_status_log.save
+      flash[:error] = "System error saving project_status_log record."
+    end
+  end
+ 
+end
+
+private
   def status
 
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
@@ -1397,6 +1451,7 @@ class PipelineController < ApplicationController
     same_group_users = User.find_all_by_pi(user_to_view.pi)
     if session[:show_filter] == :user then
       @projects = user_to_view.projects
+      @show_my_queue = user_to_view
     elsif session[:show_filter] == :group then
       @projects = same_group_users.map { |u| u.projects }.flatten
     else  
@@ -1507,47 +1562,3 @@ class PipelineController < ApplicationController
 
   end
 
-  def getProjectType(project)
-    # --- read one project type from config file into hash -------
-    projectTypes = getProjectTypes
-    projectTypes.each do |x|
-      if x['id'] == project.project_type_id
-        return x
-      end
-    end
-  end
-
-  def run_with_timeout(cmd, myTimeout)
-    # --- run process with timeout ---- (probably should move this to an application helper location)
-    # run process, kill it if exceeds specified timeout in seconds
-    sleepInterval = 0.5  #seconds
-    if ( (cpid = fork) == nil)
-      exec(cmd)
-    else
-      before = Time.now
-      while (true)
-	pid, status = Process.wait2(cpid,Process::WNOHANG)
-        if pid == cpid
-          return status.exitstatus
-        end
-        if ( (Time.now - before) > myTimeout)
-          Process.kill("ABRT",cpid)
-	  pid, status = Process.wait2(cpid) # clean up zombies
-          return -1
-        end
-        sleep(sleepInterval)
-      end
-    end
-  end
-
-  def log_project_status
-    # add new projectArchive record
-    project_status_log = ProjectStatusLog.new
-    project_status_log.project_id = @project.id 
-    project_status_log.status = @project.status
-    unless project_status_log.save
-      flash[:error] = "System error saving project_status_log record."
-    end
-  end
- 
-end

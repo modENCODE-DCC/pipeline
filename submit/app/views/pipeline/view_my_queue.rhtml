@@ -1,0 +1,24 @@
+<div align="center">
+  <table border="1" style="border:thin solid black;" width="95%">
+    <tr>
+      <th colspan="3" style="background-color:#0000AA; color: white; text-align:center">Queued Commands</th>
+    </tr>
+    <% 
+      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    %>
+    <% @my_queued_commands.each do |command| %>
+      <tr>
+        <td style="text-align: left; vertical-align: bottom; font-size: 90%;">
+          <b><%= command.class.name %></b>
+          <br/>
+        </td>
+        <td style="text-align: left; vertical-align: bottom; font-size: 90%;">
+          <%= link_to "project ##{command.project.id}", :action => :show, :id => command.project %>
+        </td>
+        <td style="text-align: left; vertical-align: bottom; font-size: 90%;">
+          <%= Inflector.ordinalize(all_queued_commands.index(command)+1) %> in the queue.
+        </td>
+      </tr>
+    <% end %>
+  </table>
+</div>

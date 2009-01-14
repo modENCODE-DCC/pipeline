@@ -34,7 +34,16 @@
       <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
       <th><%= link_to "Submission<br/>Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
       <th><%= link_to "Current<br/>Status", :action => refresh_action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
-      <% if total_queued_commands > 0 %><th>Q</th><% end %>
+      <% if total_queued_commands > 0 %>
+        <th>
+          Q
+          <% if !@show_my_queue.nil? then %>
+            <br/><span style="font-size:50%">
+              <%= link_to "view queue", { :action => :view_my_queue, :user_id => @show_my_queue }, :popup => [ 'my_queue', 'height=400,width=600'] %>
+            </span>
+          <% end %>
+        </th>
+      <% end %>
 
       <% if (@display_type == 'expanded') %>
         <th><%= link_to "Created", :action => refresh_action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
