@@ -28,7 +28,7 @@
     <tr>
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
-      <td><%= command.project.user.login %></td> 
+      <td><%= command.project.user.login if command.project %></td> 
     </tr>
     <% end %>
   </table>
