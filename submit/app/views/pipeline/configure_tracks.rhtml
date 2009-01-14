@@ -90,6 +90,15 @@
       return true;
     }
   }
+  function restrictCitationText(keyEvent) {
+    var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
+    if (charCode == 46 || charCode == 59 || charCode == 44 ||
+        charCode == 40 || charCode == 41 || charCode == 91 ||
+        charCode == 93) {
+          return true;
+    }
+    return restrictText(keyEvent);
+  }
   function restrictText(keyEvent) {
     var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
     if (charCode == 13 || charCode == 3) {
@@ -123,6 +132,11 @@
     } else {
       return restrictNumeric(keyEvent);
     }
+  }
+  function hideCitationTextField(evt) {
+    var value = evt.element().getValue();
+    evt.element().value = value.gsub(/[^;\(\)\[\]\.\,a-zA-Z0-9_ :-]/, '');
+    hideField(evt);
   }
   function hideTextField(evt) {
     var value = evt.element().getValue();
@@ -266,6 +280,12 @@
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictText);
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
+            </script>
+          <% elsif @stanza_options[option] == :citation_text %>
+            <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
+            <script type="text/javascript">
+              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictCitationText);
+              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideCitationTextField);
             </script>
           <% elsif @stanza_options[option] == :integer %>
             <input type="text" style="display:none" name="<%=option%>" value="<%=value%>" id="<%="#{stanzaname}_#{option}"%>"/>

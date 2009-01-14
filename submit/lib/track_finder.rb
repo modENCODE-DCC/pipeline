@@ -1113,6 +1113,7 @@ class TrackFinder
           track_defs[stanzaname]['group_on'] = group_on
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
           track_defs[stanzaname]['key'] = key
+          track_defs[stanzaname]['citation'] = ""
           track_defs[stanzaname]['label'] = label
           track_defs[stanzaname]['bump density'] = 250
           track_defs[stanzaname]['label density'] = 100

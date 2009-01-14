@@ -13,6 +13,7 @@ class PipelineController < ApplicationController
     },
     'stranded' => [ "0", "1" ],
     'key' => :text,
+    'citation' => :citation_text,
     'label' => {
       '' => " [No label]",
       'sub { return shift->name; }'                                              => "[Feature Name (for individual features)]", 
@@ -856,6 +857,8 @@ class PipelineController < ApplicationController
           okay_value = true if value.to_i.to_s == value.to_s
         when :text
           okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+        when :citation_text
+          okay_value = true if value =~ /^[;\(\)\[\]\.\,a-zA-Z0-9_ -]*$/
         end
       end
 
@@ -893,6 +896,8 @@ class PipelineController < ApplicationController
               okay_value = true if value.to_i.to_s == value.to_s
             when :text
               okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+            when :citation_text
+              okay_value = true if value =~ /^[;\(\)\[\]\.\,a-zA-Z0-9_ -]*$/
             end
           end
 
