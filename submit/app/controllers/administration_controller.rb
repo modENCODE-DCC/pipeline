@@ -59,9 +59,12 @@ class AdministrationController < ApplicationController
       when Project::Status::FINDING
         pc = PipelineController.new
         @selected_projects.each { |proj_id|
-          p = Project.find(proj_id)
-          next unless Project::Status::ok_next_states(p).include?(Project::Status::FINDING)
-          pc.do_find_tracks(p)
+          project = Project.find(proj_id)
+          next unless Project::Status::ok_next_states(project).include?(Project::Status::FINDING)
+          # Gotta redo this code so it has access to the session
+          TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
+          find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
+          find_tracks_controller.queue
         }
       end
     end

@@ -25,7 +25,7 @@ This page provides an overview of all the modENCODE project submissions.</p>
     %>
 
 <tr><td align="center">
-    <%= google_stacked_vert_bar_chart([], :data => data_hash2.sort, :title => "Distribution of Active Submissions|as of #{Time.now.strftime("%b %d %Y")}", :width => 600, :height => 300, :legend => legend2, :color => "cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066",  :chbh => "35,30,20", :show_legend => true, :align => "center") %>
+    <%= google_stacked_vert_bar_chart([], :data => data_hash2.sort, :title => "Distribution of Active Submissions|as of #{Time.now.strftime("%b %d %Y")}", :width => 600, :height => 300, :legend => legend2, :color => "cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066,666666",  :chbh => "35,30,20", :show_legend => true, :align => "center") %>
 </td>
 <td>
 <p class="caption">
@@ -66,7 +66,7 @@ Numbers in parentheses indicate the total for that particular status (active, re
     %>
 
 
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066", :show_legend => true) %>
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066,666666", :show_legend => true) %>
 </td>
 <td>
 <p class="caption">
@@ -88,7 +88,7 @@ Numbers in parentheses indicate the total for that particular project PI.
     %>
 
 
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066", :show_legend => true) %>
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066,666666", :show_legend => true) %>
 </td>
 <td>
 <p class="caption">
