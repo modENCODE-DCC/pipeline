@@ -9,7 +9,7 @@ class PublicController < ApplicationController
 
 
   def index
-    redirect_to :controller => :pipeline, :action => :index
+    redirect_to :action => :list
   end
 
   def list
