@@ -131,8 +131,10 @@
       </td>
 
       <% if total_queued_commands > 0 %>
-        <td title="Queued" align="right" style="align: right; font-size: x-large">
-          <%= queued_commands > 0 ? "*" : "&nbsp;" %>
+        <td title="Queued" align="right" style="align: right;">
+          <div style="height: 0.625em; font-size: 160%; overflow: hidden;">
+            <%= queued_commands > 0 ? "*" : "&nbsp;" %>
+          </div>
         </td>
       <% end %>
 
