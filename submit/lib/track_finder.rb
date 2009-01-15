@@ -19,7 +19,7 @@ class TrackFinder
     return File.join(gbrowse_root, 'lib')
   end
 
-  DEBUG = true
+  DEBUG = false
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
   GFF_TO_WIGDB_PERL = <<-EOP
