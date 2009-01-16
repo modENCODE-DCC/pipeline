@@ -58,7 +58,7 @@ class CommandController < ApplicationController
         logger.info "Set semaphore true"
         CommandController.running_flag=true
       rescue ActiveRecord::StaleObjectError
-        logger.info "Failed set semaphore"
+        logger.error "Failed set semaphore"
         # Either exists and tried to create or lock_version was incremented 
         # by another process, and the copy we've got is stale
         return
@@ -68,12 +68,25 @@ class CommandController < ApplicationController
         while (next_command = CommandController.next_queued_command) do
           logger.info "Run #{next_command.class.name}"
           begin
-            if !next_command.controller.run then
+            retval = next_command.controller.run
+
+            if next_command.status == Command::Status::QUEUED || next_command.status == Command::Status::CANCELED then
+              # Strange, we think we ran it but the status didn't get updated
+              # Assume failure
+              logger.error "Failure because command status is #{next_command.status} for #{next_command.id}"
+              next_command.stderr = "Failure because command was supposed to run, but status is now #{next_command.status} instead"
+              next_command.status = Command::Status::FAILED
+              next_command.save
+              raise CommandRunException.new("Command #{next_command.id} was run, but is still queued!")
+            end
+
+            if !retval then
+              # If retval is false, run failed, and all queued commands in this project should be failed
               CommandController.disable_related_commands(next_command)
             end
           rescue CommandRunException
             # TODO: Failure handling
-            logger.info "Command failed! #{$!}"
+            logger.error "Command failed! #{$!}"
             CommandController.disable_related_commands(next_command)
           end
         end
@@ -100,20 +113,11 @@ class CommandController < ApplicationController
     begin
       retval = yield if block_given?
     ensure
-
       command_object.end_time = Time.now
       command_object.save
-      # If retval is false, run failed, and all queued commands in this project should be failed
-      if command_object.status == Command::Status::QUEUED || command_object.status == Command::Status::CANCELED then
-        # Strange, we think we ran it but the status didn't get updated
-        # Assume failure
-        logger.info "Failure because command status is #{command_object.status}"
-        command_object.status = Command::Status::FAILED
-        command_object.save
-        raise CommandRunException.new("Command #{command_object.id} was run, but is still queued!")
-      end
-      return retval if block_given?
     end
+    # You can't do anything here! A return in the block_given will return right through run here
+    # See http://innig.net/software/ruby/closures-in-ruby.rb, examples 12 and 13
   end
 
   def self.running_flag=(state)
