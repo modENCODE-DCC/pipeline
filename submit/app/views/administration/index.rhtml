@@ -62,7 +62,7 @@
   </table>
   <h1>All Commands</h1>
   <table>
-    <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th></tr>
+    <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th><th>Start</th><th>End</th></tr>
     <% @commands.sort { |a,b| b.id <=> a.id }.each do |command| %>
       <tr>
         <td><a style="text-decoration: none; color: black" name="<%= "cmd_#{command.id}" %>"><%= command.id %></a></td>
@@ -70,6 +70,8 @@
         <td><%= command.project ? link_to(command.project.name, url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %></td>
         <td><%= command.status %></td>
         <td><%= command.project ? link_to(command.project.user.login, url_for(:controller => :account, :action => :change_profile, :id => command.project.user)) : "Orphaned" %></td>
+        <td><%= command.start_time.nil? ? "Never started" : command.start_time.strftime("%H:%M:%S on %Y-%m-%d") %></td>
+        <td><%= command.end_time.nil? ? "Never finished" : command.end_time.strftime("%H:%M:%S on %Y-%m-%d") %></td>
       </tr>
     <% end %>
   </table>

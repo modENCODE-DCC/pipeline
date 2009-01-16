@@ -94,17 +94,26 @@ class CommandController < ApplicationController
   end
   def run
     # Quick 'n dirty distribution: command_object.command = "grid submit " + command_object.command
-    retval = yield if block_given?
-    # If retval is false, run failed, and all queued commands in this project should be failed
-    if command_object.status == Command::Status::QUEUED || command_object.status == Command::Status::CANCELED then
-      # Strange, we think we ran it but the status didn't get updated
-      # Assume failure
-      logger.info "Failure because command status is #{command_object.status}"
-      command_object.status = Command::Status::FAILED
+    command_object.start_time = Time.now
+    command_object.save
+
+    begin
+      retval = yield if block_given?
+    ensure
+
+      command_object.end_time = Time.now
       command_object.save
-      raise CommandRunException.new("Command #{command_object.id} was run, but is still queued!")
+      # If retval is false, run failed, and all queued commands in this project should be failed
+      if command_object.status == Command::Status::QUEUED || command_object.status == Command::Status::CANCELED then
+        # Strange, we think we ran it but the status didn't get updated
+        # Assume failure
+        logger.info "Failure because command status is #{command_object.status}"
+        command_object.status = Command::Status::FAILED
+        command_object.save
+        raise CommandRunException.new("Command #{command_object.id} was run, but is still queued!")
+      end
+      return retval if block_given?
     end
-    return retval if block_given?
   end
 
   def self.running_flag=(state)
