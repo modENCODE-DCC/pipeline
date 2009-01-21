@@ -10,8 +10,9 @@ class ReportsController < ApplicationController
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
                "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
 
+    #these are the pis to include in the display - modify to add additional pis	
     pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
-    status = ["New","Uploaded","Validated","DBLoad","Track Config","Aprvl-PI","Aprvl-DCC","to GBrowser","to Modmine","to WB/FB"]
+    status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both","Published"]
     @all_status = status
     active_status = status[0..6]
     @active_status = status[0..6]
@@ -34,26 +35,23 @@ class ReportsController < ApplicationController
           step = 1
 	  #identify what step its at
           step = case p.status  
-            when Project::Status::NEW : 1
-	    when Upload::Status::UPLOAD_FAILED : 1
-            when Upload::Status::UPLOADED : 2
-	    when Validate::Status::VALIDATION_FAILED : 2
-	    when Expand::Status::EXPAND_FAILED : 2
-            when Validate::Status::VALIDATED : 3
-	    when Load::Status::LOAD_FAILED : 3
-            when Load::Status::LOADED : 4
-            when 'tracks found' : 5
-            when 'submitter approval' : 6
-            when 'DCC approval' : 7
-            when 'released to gbrowse' : 8
-            when 'released to modmine' : 9
-            when 'released' : 10
+            when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
+            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
+            when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
+            when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
+            when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
+            when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
+	    when (Project::Status::RELEASE_REJECTED ) : 7
+            when (Project::Status::USER_RELEASED ) : 8
+            when (Project::Status::DCC_RELEASED) : 9
+            when (Project::Status::RELEASED) : 10   #released to the public
+	    when 'Published' : 11
           else 1
           end 
-	all_distributions_by_pi[p.user.pi.split(",")[0]][status[step-1]] += 1  
+	all_distributions_by_pi[p.user.pi.split(",")[0]][status[step-1]] += 1  unless pis.index(p.user.pi.split(",")[0]).nil? 
 	
-	all_active_by_pi[p.user.pi.split(",")[0]][active_status[step-1]] += 1	unless step > active_status.length
-	@all_active_by_status[active_status[step-1]][p.user.pi.split(",")[0]] += 1 unless step > active_status.length
+	all_active_by_pi[p.user.pi.split(",")[0]][active_status[step-1]] += 1	unless step > active_status.length || pis.index(p.user.pi.split(",")[0]).nil? 
+	@all_active_by_status[active_status[step-1]][p.user.pi.split(",")[0]] += 1 unless step > active_status.length || pis.index(p.user.pi.split(",")[0]).nil? 
     end
 
 
@@ -62,7 +60,7 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_new_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.each {|p| @all_new_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 }
+    Project.all.each {|p| @all_new_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 unless pis.index(p.user.pi.split(",")[0]).nil? }
 
 
     @all_released_projects_per_group_per_quarter = Hash.new {|hash,quarter| hash[quarter] = Hash.new { |hash2, pi | hash2[pi] = 0} }
@@ -73,7 +71,7 @@ class ReportsController < ApplicationController
 
 
     @all_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0} 
-    Project.all.each {|p| @all_new_projects_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1 }
+    Project.all.each {|p| @all_new_projects_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1  unless pis.index(p.user.pi.split(",")[0]).nil? }
 
 
     all_distributions_by_user = Hash.new { |hash, user| hash[user] = Hash.new { |hash2, status| hash2[status] = 0} }
@@ -90,28 +88,26 @@ class ReportsController < ApplicationController
     @all_projects_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, status| hash2[status] = 0} }
     pis.each {|p| @all_projects_by_pi[p]}
     status = ["Active","Released"]
+    @bi_status = status
     status.each{|s| pis.each {|p| @all_projects_by_pi[p][s] = 0}}
     Project.all.each do |p|
           step = 0
           #identify what step its at
           step = case p.status
-            when Project::Status::NEW : 1
-            when Upload::Status::UPLOAD_FAILED : 1
-            when Upload::Status::UPLOADED : 1
-            when Validate::Status::VALIDATION_FAILED : 1
-            when Expand::Status::EXPAND_FAILED : 1
-            when Validate::Status::VALIDATED : 1
-            when Load::Status::LOAD_FAILED : 1
-            when Load::Status::LOADED : 1
-            when 'tracks found' : 1
-            when 'submitter approval' : 1
-            when 'DCC approval' : 1
-            when 'released to gbrowse' : 2
-            when 'released to modmine' : 2
-            when 'released' : 2
+            when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
+            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 1
+            when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 1
+            when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 1
+            when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 1
+            when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 1
+	    when (Project::Status::RELEASE_REJECTED ) : 1
+            when (Project::Status::USER_RELEASED ) : 2
+            when (Project::Status::DCC_RELEASED) : 2
+            when (Project::Status::RELEASED) : 2  
           else 1
           end
-        @all_projects_by_pi[p.user.pi.split(",")[0]][status[step-1]] += 1
+	@all_projects_by_pi[p.user.pi.split(",")[0]][@bi_status[step-1]] += 1 unless pis.index(p.user.pi.split(",")[0]).nil?
+
     end
 
 
