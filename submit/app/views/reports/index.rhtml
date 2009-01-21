@@ -42,6 +42,7 @@ Numbers in parentheses indicate the total active submissions for that particular
       data_hash = Hash.new{|k,v| k[v] = []} 
       @all_projects_by_pi.sort.each{|pi,stati| stati.map{|k,v| data_hash[k] += [v]}} 
       legend = @all_projects_by_pi.sort.map{|pi,stati| pi}
+
     %>
 
 <%= google_stacked_vert_bar_chart([], :title => "Distribution of Submissions by Project PI|as of #{Time.now.strftime("%b %d %Y")}", :color =>"cccccc,00cc00", :chxt => "x,y", :width => 650, :min => 0, :data => data_hash, :legend => legend, :show_legend => true, :align => "right" ) %>
