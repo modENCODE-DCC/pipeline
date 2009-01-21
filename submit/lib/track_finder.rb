@@ -450,6 +450,8 @@ class TrackFinder
 
         end
       end
+      sth_get_data_by_applied_protocols.finish
+      sth_get_features_by_data_ids.finish
     }
 
     cmd_puts "  Done."
@@ -480,6 +482,7 @@ class TrackFinder
         applied_protocols[row[0]].inputs.push(row[1]) if row[1]
         applied_protocols[row[0]].protocol = row[2]
       end
+      sth_aps.finish
     }
 
     # Then follow the applied_protocol->datum->applied_protocol link
@@ -509,6 +512,7 @@ class TrackFinder
         end
         column = column + 1
       end
+      sth_aps.finish
     }
     cmd_puts "    Done."
 
@@ -586,6 +590,7 @@ class TrackFinder
         usable_tracks[column].push cur_aps
       end
     end
+    dbh_safe { sth_data_names.finish }
 
     cmd_puts "\n      " + (usable_tracks.sort_by { |col, set_of_tracks| col }.map { |col, set_of_tracks| "Protocol #{col} has #{set_of_tracks.size} set(s) of potential track(s)" }.join(", "))
     cmd_puts "    Done."
@@ -796,11 +801,13 @@ class TrackFinder
       sth_schemas.fetch do |row|
         schemas[row[0]] = nil
       end
+      sth_schemas.finish
 
       schemas.keys.each do |schema|
         sth_experiments = @dbh.prepare "SELECT DISTINCT experiment_id, uniquename FROM #{schema}.experiment"
         sth_experiments.execute
         schemas[schema] = sth_experiments.fetch
+        sth_experiments.finish
       end
       schemas.reject { |sch, exp| exp.nil? }
     }
@@ -899,6 +906,7 @@ class TrackFinder
         end
       end
     end
+    dbh_safe { sth_metadata.finish }
   end
 
   def database
@@ -1006,6 +1014,7 @@ class TrackFinder
         types.push row[0]
       end
     end
+    dbh_safe { sth_get_types.finish }
 
     track_defs = Hash.new
 
