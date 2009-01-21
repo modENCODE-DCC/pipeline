@@ -1503,14 +1503,16 @@ private
                "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
                "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
-    @status = ["New","Uploaded","Validated","DBLoad","Track Config","Aprvl-PI","Aprvl-DCC","to GBrowser","to Modmine","to WB/FB"]
+    @status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both"]
+    @pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
+
     @active_status = @status[0..6]
 
     @all_projects_by_status = Hash.new {|status,count| status = count }
     @my_projects_by_status = Hash.new {|status,count| status = count }
     @my_groups_projects_by_status = Hash.new {|status,count| status = count }
     @my_active_projects_by_status = Hash.new {|status,count| status = count }
-    @pis = Array.new
+    #@pis = Array.new
 
     @status.each {|s| @my_projects_by_status[s] = 0 }
     @status.each {|s| @my_groups_projects_by_status[s] = 0 }
@@ -1521,26 +1523,23 @@ private
       step = 1
       #identify what step its at
       step = case p.status
-             when Project::Status::NEW : 1
-             when Upload::Status::UPLOAD_FAILED : 1
-             when Upload::Status::UPLOADED : 2
-             when Validate::Status::VALIDATION_FAILED : 2
-             when Expand::Status::EXPAND_FAILED : 2
-             when Validate::Status::VALIDATED : 3
-             when Load::Status::LOAD_FAILED : 3
-             when Load::Status::LOADED : 4
-             when 'tracks found' : 5
-             when 'submitter approval' : 6
-             when 'DCC approval' : 7
-             when 'released to gbrowse' : 8
-             when 'released to modmine' : 9
-             when 'released' : 10
-             else 1
-             end
-      @pis.push p.user.pi
+        when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
+        when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
+        when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
+        when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
+        when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
+        when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
+        when (Project::Status::RELEASE_REJECTED ) : 7
+        when (Project::Status::USER_RELEASED ) : 8
+        when (Project::Status::DCC_RELEASED) : 9
+        when (Project::Status::RELEASED) : 10   #released to the public
+        when 'Published' : 11
+      else 1
+      end
+      #@pis.push p.user.pi
       @my_projects_by_status[@status[step-1]] += 1 unless p.user_id != user_to_view.id
       @my_groups_projects_by_status[@status[step-1]] += 1 unless !same_group_users.index(p.user_id).nil?
-      @all_projects_by_status[@status[step-1]]+= 1
+      @all_projects_by_status[@status[step-1]]+= 1  unless @pis.index(p.user.pi.split(",")[0]).nil?
       if (step < @active_status.length)
         @my_active_projects_by_status[@active_status[step-1]] += 1
       end
