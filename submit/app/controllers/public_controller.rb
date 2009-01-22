@@ -4,7 +4,8 @@ class PublicController < ApplicationController
   [
     :get_gbrowse_stanzas,
     :get_file,
-    :download
+    :download,
+    :citation
   ]
 
 
@@ -109,15 +110,32 @@ class PublicController < ApplicationController
     end
   end
 
+  def citation
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    if !Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
+      flash[:error] = "Tracks have not been found for project #{params[:id]}, so a citation cannot be generated."
+      redirect_to :action => "list"
+      return
+    end
+
+    @project_id = @project.id
+  end
+
   def download
     begin
       @project = Project.find(params[:id])
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
-      redirect_to :action => "index"
+      redirect_to :action => "list"
       return
     end
-    # TODO: Make sure that this project is actually released
     download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 

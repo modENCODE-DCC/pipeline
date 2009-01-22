@@ -6,14 +6,26 @@ class FindTracks < Command
   end
 
   def formatted_status
-    "<pre>#{self.stdout}</pre>"
+    if self.stderr then
+      "<pre>#{self.stdout}</pre>"
+    else
+      "<pre>#{self.stderr}</pre>"
+    end
   end
   def short_formatted_status
-    stdout_lines = Array.new
-    self.stdout.split($/).reverse[0...8].each do |line|
-      stdout_lines.unshift line[0...50] + (line.size > 50 ? "..." : "")
+    if self.stderr then
+      stderr_lines = Array.new
+      self.stderr.split($/).reverse[0...8].each do |line|
+        stderr_lines.unshift line[0...50] + (line.size > 50 ? "..." : "")
+      end
+    else
+      stdout_lines = Array.new
+      self.stdout.split($/).reverse[0...8].each do |line|
+        stdout_lines.unshift line[0...50] + (line.size > 50 ? "..." : "")
+      end
+      "<pre>#{stdout_lines.join("\n")}</pre>"
     end
-    "<pre>#{stdout_lines.join("\n")}</pre>"
+
   end
   def controller
     @controller = FindTracksController.new(:command => self) unless @controller

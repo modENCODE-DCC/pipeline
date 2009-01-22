@@ -1,0 +1,151 @@
+<h1>
+  <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Investigation Title"); tag ? tag.value : Project.find(@project_id).name %> 
+  (<%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Project"); tag ? tag.value : Project.find(@project_id).user.pi %> project<%= 
+   v = TrackTag.find_by_project_id_and_name(@project_id, "Lab"); v ? ", #{v.value} subgroup" : "" 
+  %>)
+</h1>
+<h2>General Description</h2>
+<%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Experiment Description"); tag ? tag.value.gsub("\n", "<br/>\n") : "[Please Fill In]" %> 
+<br/><br/>
+<h2>Protocols</h2>
+<ol>
+  <%
+    type_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_type')
+    url_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_url')
+
+    growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "DNA extraction", "purify", "nucleic_acid_extraction"]
+    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol"]
+    analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment"]
+
+    growth_protocols = type_tags.find_all { |tag| growth.include?(tag.value) }
+    preparation_protocols = type_tags.find_all { |tag| preparation.include?(tag.value) }
+    analysis_protocols = type_tags.find_all { |tag| analysis.include?(tag.value) }
+    other_protocols = type_tags.find_all { |tag| !growth.include?(tag.value) && !preparation.include?(tag.value) && !analysis.include?(tag.value) }
+  %>
+  <% if growth_protocols.size > 0 then %>
+    <li>
+      <b>Growth and isolation:</b>
+      <%= 
+        type_tags.size > 0 ? growth_protocols.sort { |p1, p2| 
+          p1.history_depth <=> p2.history_depth 
+        }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
+          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        }.join(", ") : "[Please Fill In]"
+      %>
+    </li>
+  <% end %>
+  <% if preparation_protocols.size > 0 then %>
+    <li>
+      <b>Sample preparation:</b>
+      <%= 
+        type_tags.size > 0 ? preparation_protocols.sort { |p1, p2| 
+          p1.history_depth <=> p2.history_depth 
+        }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
+          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        }.join(", ") : "[Please Fill In]"
+      %>
+    </li>
+  <% end %>
+  <% if analysis_protocols.size > 0 then %>
+    <li>
+      <b>Data Analysis:</b>
+      <%= 
+        type_tags.size > 0 ? analysis_protocols.sort { |p1, p2| 
+          p1.history_depth <=> p2.history_depth 
+        }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
+          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        }.join(", ") : "[Please Fill In]"
+      %>
+    </li>
+  <% end %>
+  <% if other_protocols.size > 0 then %>
+    <li>
+      <b>Other Protocols:</b>
+      <%= 
+        other_protocols.sort { |p1, p2| 
+          p1.history_depth <=> p2.history_depth 
+        }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
+          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        }.join(", ")
+      %>
+    </li>
+  <% end %>
+</ol>
+
+<h2>Reagents</h2>
+<ol>
+  <%
+    animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
+    antibodies = ["antibody"]
+    arrays = ["ADF", "array_data_file", "array"]
+
+    animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
+    antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
+    array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
+  %>
+  <% if animal_reagents.size > 0 then %>
+    <li>
+      <b>Animals:</b>
+      <%= animal_reagents.sort { |t1, t2| t1.value <=> t2.value }.map { |tag| 
+        name = tag.value 
+        url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
+
+        short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+        if url_tag then
+          link_to short_name, "#{url_tag.value}#{name}"
+        elsif name =~ /^[A-Z]\w+:/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        else
+          short_name
+        end
+      }.uniq.join(", ") %>
+    </li>
+  <% end %>
+  <% if antibody_reagents.size > 0 then %>
+    <li>
+      <b>Antibodies:</b>
+      <%= antibody_reagents.sort { |t1, t2| t1.value <=> t2.value }.map { |tag| 
+        name = tag.value 
+        url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
+
+        short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+        if url_tag then
+          link_to short_name, "#{url_tag.value}#{name}"
+        elsif name =~ /^[A-Z]\w+:/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        else
+          short_name
+        end
+      }.uniq.join(", ") %>
+    </li>
+  <% end %>
+  <% if array_reagents.size > 0 then %>
+    <li>
+      <b>Arrays:</b>
+      <%= array_reagents.sort { |t1, t2| t1.value <=> t2.value }.map { |tag| 
+        name = tag.value 
+        url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
+
+        short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+        if url_tag then
+          link_to short_name, "#{url_tag.value}#{name}"
+        elsif name =~ /^[A-Z]\w+:/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        else
+          short_name
+        end
+      }.uniq.join(", ") %>
+    </li>
+  <% end %>
+</ol>
+
+<b>Release Date:</b> <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Public Release Date"); tag ? tag.value : "[Please Fill In]" %> 

@@ -21,6 +21,13 @@ class AppliedProtocol
     @inputs
   end
 
+  def protocol_id=(newprotocol)
+    @protocol_id = newprotocol
+  end
+  def protocol_id
+    @protocol_id
+  end
+
   def protocol=(newprotocol)
     @protocol = newprotocol
   end

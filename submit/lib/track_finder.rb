@@ -295,6 +295,13 @@ class TrackFinder
 
     cmd_puts "  Detecting tracks included in submission."
     usable_tracks = find_usable_tracks(experiment_id, project_id)
+
+    # Protocol order
+    protocol_ids_by_column = Hash.new
+    usable_tracks.each { |col, set_of_tracks| 
+      protocol_ids_by_column[col] = set_of_tracks.first.first.protocol_id
+    }
+
     cmd_puts "  Done."
     cmd_puts "  Finding features and wiggle files attached to tracks."
     # Get all of the datums of all protocols
@@ -455,7 +462,7 @@ class TrackFinder
     }
 
     cmd_puts "  Done."
-    return found_tracks
+    return [ found_tracks, protocol_ids_by_column ]
   end
 
   def find_usable_tracks(experiment_id, project_id)
@@ -470,7 +477,7 @@ class TrackFinder
       sth_aps = @dbh.prepare("SELECT 
                              eap.first_applied_protocol_id,
                              apd.data_id AS input_data_id,
-                             p.name AS protocol_name
+                             p.name AS protocol_name, p.protocol_id as protocol_id
                              FROM experiment_applied_protocol eap 
                              INNER JOIN applied_protocol ap ON eap.first_applied_protocol_id = ap.applied_protocol_id
                              INNER JOIN protocol p ON ap.protocol_id = p.protocol_id
@@ -481,6 +488,7 @@ class TrackFinder
         applied_protocols[row[0]].column = 0 # Note that the AP gets autocreated by the hash init block
         applied_protocols[row[0]].inputs.push(row[1]) if row[1]
         applied_protocols[row[0]].protocol = row[2]
+        applied_protocols[row[0]].protocol_id = row[3]
       end
       sth_aps.finish
     }
@@ -491,7 +499,7 @@ class TrackFinder
       sth_aps = @dbh.prepare("SELECT 
                              apd_next.applied_protocol_id AS next_applied_protocol,
                              apd_next_all.data_id AS input_data_id,
-                             p.name AS protocol_name
+                             p.name AS protocol_name, p.protocol_id as protocol_id
                              FROM applied_protocol_data apd_prev
                              INNER JOIN applied_protocol_data apd_next ON apd_next.data_id = apd_prev.data_id
                              INNER JOIN applied_protocol_data apd_next_all ON apd_next.applied_protocol_id = apd_next_all.applied_protocol_id
@@ -508,6 +516,7 @@ class TrackFinder
             applied_protocols[row[0]].column = column + 1 # Note that the AP gets autocreated by the hash init block
             applied_protocols[row[0]].inputs.push row[1]
             applied_protocols[row[0]].protocol = row[2]
+            applied_protocols[row[0]].protocol_id = row[3]
           end
         end
         column = column + 1
@@ -722,9 +731,10 @@ class TrackFinder
           # Write metadata tags
           cmd_puts "  Saving metadata for #{track_descriptor[:tracknum]} to database."
           dbh_safe {
-            track_descriptor[:tags].each { |experiment_id, value, type, history_depth|
+            track_descriptor[:tags].each { |experiment_id, name, value, type, history_depth|
               tt = TrackTag.new(
                 :experiment_id => experiment_id,
+                :name => name,
                 :project_id => track_descriptor[:project_id],
                 :track => track_descriptor[:tracknum],
                 :value => value,
@@ -836,20 +846,25 @@ class TrackFinder
       end
     end
   end
-  def attach_metadata(found_tracks)
+  def attach_metadata(found_tracks, protocol_ids_by_column)
     # Attach experiment # to track def
     sth_metadata = dbh_safe {
       @dbh.prepare "SELECT
       --cur_output_data.heading || ' [' || CASE WHEN cur_output_data.name IS NULL THEN '' ELSE cur_output_data.name END || ']' AS data_name,
       cur_output_data.value AS data_value,
       cur_output_data_type.name AS data_type,
+      db.description AS db_type,
+      db.url AS db_url,
       prev_apd.applied_protocol_id AS prev_applied_protocol_id,
-      attr.value AS attr_value, attr_type.name AS attr_type
+      attr.value AS attr_value, attr_type.name AS attr_type, attr.heading AS attr_name
 
       FROM applied_protocol cur
       LEFT JOIN (applied_protocol_data cur_apd 
         INNER JOIN (data cur_output_data
           LEFT JOIN cvterm cur_output_data_type ON cur_output_data.type_id = cur_output_data_type.cvterm_id
+          LEFT JOIN (dbxref dbx
+            INNER JOIN db ON dbx.db_id = db.db_id
+          ) ON dbx.dbxref_id = cur_output_data.dbxref_id
           LEFT JOIN (data_attribute da
             INNER JOIN attribute attr ON da.attribute_id = attr.attribute_id
             INNER JOIN cvterm attr_type ON attr_type.cvterm_id = attr.type_id
@@ -883,9 +898,12 @@ class TrackFinder
             dbh_safe {
               sth_metadata.execute(ap_ids)
               sth_metadata.fetch do |row|
-                tags.push [ track_descriptor[:experiment_id], row['data_value'], row['data_type'], history_depth ] unless row['data_value'].nil? || row['data_value'].empty?
+                tags.push [ track_descriptor[:experiment_id], row['data_value'], row['data_value'], row['data_type'], history_depth ] unless row['data_value'].nil? || row['data_value'].empty?
+                if (row['db_type'] == "URL_mediawiki_expansion") then
+                  tags.push [ track_descriptor[:experiment_id], row['data_value'], row['db_url'], 'data_url', history_depth ] unless row['data_value'].nil? || row['data_value'].empty?
+                end
                 # Get data attributes
-                tags.push [ track_descriptor[:experiment_id], row['attr_value'], row['attr_type'], history_depth ] unless row['attr_value'].nil? || row['attr_value'].empty?
+                tags.push [ track_descriptor[:experiment_id], row['data_value'], row['attr_value'], row['attr_name'], history_depth ] unless row['attr_value'].nil? || row['attr_value'].empty?
                 prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
               end
             }
@@ -895,12 +913,41 @@ class TrackFinder
           # Add a tag for every feature (name as value, type as type)
           if track_descriptor[:type] == :feature then
             track_descriptor[:data].values.each do |feature|
-              tags.push [ track_descriptor[:experiment_id], feature['name'], feature['type'], 0 ]
+              tags.push [ track_descriptor[:experiment_id], nil, feature['name'], feature['type'], 0 ]
             end
             feature = track_descriptor[:data].values.first
-            tags.push [ track_descriptor[:experiment_id], feature['genus'] + " " + feature['species'], 'organism', 0 ]
+            tags.push [ track_descriptor[:experiment_id], 'Organism', feature['genus'] + " " + feature['species'], 'organism', 0 ]
           end
-          tags.push [ track_descriptor[:experiment_id], track_descriptor[:type].to_s, 'track_type', 0 ]
+          tags.push [ track_descriptor[:experiment_id], 'Track Type', track_descriptor[:type].to_s, 'track_type', 0 ]
+
+          ### Citation stuff ###
+          # Experiment properties
+          dbh_safe {
+            sth_idf_info = @dbh.prepare "SELECT ep.name, ep.value, ep.rank, c.name AS type FROM experiment_prop ep INNER JOIN cvterm c ON ep.type_id = c.cvterm_id WHERE experiment_id = ?"
+            sth_idf_info.execute(track_descriptor[:experiment_id])
+            sth_idf_info.fetch do |row|
+              tags.push [ track_descriptor[:experiment_id], row['name'], row['value'], row['type'], row['rank'] ]
+            end
+          }
+
+          # Protocol types and names and links
+          dbh_safe {
+            sth_protocol_type = @dbh.prepare "SELECT p.protocol_id, p.name, a.value AS type, dbx.accession AS url FROM attribute a 
+              INNER JOIN protocol_attribute pa ON a.attribute_id = pa.attribute_id 
+              INNER JOIN protocol p ON pa.protocol_id = p.protocol_id 
+              LEFT JOIN dbxref dbx ON p.dbxref_id = dbx.dbxref_id
+              WHERE a.heading = 'Protocol Type' AND p.protocol_id = ?"
+
+            protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_id|
+              sth_protocol_type.execute(protocol_id)
+              sth_protocol_type.fetch do |row|
+                tags.push [ track_descriptor[:experiment_id], row['name'], row['type'], 'protocol_type', col ]
+                tags.push [ track_descriptor[:experiment_id], row['name'], row['url'], 'protocol_url', col ]
+              end
+            end
+          }
+
+
           track_descriptor[:tags] = tags.uniq
           track_descriptor[:tracknum] = tracknum
         end

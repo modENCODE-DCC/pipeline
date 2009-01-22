@@ -23,7 +23,7 @@ class FindTracksController < CommandController
 
       schemas = track_finder.get_experiments
       schema = "modencode_experiment_#{command_object.project.id}"
-      track_finder.search_path = schema
+
 
       unless schemas[schema] then
         command_object.stderr = "Couldn't find the loaded experiment in the #{schema} schema in the database.\nTry validating or loading the project again."
@@ -32,13 +32,14 @@ class FindTracksController < CommandController
         return self.do_after
       end
 
+      track_finder.search_path = schema + "_data"
       experiment_id = schemas[schema][0]
 
       tracks_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "tracks")
       track_finder.delete_tracks(command_object.project.id, tracks_dir)
 
-      found_tracks = track_finder.find_tracks(experiment_id, command_object.project.id)
-      track_finder.attach_metadata(found_tracks)
+      (found_tracks, protocol_ids_by_column) = track_finder.find_tracks(experiment_id, command_object.project.id)
+      track_finder.attach_metadata(found_tracks, protocol_ids_by_column)
 
       track_finder.generate_output(found_tracks, tracks_dir)
       found_tracks = nil
