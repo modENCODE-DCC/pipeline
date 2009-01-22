@@ -106,32 +106,22 @@
         <td>
         <% 
           step = 0
-          case  
-          when p.nil?
-            step=1
-          when (p.status==Project::Status::NEW || p.status==Upload::Status::UPLOAD_FAILED)
-            step=1
-          when (p.status==Upload::Status::UPLOADED || p.status==Validate::Status::VALIDATION_FAILED || p.status==Expand::Status::EXPAND_FAILED)
-            step=2
-          when (p.status==Validate::Status::VALIDATED || p.status==Load::Status::LOAD_FAILED) 
-            step=3
-          when (p.status==Load::Status::LOADED || Project::Status::FOUND )
-            step=4
-          when (p.status=='tracks found' || Project::Status::CONFIGURED)
-            step=5
-          when (p.status=='submitter approval')
-            step=6
-          when (p.status=='DCC approval')
-            step=7
-          when (p.status=='released to gbrowse')
-            step=8
-          when (p.status=='released to modmine')
-            step=9
-          when (p.status=='released')
-            step=10
-          else
-            step=1
-          end 
+          step = case p.status
+            when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
+            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED)\
+ : 2
+            when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
+            when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
+            when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
+            when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
+            when (Project::Status::RELEASE_REJECTED ) : 7
+            when (Project::Status::USER_RELEASED ) : 8
+            when (Project::Status::DCC_RELEASED) : 9
+            when (Project::Status::RELEASED) : 10   #released to the public
+            when 'Published' : 11
+          else 1
+          end
+
         %>
         <% if (!Command::Status::is_active_state(p.status)) %>
           <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="p.status" title="<%= p.status %>" />
