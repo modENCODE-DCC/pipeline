@@ -131,6 +131,47 @@ module ApplicationHelper
     "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
   end
 
+  def google_scatter_plot(d, options = {})
+    options[:width] ||= [300,"#{options[:data].length*20}".to_i].max
+    options[:height] ||= 250
+    options[:title] ||= "no title provided"    
+    options[:min] ||= 0
+    options[:chxt] ||= "x,y"
+    options[:color] ||=  "0000ff"
+    x = []
+    for i in 1..options[:data].length do
+      x += ["t"+options[:data].map{|k,v| v}[i-1].to_s+",000000,0,#{i-1},10"]
+    end
+    options[:chm] = x.join("|")
+
+    options[:max] ||= [10,"#{options[:data].map{|k,v| v}.max}".to_i].max+1 unless options[:data].nil?
+    options[:xaxis] ||= [0,"#{options[:max]}".to_i/2,"#{options[:max]}".to_i]
+    options[:chd] ||= "t:#{options[:data].map{|k,v|"#{k}"}.join(',')}|#{options[:data].map{|k,v|"#{v}"}.join(',')}"
+    options[:chdl] ||= ""
+    options[:chxl] ||=  "0:|#{options[:data].map{|k,v|"#{k}"}.join('|')}|1:|#{options[:xaxis].join('|')}"
+    options[:title] += "|(n=#{options[:data].map{|k,v| v}.sum})" unless options[:data].nil?
+
+   opts = {
+      :cht => "s",
+      :chd => options[:chd],
+      :chtt => options[:title],
+#      :chl => "#{data.map { |k,v| CGI::escape(k)}.join('|')}", #legend
+      :chxt => options[:chxt], #order of data
+      :chxl => options[:chxl],
+      :chs => "#{options[:width]}x#{options[:height]}", #chart size
+      :chxr => "1,0,options[:max]", #range 
+      :chds => "#{options[:min]},#{options[:max]}",  #min & max
+      :chco => options[:color],  #color
+      :chbh => options[:chbh],
+      :chm => options[:chm]
+
+    }
+    image_tag("http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}")
+  rescue
+
+    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+  end
+
   def google_pie_chart(data, options = {})
     options[:width] ||= 250
     options[:height] ||= 100
@@ -221,5 +262,19 @@ module ApplicationHelper
   def get_cpu_usage_of_self
     `ps -u\`whoami\`  -o pcpu --no-header`.to_a.map { |pcpu| pcpu.to_f }.sum
   end
+
+  def convert_time(time)
+    converted = ""
+    #converted = "#{time.round/86400}d:#{(time.round/360) % 24}h:#{(time.round / 60) % 60 }m:#{time.round % 60}s"
+    converted = "#{time.round % 60}s"
+    converted = "#{(time.round / 60) % 60 }m:"+converted unless (time.round/60) == 0 
+    converted = "#{(time.round/360) % 24}h:"+converted unless (time.round/360) == 0
+    converted = "#{time.round/86400}d:"+converted unless (time.round/86400) == 0
+    #converted += "(#{time.round}) "
+    converted
+    rescue
+      "there was an error"
+  end
+
 
 end
