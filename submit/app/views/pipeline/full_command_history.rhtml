@@ -57,20 +57,12 @@
         <% 
 	  # command duration
           # TODO: Time.now should be release data if there is a release date
-          s = (command.updated_at - command.created_at)
-          m = ((s / 60) % 60).to_i  #minutes
-          h = (((s/60)/60) % 24).to_i #hours
-          d = (((s/60)/60)/24).to_i #days
-          s = (s % 60).to_i #seconds
-          if d > 0 then
-            display = "#{d.to_s} d"
-          elsif d <= 0 && h > 0 then
-            display = "#{h.to_s} h"
-          elsif h<= 0 && m > 0 then
-            display = "#{m.to_s} m"
-	  else
-            display = "#{s.to_s} s"
-          end
+          
+	  if (command.end_time.nil? || command.start_time.nil?)
+	    then s = (command.updated_at - command.created_at)
+	    else s = (command.end_time - command.start_time)
+	  end
+	  display = convert_time(s)
         %>
         <td><%= display %></td>
         <td><%= link_to "details...", { :action => :command_status, :id => command }, :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank", :class => "smallLink"  %></td>
