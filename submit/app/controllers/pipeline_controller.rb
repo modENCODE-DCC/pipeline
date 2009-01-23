@@ -856,9 +856,15 @@ class PipelineController < ApplicationController
         when :integer
           okay_value = true if value.to_i.to_s == value.to_s
         when :text
-          okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+          okay_value = true if value =~ /^[a-zA-Z0-9_ :-]*$/
         when :citation_text
-          okay_value = true if value =~ /^[;\(\)\[\]\.\,a-zA-Z0-9_ -]*$/
+          okay_value = true
+          begin
+            REXML::Document.new("<html>#{value}</html>")
+          rescue
+            update_errors.push "Citation text is not valid XML."
+            okay_value = false
+          end
         end
       end
 
@@ -867,7 +873,7 @@ class PipelineController < ApplicationController
           stanzas[stanzaname][option] = value
           changed = true
         end
-      else
+      elsif !value.nil? && value.length > 0 then
         update_errors.push "#{value} is not okay for #{option}"
       end
 
@@ -897,7 +903,13 @@ class PipelineController < ApplicationController
             when :text
               okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
             when :citation_text
-              okay_value = true if value =~ /^[;\(\)\[\]\.\,a-zA-Z0-9_ -]*$/
+              okay_value = true
+              begin
+                REXML::Document.new("<html>#{value}</html>")
+              rescue
+                update_errors.push "Citation text is not valid XML."
+                okay_value = false
+              end
             end
           end
 
@@ -954,11 +966,15 @@ class PipelineController < ApplicationController
       return
     end
 
-    headers["Content-Type"] = "application/javascript"
+    headers["Content-Type"] = "text/javascript"
     if params[:reload] then
       render :text => "window.location.reload();"
     else
-      render :text => "1; // Errors:\n//  #{update_errors.join("\n//  ")}"
+      response = "1;"
+      if update_errors.size > 0 then
+        response = "alert('#{update_errors.join('\n').gsub("'", "\\'")}');"
+      end
+      render :text => response
     end
   end
 
