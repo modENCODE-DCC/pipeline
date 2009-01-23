@@ -89,7 +89,7 @@ class PublicController < ApplicationController
       definition.each do |option, value|
         next if option.is_a? Symbol
         next if value.nil?
-        config_text << "#{option} = #{value}\n"
+        config_text << "#{option} = #{value.to_s.gsub("\n", "\n ")}\n"
       end
       config_text << "\n" if semantic_configs.size > 0
       semantic_configs.each do |zoom_level, zoom_definition|
@@ -97,7 +97,7 @@ class PublicController < ApplicationController
         zoom_definition.each do |option, value|
           next if option.is_a? Symbol
           next if value.nil?
-          config_text << "#{option} = #{value}\n"
+          config_text << "#{option} = #{value.to_s.gsub("\n", "\n ")}\n"
         end
       end
       config_text << "\n\n\n"
