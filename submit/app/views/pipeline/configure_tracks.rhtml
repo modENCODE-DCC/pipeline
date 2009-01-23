@@ -91,6 +91,8 @@
     }
   }
   function restrictCitationText(keyEvent) {
+    return true;
+    /*
     var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
     if (charCode == 46 || charCode == 59 || charCode == 44 ||
         charCode == 40 || charCode == 41 || charCode == 91 ||
@@ -98,6 +100,7 @@
           return true;
     }
     return restrictText(keyEvent);
+    */
   }
   function restrictText(keyEvent) {
     var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
@@ -134,9 +137,18 @@
     }
   }
   function hideCitationTextField(evt) {
-    var value = evt.element().getValue();
-    evt.element().value = value.gsub(/[^;\(\)\[\]\.\,a-zA-Z0-9_ :-]/, '');
-    hideField(evt);
+    var elem = evt.element();
+    var value = "";
+    if (elem.options) {
+      value = elem.options[elem.selectedIndex].innerHTML;
+    } else {
+      value = elem.getValue();
+    }
+    elem.previous().previous().firstDescendant().innerHTML = value;
+    elem.previous().hide();
+    elem.hide();
+    elem.previous().previous().firstDescendant().show();
+
   }
   function hideTextField(evt) {
     var value = evt.element().getValue();
@@ -147,6 +159,16 @@
     var value = evt.element().getValue();
     evt.element().value = value.gsub(/-/, 'n').sub(/^n/, '-').gsub(/[^0-9-]/, '');
     hideField(evt);
+  }
+  function showTextAreaForm(label, evt) {
+    var elem = $(label).firstDescendant();
+    elem.hide();
+    var formfield = label.next().next();
+    label.next().show();
+    formfield.show();
+    formfield.focus();
+    formfield.select();
+    Event.extend(evt).stop();
   }
   function showForm(label, evt) {
     var elem = $(label).firstDescendant();
@@ -236,7 +258,7 @@
   <% if @released then %>
     <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :confirm => "This configuration has been approved; are you sure you want to reconfigure it?", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
   <% else %>
-    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :complete => "show_response()", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
   <% end %>
     <input type="hidden" name="stanzaname" value="<%=stanzaname%>"/>
     <b>[<%= stanzaname %>]</b><br/>
@@ -251,15 +273,21 @@
 
       <% if @stanza_options[option] %>
         <span class="flipfield">
-          <span onmousedown="showForm(this, event)">
+          <span onmousedown="show<%= "TextArea" if @stanza_options[option] == :citation_text %>Form(this, event)">
             <%= option %> = 
-            <span style="font-weight: bold" >
-              <% if @stanza_options[option].is_a? Hash then %>
-                <%= @stanza_options[option][value] %>
-              <% else %>
+            <% if @stanza_options[option] == :citation_text %>
+              <div style="width: 700px; margin-left: 10px; border: thin dashed black; padding: 5px;">
                 <%= value %>
-              <% end %>
-            </span>
+              </div>
+            <% else %>
+              <span style="font-weight: bold" >
+                <% if @stanza_options[option].is_a? Hash then %>
+                  <%= @stanza_options[option][value] %>
+                <% else %>
+                  <%= value %>
+                <% end %>
+              </span>
+            <% end %>
           </span>
           <% if @stanza_options[option].is_a? Array then %>
             <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
@@ -282,7 +310,7 @@
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
             </script>
           <% elsif @stanza_options[option] == :citation_text %>
-            <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
+            <br style="display:none"/><textarea style="display:none; width: 700px; height: 400px" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>"><%= value %></textarea>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictCitationText);
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideCitationTextField);

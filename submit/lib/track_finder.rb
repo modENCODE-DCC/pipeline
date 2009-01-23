@@ -5,6 +5,18 @@ require 'cgi'
 require 'pg_database_patch'
 require 'find'
 
+class Citation < ActionView::Base
+  def initialize(project_id)
+    @project_id = project_id
+  end
+  def build
+    b = binding
+    citation_text = ""
+    f = File.new("../app/views/public/citation.rhtml")
+    ERB.new(f.read, nil, nil, "citation_text").result(b)
+  end
+end
+
 class TrackFinder
   @features_processed = 0
   def self.gbrowse_root
@@ -1153,6 +1165,10 @@ class TrackFinder
           bicolor_pivot = "zero"
         end
       end
+
+      c = Citation.new(project_id)
+      citation_text = c.build
+
       tag_track_organism = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'organism')
 
       track_defs[stanzaname] = Hash.new if track_defs[stanzaname].nil?
@@ -1169,7 +1185,7 @@ class TrackFinder
           track_defs[stanzaname]['group_on'] = group_on
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
           track_defs[stanzaname]['key'] = key
-          track_defs[stanzaname]['citation'] = ""
+          track_defs[stanzaname]['citation'] = citation_text
           track_defs[stanzaname]['label'] = label
           track_defs[stanzaname]['bump density'] = 250
           track_defs[stanzaname]['label density'] = 100
