@@ -29,7 +29,9 @@
         type_tags.size > 0 ? growth_protocols.sort { |p1, p2| 
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
-          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
+        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -41,7 +43,9 @@
         type_tags.size > 0 ? preparation_protocols.sort { |p1, p2| 
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
-          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
+        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -53,7 +57,9 @@
         type_tags.size > 0 ? analysis_protocols.sort { |p1, p2| 
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
-          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
+        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -65,7 +71,9 @@
         other_protocols.sort { |p1, p2| 
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
-          link_to protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value
+        url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
+        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ")
       %>
     </li>
