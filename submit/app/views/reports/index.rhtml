@@ -156,7 +156,7 @@ Numbers above the bars depict the total number of released submissions by that p
     <h2 align="center">Overall Validation Statistics</h2>
 <center>
 <p>
-A few statistics for the performance of different steps in the validation pipeline.  Times are calculated only for steps that "passed"  Times are given in days:hours:minutes:seconds format.
+A few statistics* for the performance of different steps in the validation pipeline.  Times are calculated only for steps that "passed"  Times are given in days:hours:minutes:seconds format.
 </p>
 
 <% missing_quarters = @all_released_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
@@ -238,6 +238,9 @@ A few statistics for the performance of different steps in the validation pipeli
        <td class="notes">&nbsp;</td>
    </tr>
    </table>
+<p align="left">
+*Note that there are a few "runaway" processes that show extremely long durations.  We have not removed outliers from these statistics.  Probably the most informative number is the "median" value for average run times.
+</p>
 
 <br />
     <%#= google_scatter_plot([], :data => findtrack_times, :title => "FindTracks command duration|y-axis (s)", :width => 300, :height => 300, :align => "center", :max => "#{findtrack_times.max}") %>
