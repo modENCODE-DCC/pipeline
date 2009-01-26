@@ -1,3 +1,37 @@
+  class Array
+    def median
+      self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
+    end
+    def mean
+      self.sum/self.size
+    end
+    def mode
+      numbers = self
+      c_n_count = 0 # Current number count
+      length = numbers.length - 1
+      amount = {} # New array for the number of times each number occurs in the array
+      for x in 0..length
+        c_number = numbers[x]
+        for y in 0..length
+          if numbers[y] == c_number # If the current number is equal to the upper level current number
+            c_n_count = c_n_count + 1
+          end
+        end
+        amount[x] = c_n_count # Add the total number of occurences in the value array
+        c_n_count = 0
+      end
+      max = 0
+      high_number = 0
+      for x in 0..length
+        if amount[x] > max # If the current number breaks the previous high record
+          max = amount[x] # Reset the max to this new record
+          high_number = x # Set the new most common number to that number
+        end
+      end
+      return numbers[high_number]
+    end
+  end
+
 class ReportsController < ApplicationController
   before_filter :login_required
 
@@ -167,3 +201,4 @@ class ReportsController < ApplicationController
 
 
 end
+
