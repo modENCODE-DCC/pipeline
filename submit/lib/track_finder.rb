@@ -1139,7 +1139,7 @@ class TrackFinder
         zoomlevels = [ nil, 101, 10001, 100001 ]
       end
 
-      stanzaname = "#{project.name[0..10].gsub(/\s/, "_")}_#{track_type.gsub(/:/, '_')}_#{tracknum}_#{project.id}"
+      stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
 
       if track_source !~ /\d*_details/ then
         # If this is not a details track...
