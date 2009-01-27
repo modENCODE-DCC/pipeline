@@ -254,6 +254,7 @@ class TrackFinder
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
+                   fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
                    fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
@@ -264,9 +265,14 @@ class TrackFinder
                    INNER JOIN organism o ON f.organism_id = o.organism_id
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN data d ON df.data_id = d.data_id
-                   LEFT JOIN featureloc fl ON df.feature_id = fl.feature_id
-                   LEFT JOIN feature src ON src.feature_id = fl.srcfeature_id
-                   LEFT JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
+                   LEFT JOIN (featureprop fp
+                     INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
+                   ) ON fp.feature_id = f.feature_id
+                   LEFT JOIN (featureloc fl 
+                     LEFT JOIN (feature src
+                       INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
+                     ) ON src.feature_id = fl.srcfeature_id
+                   ) ON df.feature_id = fl.feature_id
                    WHERE df.data_id = ANY(?) ORDER BY fl.rank")
     }
     sth_get_parts_of_features = dbh_safe {
@@ -275,6 +281,7 @@ class TrackFinder
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
+                   fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
                    fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
@@ -284,9 +291,14 @@ class TrackFinder
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN feature_relationship fr ON fr.subject_id = f.feature_id
                    INNER JOIN cvterm frtype ON fr.type_id = frtype.cvterm_id
-                   LEFT JOIN featureloc fl ON f.feature_id = fl.feature_id
-                   LEFT JOIN feature src ON src.feature_id = fl.srcfeature_id
-                   LEFT JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
+                   LEFT JOIN (featureprop fp
+                     INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
+                   ) ON fp.feature_id = f.feature_id
+                   LEFT JOIN (featureloc fl 
+                     LEFT JOIN (feature src
+                       INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
+                     ) ON src.feature_id = fl.srcfeature_id
+                   ) ON f.feature_id = fl.feature_id
                    WHERE fr.object_id = ANY(?) ORDER BY fl.rank")
     }
 
@@ -352,6 +364,13 @@ class TrackFinder
               feature_hash = row
               next unless feature_hash['fmin'] && feature_hash['fmax']
 
+              feature_hash["properties"] = Hash.new unless feature_hash["properties"]
+              if feature_hash["propvalue"] then
+                feature_hash["properties"][row["propname"]] = Hash.new unless feature_hash["properties"][row["propname"]]
+                feature_hash["properties"][row["propname"]][row["proprank"].to_i] = row["propvalue"]
+                feature_hash.reject! { |column, value| col == "propvalue" || col == "propname" || col == "proprank" }
+              end
+
               feature_hash["parents"] = Array.new
               parent_feature_ids[row["feature_id"]] = feature_hash
 
@@ -389,6 +408,14 @@ class TrackFinder
   
               sth_get_parts_of_features.fetch_hash { |row|
                 subfeature_hash = row.reject { |column, value| column == "object_id" }
+
+                subfeature_hash["properties"] = Hash.new unless subfeature_hash["properties"]
+                if subfeature_hash["propvalue"] then
+                  subfeature_hash["properties"][row["propname"]] = Hash.new unless subfeature_hash["properties"][row["propname"]]
+                  subfeature_hash["properties"][row["propname"]][row["proprank"].to_i] = row["propvalue"]
+                  subfeature_hash.reject! { |column, value| col == "propvalue" || col == "propname" || col == "proprank" }
+                end
+
                 subfeature_hash["parents"] = Array.new
 
                 new_parent_feature_ids[row["feature_id"]] = subfeature_hash
@@ -811,6 +838,13 @@ class TrackFinder
       out = out + ";Parent=#{parent['feature_id']}"
       out = out + ";parental_relationship=#{reltype}/#{parent['feature_id']}"
     end
+
+    # Attributes
+    feature["properties"].each do |propname, ranks|
+      out = out + ";#{propname.downcase.gsub(/[^A-Za-z0-9]/, "_")}="
+      out = out + ranks.sort { |v1, v2| v1[0] <=> v2[0] }.map { |val| val[1].gsub(/[,;]/, "_") }.join(",")
+    end
+
 
     out = out + "\n"
 
