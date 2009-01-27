@@ -233,6 +233,25 @@
   <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %>
   <br/>
   <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
+  <% if current_user.is_a? Moderator then %>
+    <script type="text/javascript">
+      function copy_stanzas_from() {
+        var old_project = prompt("What project ID should I copy from?", "");
+        if (isNaN(old_project)) {
+          alert(old_project + " isn't a number?!");
+          return false;
+        }
+        var copy_options = new Hash();
+        copy_options.set("old_project_id", old_project);
+        copy_options.set("do", "copy");
+        copy_options.set("reload", "true");
+        new Ajax.Request("<%= url_for(:action => :async_update_track_location, :id => @project.id) %>",
+            {asynchronous:true, evalScripts:true, parameters: copy_options }
+          );
+      }
+    </script>
+    <%= button_to_function "Copy Stanzas From...", "copy_stanzas_from()" %>
+  <% end %>
 </div>
 <%= form_tag :action => :configure_tracks, :id => @project.id %>
   <span class="flipfield" style="clear:both">

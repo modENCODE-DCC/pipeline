@@ -810,132 +810,139 @@ class PipelineController < ApplicationController
     end
 
     update_errors = Array.new
+
     # Unaccept config(s) for this project if any have been accepted
     TrackStanza.find_all_by_project_id(@project.id).each { |ts|
       ts.released = false
       ts.save
     }
 
-    stanzaname = params[:stanzaname]
     changed = false
-    user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
-    user_stanza = user_stanzas.find { |ts| ts.stanza.has_key? stanzaname }
-
-    stanzas = user_stanza.stanza
-    if stanzas[stanzaname][:chr] != params[:chr] = params[:chr] then
-      if params[:chr] =~ /^[a-zA-Z0-9_]+$/
-        stanzas[stanzaname][:chr] = params[:chr] = params[:chr]
-        changed = true
+    if params[:old_project_id] && params[:do] == "copy" then
+      res = copy_stanza(current_user.id, params[:old_project_id].to_i, @project.id)
+      if (res != true) then
+        update_errors.push res
       end
-    end
-    if stanzas[stanzaname][:fmin] != params[:fmin] = params[:fmin] then
-      if params[:fmin].to_s == params[:fmin].to_i.to_s
-        stanzas[stanzaname][:fmin] = params[:fmin] = params[:fmin]
-        changed = true
-      end
-    end
-    if stanzas[stanzaname][:fmax] != params[:fmax] = params[:fmax] then
-      if params[:fmax].to_s == params[:fmax].to_i.to_s
-        stanzas[stanzaname][:fmax] = params[:fmax] = params[:fmax]
-        changed = true
-      end
-    end
+    else
+      stanzaname = params[:stanzaname]
+      user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
+      user_stanza = user_stanzas.find { |ts| ts.stanza.has_key? stanzaname }
 
-    # Update main track
-    STANZA_OPTIONS.each do |option, values|
-      value = params[option]
-
-      okay_value = false
-      if values.is_a? Array then
-        okay_value = true if values.member?(value)
-      elsif values.is_a? Hash then
-        okay_value = true if values.keys.member?(value)
-      elsif values.is_a? Symbol then
-        # Controlled type
-        case values
-        when :integer
-          okay_value = true if value.to_i.to_s == value.to_s
-        when :text
-          okay_value = true if value =~ /^[a-zA-Z0-9_ :-]*$/
-        when :citation_text
-          okay_value = true
-          begin
-            REXML::Document.new("<html>#{value}</html>")
-          rescue
-            update_errors.push "Citation text is not valid XML."
-            okay_value = false
-          end
-        end
-      end
-
-      if okay_value then
-        if (stanzas[stanzaname][option] != value) then
-          stanzas[stanzaname][option] = value
+      stanzas = user_stanza.stanza
+      if stanzas[stanzaname][:chr] != params[:chr] = params[:chr] then
+        if params[:chr] =~ /^[a-zA-Z0-9_]+$/
+          stanzas[stanzaname][:chr] = params[:chr] = params[:chr]
           changed = true
         end
-      elsif !value.nil? && value.length > 0 then
-        update_errors.push "#{value} is not okay for #{option}"
       end
-
-    end
-
-
-    # Update semantic zoom tracks
-    zoom_levels = params.keys.find_all { |key| key =~ /^zoom:\d+$/ }.map { |key| key[5..-1].to_i }
-
-
-    zoom_levels.each do |zoom_level|
-      next unless stanzas[stanzaname][:semantic_zoom] && stanzas[stanzaname][:semantic_zoom][zoom_level]
-      STANZA_OPTIONS.each do |option, values|
-        zoom_option = "zoom:#{zoom_level}_#{option}"
-        value = params[zoom_option]
-        if value then
-          okay_value = false
-          if values.is_a? Array then
-            okay_value = true if values.member?(value)
-          elsif values.is_a? Hash then
-            okay_value = true if values.keys.member?(value)
-          elsif values.is_a? Symbol then
-            # Controlled type
-            case values
-            when :integer
-              okay_value = true if value.to_i.to_s == value.to_s
-            when :text
-              okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
-            when :citation_text
-              okay_value = true
-              begin
-                REXML::Document.new("<html>#{value}</html>")
-              rescue
-                update_errors.push "Citation text is not valid XML."
-                okay_value = false
-              end
-            end
-          end
-
-          if okay_value then
-            if (stanzas[stanzaname][:semantic_zoom][zoom_level][option] != value) then
-              stanzas[stanzaname][:semantic_zoom][zoom_level][option] = value
-              changed = true
-            end
-          else
-            update_errors.push "#{value} is not okay for #{option}"
-          end
+      if stanzas[stanzaname][:fmin] != params[:fmin] = params[:fmin] then
+        if params[:fmin].to_s == params[:fmin].to_i.to_s
+          stanzas[stanzaname][:fmin] = params[:fmin] = params[:fmin]
+          changed = true
         end
       end
-      if params["zoom:#{zoom_level}"].to_i.to_s == params["zoom:#{zoom_level}"].to_s then
-        new_zoom_level = params["zoom:#{zoom_level}"].to_i
-        if new_zoom_level != zoom_level then
-          # Trying to change the actual zoom_level
-          stanzas[stanzaname][:semantic_zoom][new_zoom_level] = stanzas[stanzaname][:semantic_zoom][zoom_level]
-          stanzas[stanzaname][:semantic_zoom].delete(zoom_level)
-          user_stanza.stanza = stanzas
-          user_stanza.save
+      if stanzas[stanzaname][:fmax] != params[:fmax] = params[:fmax] then
+        if params[:fmax].to_s == params[:fmax].to_i.to_s
+          stanzas[stanzaname][:fmax] = params[:fmax] = params[:fmax]
+          changed = true
+        end
+      end
 
-          # We should go ahead and force a refresh since this changes lots of underlying form fields
-          headers["Content-Type"] = "application/javascript"
-          render :text => "console.log('Zoom level being changed from #{zoom_level} to #{new_zoom_level}'); location.replace('#{url_for({ :action => :configure_tracks, :id => params[:id] })}')"
-          return
+      # Update main track
+      STANZA_OPTIONS.each do |option, values|
+        value = params[option]
+
+        okay_value = false
+        if values.is_a? Array then
+          okay_value = true if values.member?(value)
+        elsif values.is_a? Hash then
+          okay_value = true if values.keys.member?(value)
+        elsif values.is_a? Symbol then
+          # Controlled type
+          case values
+          when :integer
+            okay_value = true if value.to_i.to_s == value.to_s
+          when :text
+            okay_value = true if value =~ /^[a-zA-Z0-9_ :-]*$/
+          when :citation_text
+            okay_value = true
+            begin
+              REXML::Document.new("<html>#{value}</html>")
+            rescue
+              update_errors.push "Citation text is not valid XML."
+              okay_value = false
+            end
+          end
+        end
+
+        if okay_value then
+          if (stanzas[stanzaname][option] != value) then
+            stanzas[stanzaname][option] = value
+            changed = true
+          end
+        elsif !value.nil? && value.length > 0 then
+          update_errors.push "#{value} is not okay for #{option}"
+        end
+
+      end
+
+      # Update semantic zoom tracks
+      zoom_levels = params.keys.find_all { |key| key =~ /^zoom:\d+$/ }.map { |key| key[5..-1].to_i }
+
+
+      zoom_levels.each do |zoom_level|
+        next unless stanzas[stanzaname][:semantic_zoom] && stanzas[stanzaname][:semantic_zoom][zoom_level]
+        STANZA_OPTIONS.each do |option, values|
+          zoom_option = "zoom:#{zoom_level}_#{option}"
+          value = params[zoom_option]
+          if value then
+            okay_value = false
+            if values.is_a? Array then
+              okay_value = true if values.member?(value)
+            elsif values.is_a? Hash then
+              okay_value = true if values.keys.member?(value)
+            elsif values.is_a? Symbol then
+              # Controlled type
+              case values
+              when :integer
+                okay_value = true if value.to_i.to_s == value.to_s
+              when :text
+                okay_value = true if value =~ /^[a-zA-Z0-9_ -]*$/
+              when :citation_text
+                okay_value = true
+                begin
+                  REXML::Document.new("<html>#{value}</html>")
+                rescue
+                  update_errors.push "Citation text is not valid XML."
+                  okay_value = false
+                end
+              end
+            end
+
+            if okay_value then
+              if (stanzas[stanzaname][:semantic_zoom][zoom_level][option] != value) then
+                stanzas[stanzaname][:semantic_zoom][zoom_level][option] = value
+                changed = true
+              end
+            else
+              update_errors.push "#{value} is not okay for #{option}"
+            end
+          end
+        end
+        if params["zoom:#{zoom_level}"].to_i.to_s == params["zoom:#{zoom_level}"].to_s then
+          new_zoom_level = params["zoom:#{zoom_level}"].to_i
+          if new_zoom_level != zoom_level then
+            # Trying to change the actual zoom_level
+            stanzas[stanzaname][:semantic_zoom][new_zoom_level] = stanzas[stanzaname][:semantic_zoom][zoom_level]
+            stanzas[stanzaname][:semantic_zoom].delete(zoom_level)
+            user_stanza.stanza = stanzas
+            user_stanza.save
+
+            # We should go ahead and force a refresh since this changes lots of underlying form fields
+            headers["Content-Type"] = "application/javascript"
+            render :text => "console.log('Zoom level being changed from #{zoom_level} to #{new_zoom_level}'); location.replace('#{url_for({ :action => :configure_tracks, :id => params[:id] })}')"
+            return
+          end
         end
       end
     end
@@ -968,7 +975,11 @@ class PipelineController < ApplicationController
 
     headers["Content-Type"] = "text/javascript"
     if params[:reload] then
-      render :text => "window.location.reload();"
+      response = "window.location.reload();"
+      if update_errors.size > 0 then
+        response = "alert('#{update_errors.join('\n').gsub("'", "\\'")}');" + response
+      end
+      render :text => response
     else
       response = "1;"
       if update_errors.size > 0 then
@@ -1462,6 +1473,44 @@ class PipelineController < ApplicationController
   end
 
 private
+
+  def copy_stanza(user_id, old_project_id, new_project_id)
+    oldts = TrackStanza.find_by_project_id_and_user_id(old_project_id, user_id)
+    newts = TrackStanza.find_by_project_id_and_user_id(new_project_id, user_id)
+
+    return "Cannot find both old and new track stanzas" unless oldts && newts
+
+    newstanza = Hash.new
+
+    old_tracks = oldts.stanza.sort { |t1, t2| t1[0].match(/_(\d+)_\d+$/)[1] <=> t2[0].match(/_(\d+)_\d+$/)[1] }
+    new_tracks = newts.stanza.sort { |t1, t2| t1[0].match(/_(\d+)_\d+$/)[1] <=> t2[0].match(/_(\d+)_\d+$/)[1] }
+
+    diff = new_tracks[0][0].match(/_(\d+)_\d+$/)[1].to_i - old_tracks[0][0].match(/_(\d+)_\d+$/)[1].to_i
+
+    old_tracks.each { |track_name, values|
+      (tracktype, details) = values["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
+      (tracknum, projnum) = track_name.match(/_(\d+)_(\d+)$/)[1].to_i
+      new_track_name = track_name.sub(/_#{tracknum}_/, "_#{tracknum+diff}_").sub(/_#{old_project_id}$/, "_#{new_project_id}")
+
+      (tn, vs) = new_tracks.find { |t| t[0] == new_track_name }
+      (tracktp, deets) = vs["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
+
+      if !(tracktype == tracktp && details == deets) then
+        return "Can't deal with mismatched types #{tracktype}#{details} != #{tracktp}#{deets}"
+      end
+
+      copy_of_old = Marshal.restore(Marshal.dump(values))
+      copy_of_old["feature"] = vs["feature"] # Keep new feature type and num
+      copy_of_old["key"] = vs["key"] # Keep new key name
+      copy_of_old["database"] = vs["database"] # Keep new database schema name
+      copy_of_old["citation"] = vs["citation"] # Keep new citation schema name
+
+      newstanza[tn] = copy_of_old
+    }
+
+    newts.stanza = newstanza
+    return newts.save
+  end
   def status
 
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
