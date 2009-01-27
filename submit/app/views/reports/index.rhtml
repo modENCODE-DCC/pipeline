@@ -251,25 +251,25 @@ A few statistics* for the performance of different steps in the validation pipel
    aj_upload_commands = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
    aj_upload_fails = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
    aj_upload_scatter = Array.new
-   aj_upload_commands.each{|cmd| aj_upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (upload_times.stdev*2)}
+   aj_upload_commands.each{|cmd| aj_upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (upload_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_upload_times = aj_upload_scatter.sort.map{|a| a[1].round}
 
    aj_validate_commands = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
    aj_validate_fails = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
    aj_validate_scatter = Array.new
-   aj_validate_commands.each{|cmd| aj_validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (validate_times.stdev*2) }
+   aj_validate_commands.each{|cmd| aj_validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (validate_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_validate_times = aj_validate_scatter.sort.map{|a| a[1].round}
 
    aj_findtrack_fails = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
    aj_findtrack_commands = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
    aj_findtrack_scatter = Array.new
-   aj_findtrack_commands.each{|cmd| aj_findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (findtrack_times.stdev*2) }
+   aj_findtrack_commands.each{|cmd| aj_findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (findtrack_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_findtrack_times = aj_findtrack_scatter.sort.map{|a| a[1].round}
 
    aj_load_fails =  (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Load::Status::LOADED}
    aj_load_commands = (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status==Load::Status::LOADED}
    aj_load_scatter = Array.new
-   aj_load_commands.each{|cmd| aj_load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (load_times.stdev*2) }
+   aj_load_commands.each{|cmd| aj_load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (load_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_load_times = aj_load_scatter.sort.map{|a| a[1].round}
 
 %>
@@ -353,4 +353,4 @@ A few statistics* for the performance of different steps in the validation pipel
 <br />
 
 **Quarters are defined as follows:
-  <%= @quarters.map{|k,v| "#{k} #{v["start"]} #{v["end"]}"} %>
+  <%#= @quarters.map{|k,v| "#{k} #{v["start"]} #{v["end"]}"} %>
