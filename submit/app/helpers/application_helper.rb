@@ -305,8 +305,8 @@ module ApplicationHelper
     #converted = "#{time.round/86400}d:#{(time.round/360) % 24}h:#{(time.round / 60) % 60 }m:#{time.round % 60}s"
     converted = "#{time.round % 60}s"
     converted = "#{(time.round / 60) % 60 }m:"+converted unless (time.round/60) == 0 
-    converted = "#{(time.round/360) % 24}h:"+converted unless (time.round/360) == 0
-    converted = "#{time.round/8640}d:"+converted unless (time.round/8640) == 0
+    converted = "#{(time.round/3600) % 24}h:"+converted unless (time.round/360) == 0
+    converted = "#{time.round/86400}d:"+converted unless (time.round/8640) == 0
     #converted += "(#{time.round}) "
     converted
     rescue
