@@ -79,7 +79,7 @@
       <div id="user"> 
         <%= link_to '(logout)', {:controller=> 'account', :action => 'logout'}, :class=> "smallLink" %><br/>
         Logged In: 
-        <%= link_to @current_user.login, {:controller => 'account', :action => 'change_profile' }, :title => "View/Change User Details", :class => "strong" %>
+        <%= link_to current_user.login, {:controller => 'account', :action => 'change_profile' }, :title => "View/Change User Details", :class => "strong" %>
       </div>
     <% end %>
 
