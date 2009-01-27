@@ -1623,6 +1623,6 @@ private
 
     @released_projects = @projects.find_all{|p| p.status=="released"}
     #for now, will use the last updated date, but should probably find the release command, and use that
-    @released_projects.map{|p| @all_my_released_projects_per_quarter[@quarters.find{|k,v| p.updated_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1 }
+    @released_projects.map{|p| @all_my_released_projects_per_quarter[@quarters.find{|k,v| p.updated_at.to_date <= v["end"] && p.updated_at.to_date >= v["start"]}[0]] += 1 }
   end
 end
