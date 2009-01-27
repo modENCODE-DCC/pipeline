@@ -86,7 +86,7 @@ class ValidateIdf2chadoxmlController < ValidateController
 
           # Save the Validate object if it's been 2 seconds and the last chr read
           # from one of the pipes was a newline - application-side flushing, basically
-          if (Time.now - last_update) > 2 then
+#          if (Time.now - last_update) > 2 then
             if (!out_chr.nil? && (out_chr == "\n" || out_chr == "\r")) ||
               (!err_chr.nil? && (err_chr == "\n" || err_chr == "\r")) then
               command_object.save
@@ -105,7 +105,7 @@ class ValidateIdf2chadoxmlController < ValidateController
               last_update = Time.now
               last_update = Time.now
             end
-          end
+#          end
         end
 
         command_object.save
