@@ -940,7 +940,7 @@ class PipelineController < ApplicationController
 
             # We should go ahead and force a refresh since this changes lots of underlying form fields
             headers["Content-Type"] = "application/javascript"
-            render :text => "console.log('Zoom level being changed from #{zoom_level} to #{new_zoom_level}'); location.replace('#{url_for({ :action => :configure_tracks, :id => params[:id] })}')"
+            render :text => "location.replace('#{url_for({ :action => :configure_tracks, :id => params[:id] })}')"
             return
           end
         end
