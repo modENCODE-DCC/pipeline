@@ -46,10 +46,10 @@
         <% if Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) || project.status == Project::Status::RELEASED then %>
           |
           <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>
-          |
-          <%= link_to "Citation/Details", :action => "citation", :id => project %>
         <% end %>
         <% if Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) || project.status == Project::Status::RELEASED then %>
+          |
+          <%= link_to "Citation/Details", :action => "citation", :id => project %>
           |
           <%= link_to "GBrowse Stanza", :action => "get_gbrowse_stanzas", :id => project %>
         <% end %>
