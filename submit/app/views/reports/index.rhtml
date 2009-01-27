@@ -71,7 +71,7 @@ Numbers in parentheses indicate the total for that particular status (active, re
 </td>
 <td>
 <p class="caption">
-<b>Submissions initiated to modENCODE DCC, binned by Quarter.</b> This represents the distribution of submissions initiated to the DCC, regardless of current status, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+<b>Submissions initiated to modENCODE DCC, binned by Quarter**.</b> This represents the distribution of submissions initiated to the DCC, regardless of current status, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
 Numbers above the bars depict the total number of submissions for all PIs for that quarter.  
 Numbers in parentheses indicate the total for that particular project PI.  
 "n" value in the title represents the sum of all initiated submissions.  
@@ -93,7 +93,7 @@ Numbers in parentheses indicate the total for that particular project PI.
 </td>
 <td>
 <p class="caption">
-<b>Submissions released by modENCODE DCC, binned by Quarter.</b> This represents the distribution of submissions released by the modENCODE DCC to GBrowse, modMINE, and worm/flybase, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+<b>Submissions released by modENCODE DCC, binned by Quarter**.</b> This represents the distribution of submissions released by the modENCODE DCC to GBrowse, modMINE, and worm/flybase, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
 Numbers above the bars depict the total number of released submissions for all PIs for that quarter.  
 Numbers in parentheses indicate the total for that particular project PI.  
 "n" value in the title represents the sum of all released submissions.  
@@ -107,7 +107,7 @@ Numbers in parentheses indicate the total for that particular project PI.
 <br />
     <hr />
 <br/>
-    <h2 align="center">Overview of modENCODE New Submissions per quarter</h2>
+    <h2 align="center">Overview of modENCODE New Submissions per quarter**</h2>
 <p>Each chart represents the total number of data submissions initiated per modENCODE project PI for the given quarter.
 Numbers above the bars depict the total number of new submissions by that particular project PI.
 "n" value in the title represents the sum of new submissions for the given quarter for all projects.  
@@ -129,7 +129,7 @@ Numbers above the bars depict the total number of new submissions by that partic
 <br />
     <hr />
 <br />
-    <h2 align="center">Overview of modENCODE Released Submissions per quarter</h2>
+    <h2 align="center">Overview of modENCODE Released Submissions per quarter**</h2>
 <p>Each chart represents the total number of data submissions released per modENCODE project PI for the given quarter.
 Numbers above the bars depict the total number of released submissions by that particular project PI.
 "n" value in the title represents the sum of released submissions for the given quarter for all projects.
@@ -352,5 +352,5 @@ A few statistics* for the performance of different steps in the validation pipel
 <br />
 <br />
 
-**Quarters are defined as follows:
-  <%#= @quarters.map{|k,v| "#{k} #{v["start"]} #{v["end"]}"} %>
+**Quarters are defined as follows:<br />
+  <%= @quarters.sort.map{|k,v| "<b>#{k}</b>: #{v["start"]} - #{v["end"]}"}.join("<br />") %>
