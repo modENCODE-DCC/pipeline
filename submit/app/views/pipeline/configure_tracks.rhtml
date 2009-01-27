@@ -381,6 +381,13 @@
                 <script type="text/javascript">
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
                 </script>
+              <% elsif @stanza_options[option].is_a? Hash then %>
+                <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
+                  <%= options_for_select @stanza_options[option].invert.sort { |a, b| a[0] <=> b[0] }, value %>
+                </select>
+                <script type="text/javascript">
+                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
+                </script>
               <% elsif @stanza_options[option] == :text %>
                 <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
                 <script type="text/javascript">
