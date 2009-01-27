@@ -59,7 +59,7 @@ class ReportsController < ApplicationController
                "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
                "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
-
+    @quarters = quarters
     #these are the pis to include in the display - modify to add additional pis	
     pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
     status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both","Published"]
@@ -117,7 +117,7 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_released_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.find_all{|p| p.status=="released"}.each {|p| @all_released_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 }
+    Project.all.find_all{|p| p.status==Project::Status::RELEASED}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 }
 
 
     @all_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0} 
