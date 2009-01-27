@@ -5,6 +5,22 @@
     def mean
       self.sum/self.size
     end
+    def variance
+      numbers = self
+      n = 0;
+      mean = numbers.mean;
+      s = 0.0;
+      numbers.each { |x|
+        n = n+1
+        delta = x-mean
+        s = s + delta*delta         
+      }
+      return (s/(n))
+    end
+    def stdev
+      numbers = self;
+      Math.sqrt(numbers.variance)      
+    end
     def mode
       numbers = self
       c_n_count = 0 # Current number count
