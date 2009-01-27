@@ -11,11 +11,12 @@ class AdministrationController < ApplicationController
     end
     @files = [ project_dir ]
 
-    @all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-    @all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @all_waiting_commands = (@all_queued_commands + @all_paused_commands).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
 
-    @active_commands = Command.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = @commands.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @show_all = params[:show_all].nil? ? false : true
   end
 
   def batch_queue

@@ -8,7 +8,15 @@
     padding-right: 15px;
   }
 </style>
-<div style="float: left">
+<div style="float:right; text-align: center; width: 25%">
+  <b>Free Space</b><br/>
+  <% free_space_for_files(@files).each do |volume| %>
+    <%= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
+  <% end %>
+  <b>Webserver CPU Usage</b><br/>
+  <%= google_ometer_chart(get_cpu_usage_of_self) %>
+</div>
+<div style="float: left; width: 75%">
   <h1>Active (...ing)</h1>
   <div style="padding-left: 3px">
   <b>Running state:</b> 
@@ -63,28 +71,24 @@
   <h1>All Commands</h1>
   <table>
     <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th><th>Start</th><th>End</th></tr>
-    <% @commands.sort { |a,b| b.id <=> a.id }.each do |command| %>
+    <% show_commands = @show_all ? @commands.sort { |a,b| b.id <=> a.id } : @commands.sort { |a,b| b.id <=> a.id }[0..150] %>
+    <% show_commands.each do |command| %>
       <tr>
         <td><a style="text-decoration: none; color: black" name="<%= "cmd_#{command.id}" %>"><%= command.id %></a></td>
         <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
         <td><%= command.project ? link_to(command.project.name, url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %></td>
-        <td><%= command.status %></td>
+        <td><%= command.status.gsub(/ /, "&nbsp;") %></td>
         <td><%= command.project ? link_to(command.project.user.login, url_for(:controller => :account, :action => :change_profile, :id => command.project.user)) : "Orphaned" %></td>
         <td><%= command.start_time.nil? ? "Never started" : command.start_time.strftime("%H:%M:%S&nbsp;on&nbsp;%Y-%m-%d") %></td>
         <td><%= command.end_time.nil? ? "Never finished" : command.end_time.strftime("%H:%M:%S&nbsp;on&nbsp;%Y-%m-%d") %></td>
       </tr>
     <% end %>
   </table>
-</div>
-<div style="float:right; text-align: center">
-  <b>Free Space</b><br/>
-  <% free_space_for_files(@files).each do |volume| %>
-    <%= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
+  <% if @show_all %>
+    <%= button_to "Show 150 Commands", {}, :method => "get" %>
+  <% else %>
+    <%= button_to "Show All #{@commands.size} Commands", {} , :name => "show_all", :method => "get" %>
   <% end %>
-</div>
-<div style="float:right; text-align: center">
-  <b>Webserver CPU Usage</b><br/>
-  <%= google_ometer_chart(get_cpu_usage_of_self) %>
 </div>
 
 
