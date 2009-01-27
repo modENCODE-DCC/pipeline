@@ -137,19 +137,54 @@ module ApplicationHelper
     options[:title] ||= "no title provided"    
     options[:min] ||= 0
     options[:chxt] ||= "x,y"
-    options[:color] ||=  "0000ff"
-    x = []
-    for i in 1..options[:data].length do
-      x += ["t"+options[:data].map{|k,v| v}[i-1].to_s+",000000,0,#{i-1},10"]
-    end
-    options[:chm] = x.join("|")
-
-    options[:max] ||= [10,"#{options[:data].map{|k,v| v}.max}".to_i].max+1 unless options[:data].nil?
-    options[:xaxis] ||= [0,"#{options[:max]}".to_i/2,"#{options[:max]}".to_i]
-    options[:chd] ||= "t:#{options[:data].map{|k,v|"#{k}"}.join(',')}|#{options[:data].map{|k,v|"#{v}"}.join(',')}"
+    options[:chls] ||= "0,0,0"   #no lines
+    options[:color] ||=  "0066ff"
+    options[:chm] = "o,#{options[:color]},0,-1.0,6"
+    options[:max] ||= "#{options[:data].max}"
+    #options[:xaxis] ||= [0,"#{options[:max]}".to_i/2,"#{options[:max]}".to_i]
+    options[:chd] ||= "t:-1|#{options[:data].join(',')}"
     options[:chdl] ||= ""
-    options[:chxl] ||=  "0:|#{options[:data].map{|k,v|"#{k}"}.join('|')}|1:|#{options[:xaxis].join('|')}"
-    options[:title] += "|(n=#{options[:data].map{|k,v| v}.sum})" unless options[:data].nil?
+    #options[:chxl] ||=  "#{options[:min]},#{options[:max]}"
+    options[:title] += "|(n=#{options[:data].length})" unless options[:data].nil?
+
+   opts = {
+      :cht => "lxy",
+      :chd => options[:chd],
+      :chtt => options[:title],
+#      :chl => "#{data.map { |k,v| CGI::escape(k)}.join('|')}", #legend
+      :chxt => options[:chxt], #order of data
+      #:chxl => options[:chxl],
+      :chs => "#{options[:width]}x#{options[:height]}", #chart size
+      :chxr => "0,0,#{options[:data].length}|1,0,#{options[:max]}", #range 
+      :chds => "#{options[:min]},#{options[:max]}",  #min & max
+      :chco => options[:color],  #color
+      #:chbh => options[:chbh],
+      :chm => options[:chm],
+      :chls => "0,0,0"
+    }
+    url = "http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}"
+    image_tag(url)
+
+  rescue
+
+    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+  end
+
+  def google_scatter_plot_xy(d, options = {})
+    options[:width] ||= [300,"#{options[:data].length*20}".to_i].max
+    options[:height] ||= 250
+    options[:title] ||= "no title provided"    
+    options[:min] ||= 0
+    options[:chxt] ||= "x,y"
+    options[:chls] ||= "0,0,0"   #no lines
+    options[:color] ||=  "0066ff"
+    options[:chm] = "o,#{options[:color]},0,-1.0,6"
+    options[:max] ||= "#{options[:data].max}"
+    #options[:xaxis] ||= [0,"#{options[:max]}".to_i/2,"#{options[:max]}".to_i]
+    options[:chd] ||= "t:#{options[:data].sort.map{|data| data[0]}.join(',')}|#{options[:data].sort.map{|data| data[1]}.join(',')}"
+    options[:chdl] ||= ""
+    #options[:chxl] ||=  "#{options[:min]},#{options[:max]}"
+    options[:title] += "|(n=#{options[:data].length})" unless options[:data].nil?
 
    opts = {
       :cht => "s",
@@ -157,16 +192,18 @@ module ApplicationHelper
       :chtt => options[:title],
 #      :chl => "#{data.map { |k,v| CGI::escape(k)}.join('|')}", #legend
       :chxt => options[:chxt], #order of data
-      :chxl => options[:chxl],
+      #:chxl => options[:chxl],
       :chs => "#{options[:width]}x#{options[:height]}", #chart size
-      :chxr => "1,0,options[:max]", #range 
+      :chxr => "0,0,#{options[:data].sort.map{|data| data[0]}.max}|1,0,#{options[:data].sort.map{|data| data[1]}.max}", #range 
       :chds => "#{options[:min]},#{options[:max]}",  #min & max
       :chco => options[:color],  #color
-      :chbh => options[:chbh],
-      :chm => options[:chm]
-
+      #:chbh => options[:chbh],
+      :chm => options[:chm],
+      :chls => "0,0,0"
     }
-    image_tag("http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}")
+    url = "http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}"
+    image_tag(url)
+
   rescue
 
     "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
@@ -269,7 +306,7 @@ module ApplicationHelper
     converted = "#{time.round % 60}s"
     converted = "#{(time.round / 60) % 60 }m:"+converted unless (time.round/60) == 0 
     converted = "#{(time.round/360) % 24}h:"+converted unless (time.round/360) == 0
-    converted = "#{time.round/86400}d:"+converted unless (time.round/86400) == 0
+    converted = "#{time.round/8640}d:"+converted unless (time.round/8640) == 0
     #converted += "(#{time.round}) "
     converted
     rescue
