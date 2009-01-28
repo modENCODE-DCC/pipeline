@@ -78,21 +78,25 @@
       i = 0
     %>
 
+    <% 
+      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    %>
     <% @projects.each do |p| %>
       <%
-        deleted_project = p.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false
-        all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-        queued_commands = p.commands.find_all_by_status(Command::Status::QUEUED)
+        p_commands = p.commands.count
+        deleted_project = Delete.count(:conditions => [ "project_id = ? AND NOT status = ?", p.id, Delete::Status::DELETE_FAILED ]) > 0 ? true : false
+        queued_commands = Command.find_all_by_project_id_and_status(p.id, Command::Status::QUEUED)
         active_project = Command::Status::is_active_state(p.status)
         failed_project = Command::Status::is_failed_state(p.status)
         released_project = p.status == Project::Status::RELEASED
-        #released_project = Command::Status::is_released_state(p.status)
-        last_upload_command = p.commands.find_all_by_status(Upload::Status::UPLOADED).last if !p.commands.nil?
-        last_validate_command = p.commands.find_all_by_status(Validate::Status::VALIDATED).last if !p.commands.nil?
-        last_load_command = p.commands.find_all_by_status(Load::Status::LOADED).last if !p.commands.nil?
-        total_uploads = p.commands.find_all_by_status(Upload::Status::UPLOADED).length+p.commands.find_all_by_status(Upload::Status::UPLOAD_FAILED).length
-        total_validations = p.commands.find_all_by_status(Validate::Status::VALIDATED).length+p.commands.find_all_by_status(Validate::Status::VALIDATION_FAILED).length
-        total_dbloads = p.commands.find_all_by_status(Load::Status::LOADED).length+p.commands.find_all_by_status(Load::Status::LOAD_FAILED).length
+        last_upload_command = Command.find(:first, :conditions => { :project_id => p.id, :status => Upload::Status::UPLOADED}, :order => "id DESC", :limit => 1)
+        last_validate_command = Command.find(:first, :conditions => { :project_id => p.id, :status => Validate::Status::VALIDATED}, :order => "id DESC", :limit => 1)
+        last_load_command = Command.find(:first, :conditions => { :project_id => p.id, :status => Load::Status::LOADED}, :order => "id DESC", :limit => 1)
+        last_release_command = Command.find(:first, :conditions => { :project_id => p.id, :status => Release::Status::RELEASED}, :order => "id DESC", :limit => 1)
+
+        total_uploads = Command.count(:conditions => { :project_id => p.id, :status => [ Upload::Status::UPLOADED, Upload::Status::UPLOAD_FAILED ] })
+        total_validations = Command.count(:conditions => { :project_id => p.id, :status => [ Validate::Status::VALIDATED, Validate::Status::VALIDATION_FAILED ] })
+        total_dbloads = Command.count(:conditions => { :project_id => p.id, :status => [ Load::Status::LOADED, Load::Status::LOAD_FAILED ] })
         color = active_project ? '#ffffbb' : colors[i%2]
         i += 1
       %>
@@ -108,8 +112,7 @@
           step = 0
           step = case p.status
             when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
-            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED)\
- : 2
+            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
             when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
             when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
             when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
@@ -131,7 +134,7 @@
       </td>
 
       <% if total_queued_commands > 0 %>
-        <td title="Queued" align="right" style="align: right;">
+        <td title="Queued" align="right" style="text-align: right;">
           <% if queued_commands.size > 0 then %>
             <%= Inflector.ordinalize(all_queued_commands.index(queued_commands[0])+1) %>
           <% else %>
@@ -150,19 +153,19 @@
         </td>
 
         <td>
-          <% if !p.commands.nil? && p.commands.find_all_by_status(Upload::Status::UPLOADED).length > 0 && @display_date == 'quarter' then %>
+          <% if last_upload_command && @display_date == 'quarter' then %>
             <%= @quarters.find {|k,v| last_upload_command.updated_at.to_date <= v["end"] && last_upload_command.updated_at.to_date >= v["start"]}[0] %>
-          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Upload::Status::UPLOADED).length > 0 then %>
+          <% elsif last_upload_command then %>
             <%= last_upload_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             --
           <% end %>
         </td>
         <td>
-          <% if !p.commands.nil? && total_uploads > 0 then %>
-            <%#= ((p.commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")" %>
+          <% if p_commands > 0 && total_uploads > 0 then %>
+            <%#= ((p_commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")" %>
 	    <%= total_uploads.to_s  %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;
@@ -170,19 +173,19 @@
         </td>
 
         <td>
-          <% if !p.commands.nil? && p.commands.find_all_by_status(Validate::Status::VALIDATED).length > 0 && @display_date == 'quarter' then %>
+          <% if last_validate_command && @display_date == 'quarter' then %>
             <%= @quarters.find {|k,v| last_validate_command.updated_at.to_date <= v["end"] && last_validate_command.updated_at.to_date >= v["start"]}[0] %>
-          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Validate::Status::VALIDATED).length > 0 then %>
+          <% elsif last_validate_command then %>
             <%= last_validate_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             <span style="color:grey">--</span>
           <% end %>
         </td>
         <td>
-          <% if !p.commands.nil? && total_validations > 0 then %>
-            <%#= ((p.commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")" %>
+          <% if p_commands > 0 && total_validations > 0 then %>
+            <%#= ((p_commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")" %>
 	    <%= total_validations.to_s  %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;
@@ -190,19 +193,19 @@
         </td>
 
         <td>
-          <% if !p.commands.nil? && p.commands.find_all_by_status(Load::Status::LOADED).length > 0 && @display_date == 'quarter' then %>
+          <% if last_load_command && @display_date == 'quarter' then %>
             <%= @quarters.find {|k,v| last_load_command.updated_at.to_date <= v["end"] && last_load_command.updated_at.to_date >= v["start"]}[0] %>
-          <% elsif !p.commands.nil? && p.commands.find_all_by_status(Load::Status::LOADED).length > 0 then %>
+          <% elsif last_load_command then %>
             <%= last_load_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             <span style="color:grey">--</span>
           <% end %>
         </td>
         <td>
-          <% if !p.commands.nil? && total_dbloads > 0 then %>
-            <%#= ((p.commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")" %>
+          <% if p_commands > 0 && total_dbloads > 0 then %>
+            <%#= ((p_commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")" %>
 	    <%= total_dbloads.to_s %>
-          <% elsif !p.commands.nil? then %>
+          <% elsif p_commands > 0 then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;
@@ -210,8 +213,8 @@
         </td>
 
         <td>
-          <% if !p.commands.nil? && !p.commands.find_by_status(Release::Status::RELEASED).nil? then %>
-            <%= p.commands.find_by_status(Release::Status::RELEASED).updated_at.strftime("%y %b %d ") %>
+          <% if last_release_command then %>
+            <%= last_release_command.updated_at.strftime("%y %b %d ") %>
           <% elsif !p.commands.nil? then %>
             <span style="color:grey">--</span>
           <% else %>
