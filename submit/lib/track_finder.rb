@@ -12,7 +12,7 @@ class Citation < ActionView::Base
   def build
     b = binding
     citation_text = ""
-    f = File.new("../app/views/public/citation.rhtml")
+    f = File.new("../app/views/pipeline/citation.rhtml")
     erb = ERB.new(f.read, nil, nil, "citation_text")
     erb.filename = File.expand_path(f.path)
     erb.result(b)

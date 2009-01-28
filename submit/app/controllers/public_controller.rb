@@ -111,21 +111,36 @@ class PublicController < ApplicationController
   end
 
   def citation
+    config_text = ""
+
     begin
       @project = Project.find(params[:id])
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
-      return
+      return false
     end
 
-    if !Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
-      flash[:error] = "Tracks have not been found for project #{params[:id]}, so a citation cannot be generated."
-      redirect_to :action => "list"
-      return
+    all_track_defs = Array.new
+    released_configs = TrackStanza.find_all_by_project_id_and_released(params[:id], true)
+    unless current_user == :false then
+      all_track_defs = TrackStanza.find_all_by_project_id(current_user, params[:id])
     end
+    released_configs.each { |td|
+      all_track_defs.delete_if { |atd| atd.project_id == td.project_id }
+      all_track_defs.push td
+    }
 
-    @project_id = @project.id
+    track_defs = Hash.new
+    all_track_defs.each { |td| track_defs.merge! td.stanza }
+
+    @citations = Hash.new
+    track_defs.each { |stanzaname, definition|
+      tracknum = definition["feature"].match(/.*:(\d+)(_details)?$/)[1].to_i
+      citation = definition["citation"]
+      @citations[citation] = Array.new unless @citations[citation]
+      @citations[citation].push [ stanzaname, tracknum ]
+    }
   end
 
   def download
@@ -137,6 +152,7 @@ class PublicController < ApplicationController
       return
     end
     download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
+    @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     unless File.directory?(@root_directory) then
@@ -158,6 +174,7 @@ class PublicController < ApplicationController
       @parent = File.split(@current_directory)[0][@root_directory.length..-1]
     end
 
+    @highlight = params[:highlight]
 
     @listing = Array.new
     Find.find(@current_directory) do |path|
@@ -177,6 +194,7 @@ class PublicController < ApplicationController
       @listing.push [ :file, relative_path, nil, size ]
     end
     @listing.sort! { |l1, l2| (l1[0] == :folder ? "0#{l1[1]}" : "1#{l1[1]}") <=> (l2[0] == :folder ? "0#{l2[1]}" : "1#{l2[1]}") }
+    @listing.reject! { |l| !(l[1].include? @highlight) } if @highlight
   end
 
   def get_file

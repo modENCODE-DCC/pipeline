@@ -5,7 +5,16 @@
 %>
 <style type="text/css">
   DIV.entry IMG { width: 16px; height: 16px; border: 1px; padding-right: 8px; padding-top: 0px }
+  .highlight { background-color: #EEEE55; padding: 2px }
+  .highlightbright { background-color: #FFFF55; }
 </style>
+
+<% if @highlight then %>
+  <span style="font-weight:bold" class="highlight">
+    <%= link_to "Show All (remove search/highlight)", { :root => @root, :id => @project }, :method => "get" %>
+  </span>
+<% end %>
+
 <h2><%= @current_directory %></h2>
 
 <% if @parent then %>
@@ -14,16 +23,23 @@
 
 <div style="margin-left: 16px">
   <% @listing.each do |file| %>
-    <% (type, path, children, size) = file %>
+    <% 
+      (type, path, children, size) = file
+      formatted_name = File.basename(path) 
+      if @highlight then
+        formatted_name.gsub!(@highlight) { |s| "</span><span class=\"highlightbright\">#{s}</span><span class=\"highlight\">" } if @highlight
+        formatted_name = "<span class=\"highlight\">#{formatted_name}</span>"
+      end
+    %>
     <% if children.is_a? Array %>
       <div class="entry file" style="clear: both; padding: 0 0 0 0">
         <div style="float: left; width: 40%" class="entry folder">
-          <%= link_to image_tag(folder_img, :alt => "\_") + File.basename(path), { :action => :download, :id => @project, :root => params[:root], :path => path } %>
+          <%= link_to image_tag(folder_img, :alt => "\_") + formatted_name, { :action => :download, :id => @project, :root => params[:root], :path => path } %>
         </div>
       </div>
     <% else %>
       <div class="entry file" style="clear: both; padding: 0 0 0 0">
-        <div style="float: left; width: 40%"><%= link_to image_tag(file_img, :alt => "*") + File.basename(path), { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>
+        <div style="float: left; width: 40%"><%= link_to image_tag(file_img, :alt => "*") + formatted_name, { :action => :get_file, :id => @project, :root => params[:root], :path => path } %></div>
         <%= size %>
       </div>
     <% end %>
