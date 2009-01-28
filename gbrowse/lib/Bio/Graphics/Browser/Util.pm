@@ -27,10 +27,10 @@ use base 'Exporter';
 use Text::ParseWords qw();
 use Carp 'carp','cluck';
 
-our @EXPORT    = qw(modperl_request error citation shellwords get_section_from_label url_label);
-our @EXPORT_OK = qw(modperl_request error citation shellwords get_section_from_label url_label);
+our @EXPORT    = qw(modperl_request error citation shellwords url_label);
+our @EXPORT_OK = qw(modperl_request error citation shellwords url_label);
 
-use constant DEBUG => 1;
+use constant DEBUG => 0;
 
 =over 4
 
@@ -72,13 +72,14 @@ Returns a string "url:label".
 sub url_label {
   my $label = shift;
   my $key;
-  if ($label =~ /^http|^ftp/) {
-    my $l = $label;
+  if ($label =~ m!^(?:http|ftp)://([^/]+)!) {
+    my $l    = $label;
+    my $host = $1;
     $l =~ s!^\W+//!!;
     my (undef,$type) = $l =~ /\S+t(ype)?=([^;\&]+)/;
     $l =~ s/\?.+//;
     ($key) = grep /$_/, reverse split('/',$l);
-    $key = "url:$key" if $key;
+    $key = "$host/$key" if $key;
     $key .= ":$type"  if $type;
   }
   return $key || $label;
@@ -116,17 +117,6 @@ sub shellwords {
     }
     my @result = Text::ParseWords::shellwords(@args);
     return @result;
-}
-
-sub get_section_from_label {
-    my $label = shift;
-    if ($label eq 'overview' || $label =~ /:overview$/){
-        return 'overview';
-    }
-    elsif ($label eq 'region' || $label =~  /:region$/){
-        return 'region';
-    }
-    return 'detail'
 }
 
 =back

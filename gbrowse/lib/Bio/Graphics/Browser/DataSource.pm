@@ -2,7 +2,7 @@ package Bio::Graphics::Browser::DataSource;
 
 use strict;
 use warnings;
-use base 'Bio::Graphics::FeatureFile';
+use base 'Bio::Graphics::Browser::AuthorizedFeatureFile';
 
 use Bio::Graphics::Browser::Shellwords;
 use Bio::Graphics::Browser::Util 'modperl_request';
@@ -13,7 +13,6 @@ use File::Spec;
 use Data::Dumper 'Dumper';
 use Digest::MD5 'md5_hex';
 use Carp 'croak';
-use Socket 'AF_INET','inet_aton';  # for inet_aton() call
 use CGI 'pre';
 
 my %CONFIG_CACHE; # cache parsed config files
@@ -100,7 +99,7 @@ sub clear_cached_dbids {
 
   $setting = $source->global_setting('option')
 
-Like setting() except that it is only for 'general' options. If the
+Like code_setting() except that it is only for 'general' options. If the
 option is not found in the datasource config file, then looks in the
 global file.
 
@@ -109,9 +108,9 @@ global file.
 sub global_setting {
   my $self   = shift;
   my $option = shift;
-  my $value  = $self->setting(general=>$option);
+  my $value  = $self->code_setting(general=>$option);
   return $value if defined $value;
-  return $self->globals->setting(general=>$option);
+  return $self->globals->code_setting(general=>$option);
 }
 
 # format for time can be in any of the forms...
@@ -366,13 +365,6 @@ sub i18n_style {
   %lang_options;
 }
 
-
-sub setting {
-  my $self = shift;
-  my ($label,$option,@rest) = @_ >= 2 ? @_ : ('general',@_);
-  $self->SUPER::setting($label,$option,@rest);
-}
-
 # like setting, but falls back to 'track defaults' and then to 'general'
 sub fallback_setting {
   my $self = shift;
@@ -435,7 +427,7 @@ Returns "open" "closed" or "off" for the named section. Named sections are:
  details
  tracks
  display
- add tracks
+ upload_tracks
 
 =cut
 
@@ -443,15 +435,15 @@ sub section_setting {
   my $self = shift;
   my $section = shift;
   my $config_setting = "\L$section\E section";
-  my $s = $self->setting($config_setting);
+  my $s = $self->global_setting($config_setting);
   return 'open' unless defined $s;
   return $s;
 }
 
 sub get_ranges {
   my $self      = shift;
-  my $divisor   = $self->setting('unit_divider') || 1;
-  my $rangestr  = $self->setting('zoom levels')  || '100 1000 10000 100000 1000000 10000000';
+  my $divisor   = $self->global_setting('unit_divider') || 1;
+  my $rangestr  = $self->global_setting('zoom levels')  || '100 1000 10000 100000 1000000 10000000';
   if ($divisor == 1 ) {
     return split /\s+/,$rangestr;
   } else {
@@ -527,7 +519,8 @@ sub invert_types {
 
 sub default_labels {
   my $self = shift;
-  my $defaults = $self->setting('general'=>'default features');
+  my $defaults  = $self->setting('general'=>'default tracks');
+  $defaults   ||= $self->setting('general'=>'default features'); # backward compatibility
   return $self->scale_tracks,shellwords($defaults||'');
 }
 
@@ -577,107 +570,6 @@ sub summary_mode {
     $pairs{$_} = \@l
   }
   \%pairs;
-}
-
-
-# implement the "restrict" option
-sub authorized {
-  my $self  = shift;
-  my $label = shift;
-
-  my $restrict = $self->code_setting($label=>'restrict')
-    || ($label ne 'general' && $self->code_setting('TRACK DEFAULTS' => 'restrict'));
-
-  return 1 unless $restrict;
-  my $host     = CGI->remote_host;
-  my $user     = CGI->remote_user;
-  my $addr     = CGI->remote_addr;
-
-  undef $host if $host eq $addr;
-  return $restrict->($host,$addr,$user) if ref $restrict eq 'CODE';
-  my @tokens = split /\s*(satisfy|order|allow from|deny from|require user|require group|require valid-user)\s*/i,$restrict;
-  shift @tokens unless $tokens[0] =~ /\S/;
-  my $mode    = 'allow,deny';
-  my $satisfy = 'all';
-  my $user_directive;
-
-  my (@allow,@deny,%users);
-  while (@tokens) {
-    my ($directive,$value) = splice(@tokens,0,2);
-    $directive = lc $directive;
-    $value ||= '';
-    if ($directive eq 'order') {
-      $mode = $value;
-      next;
-    }
-    my @values = split /[^\w.-]/,$value;
-
-    if ($directive eq 'allow from') {
-      push @allow,@values;
-      next;
-    }
-    if ($directive eq 'deny from') {
-      push @deny,@values;
-      next;
-    }
-    if ($directive eq 'satisfy') {
-      $satisfy = $value;
-      next;
-    }
-    if ($directive eq 'require user') {
-      $user_directive++;
-      foreach (@values) {
-	if ($_ eq 'valid-user' && defined $user) {
-	  $users{$user}++;  # ensures that this user will match
-	} else {
-	  $users{$_}++;
-	}
-      }
-      next;
-    }
-    if ($directive eq 'require valid-user') {
-      $user_directive++;
-      $users{$user}++ if defined $user;
-    }
-    if ($directive eq 'require group') {
-      croak "Sorry, but gbrowse does not support the require group limit.  Use a subroutine to implement role-based authentication.";
-    }
-  }
-  my $allow = $mode eq  'allow,deny' ? match_host(\@allow,$host,$addr) && !match_host(\@deny,$host,$addr)
-                      : 'deny,allow' ? !match_host(\@deny,$host,$addr) ||  match_host(\@allow,$host,$addr)
-		      : croak "$mode is not a valid authorization mode";
-  return $allow unless $user_directive;
-  $satisfy = 'any'  if !@allow && !@deny;  # no host restrictions
-
-  # prevent unint variable warnings
-  $user         ||= '';
-  $allow        ||= '';
-  $users{$user} ||= '';
-
-  return $satisfy eq 'any' ? $allow || $users{$user}
-                           : $allow && $users{$user};
-}
-
-sub match_host {
-  my ($matches,$host,$addr) = @_;
-  my $ok;
-  for my $candidate (@$matches) {
-    if ($candidate eq 'all') {
-      $ok ||= 1;
-    } elsif ($candidate =~ /^[\d.]+$/) { # ip match
-      $addr      .= '.' unless $addr      =~ /\.$/;  # these lines ensure subnets match correctly
-      $candidate .= '.' unless $candidate =~ /\.$/;
-      $ok ||= $addr =~ /^\Q$candidate\E/;
-    } else {
-      $host ||= gethostbyaddr(inet_aton($addr),AF_INET);
-      next unless $host;
-      $candidate = ".$candidate" unless $candidate =~ /^\./; # these lines ensure domains match correctly
-      $host      = ".$host"      unless $host      =~ /^\./;
-      $ok ||= $host =~ /\Q$candidate\E$/;
-    }
-    return 1 if $ok;
-  }
-  $ok;
 }
 
 sub make_link {
@@ -804,6 +696,7 @@ sub open_database {
 
   # remember mapping of this database to this track
   $self->{db2track}{$db}{$dbid}++;
+
   return $db;
 }
 
@@ -864,9 +757,9 @@ sub clear_cache {
 
 Given a GD::Image object, this method calls its png() or gif() methods
 (depending on GD version), stores the output into the temporary
-directory given by the "tmpimages" option in the configuration file,
-and returns a two element list consisting of the URL to the image and
-the physical path of the image.
+"images" subdirectory of the directory given by the "tmp_base" option
+in the configuration file. It returns a two element list consisting of
+the URL to the image and the physical path of the image.
 
 =cut
 

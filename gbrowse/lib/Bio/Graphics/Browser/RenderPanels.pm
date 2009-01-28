@@ -6,15 +6,17 @@ use warnings;
 use Bio::Graphics;
 use Digest::MD5 'md5_hex';
 use Carp 'croak','cluck';
+use Bio::Graphics::Browser::Render;
 use Bio::Graphics::Browser::CachedTrack;
-use Bio::Graphics::Browser::Util qw[modperl_request citation shellwords get_section_from_label url_label];
+use Bio::Graphics::Browser::Util qw[citation shellwords url_label];
+use Bio::Graphics::Browser::Render::Slave::Status;
 use IO::File;
+use Time::HiRes 'sleep';
 use POSIX 'WNOHANG','setsid';
 
 use CGI qw(:standard param escape unescape);
 
-use constant GBROWSE_RENDER => 'gbrowse_render';  # name of the CGI-based image renderer
-use constant TRUE => 1;
+use constant TRUE  => 1;
 use constant DEBUG => 0;
 
 use constant DEFAULT_EMPTYTRACKS => 0;
@@ -30,12 +32,16 @@ sub new {
   my $class       = shift;
   my %options     = @_;
   my $segment       = $options{-segment};
+  my $whole_segment = $options{-whole_segment};
+  my $region_segment= $options{-region_segment};
   my $data_source   = $options{-source};
   my $page_settings = $options{-settings};
   my $language      = $options{-language};
 
   my $self  = bless {},ref $class || $class;
   $self->segment($segment);
+  $self->whole_segment($whole_segment);
+  $self->region_segment($region_segment);
   $self->source($data_source);
   $self->settings($page_settings);
   $self->language($language);
@@ -47,6 +53,20 @@ sub segment {
   my $self = shift;
   my $d = $self->{segment};
   $self->{segment} = shift if @_;
+  return $d;
+}
+
+sub whole_segment {
+  my $self = shift;
+  my $d = $self->{whole_segment};
+  $self->{whole_segment} = shift if @_;
+  return $d;
+}
+
+sub region_segment {
+  my $self = shift;
+  my $d = $self->{region_segment};
+  $self->{region_segment} = shift if @_;
   return $d;
 }
 
@@ -103,6 +123,9 @@ sub request_panels {
 
   # If we don't call clone_databases early, then we can have
   # a race condition where the parent hits the DB before the child
+  # NOTE: commented out because clone logic has changed - may need to reenable this
+  # for postgresql databases
+  # Bio::Graphics::Browser::DataBase->clone_databases();
 
   my $do_local  = @$local_labels;
   my $do_remote = @$remote_labels;
@@ -114,15 +137,21 @@ sub request_panels {
   # fork a second time and process them in parallel.
   if ($args->{deferred}) {
       $SIG{CHLD} = 'IGNORE';
-      my $child = fork();
-
-      $self->clone_databases($local_labels) if $do_local;
-
-      die "Couldn't fork: $!" unless defined $child;
-      return $data_destinations if $child;
 
       # need to prepare modperl for the fork
-      $self->prepare_modperl_for_fork();
+      Bio::Graphics::Browser::Render->prepare_modperl_for_fork();
+      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('starting');
+
+      my $child = fork();
+      die "Couldn't fork: $!" unless defined $child;
+
+      if ($child) {
+	  Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('parent');
+	  return $data_destinations;
+      }
+
+      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('child');
+      Bio::Graphics::Browser::DataBase->clone_databases();
 
       open STDIN, "</dev/null" or die "Couldn't reopen stdin";
       open STDOUT,">/dev/null" or die "Couldn't reopen stdout";
@@ -135,6 +164,7 @@ sub request_panels {
 					 $local_labels );
           }
           else {
+	      Bio::Graphics::Browser::DataBase->clone_databases(); # yes, again!
               $self->run_remote_requests( $data_destinations, 
 					  $args,
 					  $remote_labels );
@@ -157,17 +187,6 @@ sub request_panels {
   return $data_destinations;
 }
 
-sub prepare_modperl_for_fork {
-    my $self = shift;
-    my $r    = modperl_request() or return;
-    if ($ENV{MOD_PERL_API_VERSION} < 2) {
-	eval {
-	    require Apache::SubProcess;
-	    $r->cleanup_for_exec() 
-	}
-    };
-}
-
 sub render_panels {
     my $self = shift;
     my $args = shift;
@@ -184,6 +203,8 @@ sub render_track_images {
 
     my %results;
     my %still_pending = map {$_=>1} keys %$requests;
+    my $k     = 1.25;
+    my $delay = 0.1;
     while (%still_pending) {
 	for my $label (keys %$requests) {
 	    my $data = $requests->{$label};
@@ -194,8 +215,8 @@ sub render_track_images {
 	    }
 	    delete $still_pending{$label};
 	}
-	warn "waiting...";
-	sleep 1 if %still_pending;
+	sleep $delay if %still_pending;
+	$delay *= $k; # sleep a little longer each time using an exponential backoff
     }
     return \%results;
 }
@@ -211,7 +232,7 @@ sub make_requests {
     my $feature_files  = $args->{external_features};
     my $labels         = $args->{labels};
 
-    warn "MAKE_REQUESTS, labels = ",join ',',@$labels if DEBUG;
+    warn "[$$] MAKE_REQUESTS, labels = ",join ',',@$labels if DEBUG;
 
     my $base        = $self->get_cache_base();
     my @panel_args  = $self->create_panel_args($args);
@@ -219,17 +240,37 @@ sub make_requests {
     my %d;
     foreach my $label ( @{ $labels || [] } ) {
         my @track_args = $self->create_track_args( $label, $args );
+	my @extra_args = ();
+	my $ff_error;
 
         # get config data from the feature files
-        my @extra_args = eval {
-            $feature_files->{$label}->types, $feature_files->{$label}->mtime,;
-        } if $feature_files && $feature_files->{$label};
+	(my $track = $label) =~ s/:(overview|region|details?)$//;
+	if ($feature_files && exists $feature_files->{$track}) {
 
+	    my $feature_file = $feature_files->{$track};
+
+	    unless (ref $feature_file) { # upload problem!
+		my $cache_object = Bio::Graphics::Browser::CachedTrack->new(
+		    -cache_base => $base,
+		    -panel_args => \@panel_args,
+		    -track_args => \@track_args,
+		    );
+		$cache_object->flag_error("Could not fetch data for $track");
+		$d{$track} = $cache_object;
+		next;
+	    }
+
+	    next unless $label =~ /:$args->{section}$/;
+	    @extra_args =  eval {
+		$feature_file->types, $feature_file->mtime;
+	    };
+	}
+	warn "[$$] creating CachedTrack for $label" if DEBUG;
         my $cache_object = Bio::Graphics::Browser::CachedTrack->new(
             -cache_base => $base,
             -panel_args => \@panel_args,
             -track_args => \@track_args,
-            -extra_args => [ @cache_extra, @extra_args ],
+            -extra_args => [ @cache_extra, @extra_args, $label ],
         );
         $cache_object->cache_time( $source->cache_time * 60 );
         $d{$label} = $cache_object;
@@ -268,6 +309,7 @@ sub drag_and_drop {
 sub render_tracks {
     my $self     = shift;
     my $requests = shift;
+    my $args     = shift;
 
     my %result;
 
@@ -289,6 +331,7 @@ sub render_tracks {
             height   => $height,
             url      => $url,
             status   => $status,
+	    section  => $args->{section},
         );
     }
     
@@ -364,8 +407,8 @@ sub wrap_rendered_track {
     }
 
     elsif ( $label =~ /^file:/ ) {
-        my $url = "?modify.${label}=" . $self->language->tr('Edit');
-        $config_click = "window.location='$url'";
+	my $escaped_file = CGI::escape($label);
+	$config_click    = qq[Controller.edit_upload('$escaped_file')];
     }
 
     else {
@@ -375,12 +418,16 @@ sub wrap_rendered_track {
     }
 
     my $title;
-    if ($label =~ /\w+:(.+)/ && $label !~ /:overview|:region/) {
-      $title = $label =~ /^http|^ftp/ ? url_label($label) : $1;
+    if ($label =~ /^file:/) {
+	$title = $label;
+    }
+    elsif ($label =~ /^(http|ftp):/) {
+	$title = url_label($label);
     }
     else {
       $title = $source->setting($label=>'key') || $label;
     }
+    $title =~ s/:(overview|region|detail)$//;
 
     my $balloon_style = $source->global_setting('balloon style') || 'GBubble'; 
     my $titlebar = span(
@@ -423,7 +470,9 @@ sub wrap_rendered_track {
     # the padding is a little bit of empty track that is displayed only
     # when the track is collapsed. Otherwise the track labels get moved
     # to the center of the page!
-    my $pad     = $self->render_image_pad();
+    my $pad     = $self->render_image_pad(
+	$args{section}||Bio::Graphics::Browser::Render->get_section_from_label($label),
+	);
     my $pad_url = $self->source->generate_image($pad);
     my $pad_img = img(
         {   -src    => $pad_url,
@@ -434,6 +483,7 @@ sub wrap_rendered_track {
             -style  => $collapsed ? "display:inline" : "display:none",
         }
     );
+
 
     return div({-class=>'centered_block',-style=>"width:${width}px"},
         ( $show_titlebar ? $titlebar : '' ) . $img . $pad_img )
@@ -478,7 +528,7 @@ sub run_remote_requests {
   my %env        = map {$_=>$ENV{$_}}    grep /^GBROWSE/,keys %ENV;
   my %args       = map {$_=>$args->{$_}} grep /^-/,keys %$args;
 
-  $args{section} = $args->{section};
+  $args{$_}  = $args->{$_} foreach ('section','image_class','cache_extra');
 
   # serialize the data source and settings
   my $s_dsn	= Storable::nfreeze($source);
@@ -488,14 +538,24 @@ sub run_remote_requests {
   my $s_args    = Storable::nfreeze(\%args);
 
   # sort requests by their renderers
+  my $slave_status = Bio::Graphics::Browser::Render::Slave::Status->new(
+      $source->globals->slave_status_path
+      );
+
   my %renderers;
   for my $label (@labels_to_generate) {
       my $url     = $source->fallback_setting($label => 'remote renderer') or next;
       my @urls    = shellwords($url);
-      if (@urls > 1) {  # whoo hoo! choices!
-	  $url = $urls[rand @urls];
+      $url        = $slave_status->select(@urls);
+      warn "label => $url (selected)" if DEBUG;
+      unless ($url) {
+	  # the status monitor indicates that there are no "up" servers for this
+	  # track, so flag an error immediately and don't attempt to retrieve.
+	  # after a suitable time interval has passed, we will try this server again
+	  $requests->{$label}->flag_error('no slave servers are marked up');
+      } else {
+	  $renderers{$url}{$label}++;
       }
-      $renderers{$url}{$label}++;
   }
 
   my $ua = LWP::UserAgent->new;
@@ -506,44 +566,74 @@ sub run_remote_requests {
 
   for my $url (keys %renderers) {
 
-    $self->prepare_modperl_for_fork();
+      Bio::Graphics::Browser::Render->prepare_modperl_for_fork();
+      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('starting');
 
-    my $child   = fork();
-    die "Couldn't fork: $!" unless defined $child;
-    next if $child;
+      my $child   = fork();
 
-    # THIS PART IS IN THE CHILD
-    my @tracks  = keys %{$renderers{$url}};
-    my $s_track  = Storable::nfreeze(\@tracks);
+      die "Couldn't fork: $!" unless defined $child;
+      if ($child) {
+	  Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('parent');
+	  next;
+      }
 
-    my $request = POST ($url,
-			Content_Type => 'multipart/form-data',
-			Content => [
-				    operation  => 'render_tracks',
-				    panel_args => $s_args,
-				    tracks     => $s_track,
-				    settings   => $s_set,
-				    datasource => $s_dsn,
-				    language   => $s_lang,
-				    env        => $s_env,
-				    ]);
+      # THIS PART IS IN THE CHILD
+      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('child');
+      Bio::Graphics::Browser::DataBase->clone_databases();
+      my @labels   = keys %{$renderers{$url}};
+      my $s_track  = Storable::nfreeze(\@labels);
 
-    my $response = $ua->request($request);
+    FETCH: {
+	my $request = POST ($url,
+			    Content_Type => 'multipart/form-data',
+			    Content => [
+				operation  => 'render_tracks',
+				panel_args => $s_args,
+				tracks     => $s_track,
+				settings   => $s_set,
+				datasource => $s_dsn,
+				language   => $s_lang,
+				env        => $s_env,
+			    ]);
 
-    if ($response->is_success) {
-	my $contents = Storable::thaw($response->content);
-	for my $label (keys %$contents) {
-	    my $map = $contents->{$label}{map}        or die "Expected a map from remote server, but got nothing!";
-	    my $gd  = $contents->{$label}{imagedata}  or die "Expected imagedata from remote server, but got nothing!";
-	    $requests->{$label}->put_data($gd,$map);
+	my $response = $ua->request($request);
+
+	warn "$url=>@labels: ",$response->status_line if DEBUG;
+
+	if ($response->is_success) {
+	    my $contents = Storable::thaw($response->content);
+	    for my $label (keys %$contents) {
+		my $map = $contents->{$label}{map}        
+		or die "Expected a map from remote server, but got nothing!";
+		my $gd2 = $contents->{$label}{imagedata}  
+		or die "Expected imagedata from remote server, but got nothing!";
+		$requests->{$label}->put_data($gd2,$map);
+	    }
+	    $slave_status->mark_up($url);
 	}
-    }
-    else {
-	my $uri = $request->uri;
-	warn "$uri; fetch failed: ",$response->status_line;
-	$requests->{$_}->flag_error($response->status_line) foreach keys %{$renderers{$uri}};
-    }
-    CORE::exit(0);  # from CHILD
+	else {
+	    my $uri = $request->uri;
+	    my $response_line = $response->status_line;
+	    $slave_status->mark_down($url);
+	  
+	    # try to recover from a transient slave failure; this only works
+	    # right if all of the tracks there are multiple equivalent slaves for the tracks
+	    my %urls    = map {$_=>1} 
+  	                    map {
+				shellwords($source->fallback_setting($_ => 'remote renderer'))
+			    } @labels;
+	    my $alternate_url = $slave_status->select(keys %urls);
+	    if ($alternate_url) {
+		warn "retrying fetch of @labels with $alternate_url";
+		$url = $alternate_url;
+		redo FETCH;
+	    }
+
+	    $response_line =~ s/^\d+//;  # get rid of status code
+	    $requests->{$_}->flag_error($response_line) foreach keys %{$renderers{$uri}};
+	}
+      }
+      CORE::exit(0);  # from CHILD
   }
 }
 
@@ -555,6 +645,8 @@ sub run_remote_requests {
 sub sort_local_remote {
     my $self     = shift;
     my $requests = shift;
+
+    warn "requests = ",join ' ',keys %$requests if DEBUG;
 
     my @uncached;
     if ($self->settings->{cache}){
@@ -585,22 +677,6 @@ sub sort_local_remote {
     my @local     = grep {!$is_remote{$_}} @uncached;
 
     return (\@local,\@remote);
-}
-
-# this subroutine makes sure that all the data sources get their
-# clone() methods called to inform them that we have crossed a
-# fork().
-sub clone_databases {
-    my $self   = shift;
-    my $tracks = shift;
-    my $source = $self->source;
-    my %dbs;
-    for my $label (@$tracks) {
-	my $db = eval {$source->open_database($label)};
-	next unless $db;
-	$dbs{$db} = $db;
-    }
-    eval {$_->clone()} foreach values %dbs;
 }
 
 #moved from Render.pm
@@ -733,11 +809,21 @@ sub render_scale_bar {
 }
 
 sub render_image_pad {
-    my $self = shift;
+    my $self    = shift;
+    my ($section,$segment) = @_;
 
-    my @panel_args  = $self->create_panel_args({});
+    $segment ||= $section  eq 'overview'  ? $self->whole_segment
+                 :$section eq 'region'    ? $self->region_segment
+                 :$self->segment;
+
+    my @panel_args  = $self->create_panel_args({
+	section => $section,
+	segment => $segment,
+	}
+	);
     my @track_args  = ();
-    my @extra_args  = ();
+    my @extra_args  = ($self->settings->{start},
+		       $self->settings->{stop});
     my $cache = Bio::Graphics::Browser::CachedTrack->new(
 	-cache_base => $self->get_cache_base,
 	-panel_args => \@panel_args,
@@ -747,9 +833,10 @@ sub render_image_pad {
     unless ($cache->status eq 'AVAILABLE') {
 	my $panel = Bio::Graphics::Panel->new(@panel_args);
 	$cache->lock;
-	$cache->put_data($panel->gd,'');
+	my $gd = $panel->gd;
+	$cache->put_data($gd,'');
     }
-    
+
     return $cache->gd;
 }
 
@@ -767,15 +854,6 @@ sub label_density {
   return $conf->global_setting('label density')
       || $conf->setting('TRACK DEFAULTS' =>'label density')
       || 10;
-}
-
-sub local_renderer_url {
-  my $self     = shift;
-  #my $self_uri = CGI::url(-absolute=>1);
-  my $self_uri  = CGI::url(-full=>1);
-  my $render    = GBROWSE_RENDER;
-  $self_uri     =~ s/[^\/]+$/$render/;
-  return $self_uri;
 }
 
 sub make_map {
@@ -976,7 +1054,7 @@ sub run_local_requests {
     #---------------------------------------------------------------------------------
     # Track and panel creation
     
-    my %seenit;           # used to avoid possible upstream error of putting track on list multiple times
+    my %seenit;           # avoid error of putting track on list multiple times
     my %results;          # hash of {$label}{gd} and {$label}{map}
     my %feature_file_offsets;
 
@@ -996,16 +1074,20 @@ sub run_local_requests {
 	               : ()
     } @labels_to_generate;
 
+
     for my $label (@labels_to_generate) {
 
         # this shouldn't happen, but let's be paranoid
         next if $seenit{$label}++;
 
+	my $multiple_tracks = $label =~ /^(http|ftp|file|das|plugin):/ ;
+
         my @keystyle = ( -key_style => 'between' )
-            if $label =~ /^\w+:/ && $label !~ /:(overview|region)/; # a plugin
+            if $multiple_tracks;
 
 	my $key = $source->setting( $label => 'key' ) || '' ;
-	my @nopad = (($key eq '') || ($key eq 'none')) && ($label !~ /^plugin:/)
+	my @nopad = (($key eq '') || ($key eq 'none')) 
+	    && !$multiple_tracks
              ? (-pad_top => 0)
              : ();
         my $panel_args = $requests->{$label}->panel_args;
@@ -1014,7 +1096,11 @@ sub run_local_requests {
             = Bio::Graphics::Panel->new( @$panel_args, @keystyle, @nopad );
 
         my %trackmap;
-        if ( my $file = $feature_files->{$label} ) {
+
+	(my $base = $label) =~ s/:(overview|region|details?)$//;
+	warn "label=$label, base=$base, file=$feature_files->{$base}" if DEBUG;
+
+        if ( my $file = ($feature_files->{$base}) ) {
 
             # Add feature files, including remote annotations
             my $featurefile_select = $args->{featurefile_select}
@@ -1034,7 +1120,7 @@ sub run_local_requests {
         else {
 
         my $track_args = $requests->{$label}->track_args;
-        my $track = $panel->add_track(@$track_args);
+        my $track      = $panel->add_track(@$track_args);
             # == populate the tracks with feature data ==
             $self->add_features_to_track(
                 -labels    => [ $label, ],
@@ -1056,7 +1142,7 @@ sub run_local_requests {
         my $map = $self->make_map( scalar $panel->boxes,
             $panel, $label,
             \%trackmap, 0 );
-        $requests->{$label}->put_data( $gd, $map );
+        $requests->{$label}->put_data($gd, $map );
     }
 }
 
@@ -1118,7 +1204,7 @@ sub add_features_to_track {
 
       for my $l (@labels) {
 
-        $l =~ s/:.*//;
+        $l =~ s/:.*//; # Seems necessary to properly handle semantic zooms that switch from GFF to wiggle?
 	my $track = $tracks->{$l}  or next;
 
 	$filters->{$l}->($feature) or next if $filters->{$l};
@@ -1134,7 +1220,7 @@ sub add_features_to_track {
 	}
 
 	# Handle generic grouping (needed for GFF3 database)
-	$group_field{$l} = $source->code_setting($l => 'group_on') unless exists $group_field{$l};
+ 	$group_field{$l} = $source->code_setting($l => 'group_on') unless exists $group_field{$l};
 	
 	if (my $pattern = $group_pattern{$l}) {
 	  my $name = $feature->name or next;
@@ -1197,10 +1283,6 @@ sub add_features_to_track {
 				   $max_labels,
 				   $length);
 
-    my $do_glyph = $self->do_glyph($l,
-                                   $length);
-    
-
     my $do_description = $self->do_description($l,
 					       $pack_options,
 					       $count,
@@ -1210,7 +1292,6 @@ sub add_features_to_track {
     $tracks->{$l}->configure(-bump        => $do_bump,
 			     -label       => $do_label,
 			     -description => $do_description,
-                             -glyph       => $do_glyph,
 			      );
     $tracks->{$l}->configure(-connector  => 'none') if !$do_bump;
     $tracks->{$l}->configure(-bump_limit => $limit)
@@ -1269,7 +1350,7 @@ sub get_iterator {
   }
 
   my $db_segment;
-  if (eval{$segment->factory eq $db}) {
+  if (eval{$segment->factory||'' eq $db}) {
       $db_segment   = $segment;
   } else {
       ($db_segment) = $db->segment($segment->seq_id,$segment->start,$segment->end);
@@ -1305,16 +1386,15 @@ sub add_feature_file {
     $file->render(
 		  $args{panel},
 		  $args{position},
-		  #$options,
-	          0,
+	          $options,
 		  $self->bump_density,
 		  $self->label_density,
 		  $select,
-	          undef,
+	          $self->segment,
 	);
   };
 
-  $self->error("error while rendering ",$args{file}->name,": $@") if $@;
+  warn "error while rendering ",$args{file}->name,": $@" if $@;
 }
 
 
@@ -1355,8 +1435,12 @@ sub create_panel_args {
   my $detail_stop  = $settings->{stop};
   my $h_region_str     = '';
   if ($section eq 'overview' or $section eq 'region'){
-    $postgrid  = hilite_regions_closure([$detail_start,$detail_stop,
-                    hilite_fill(),hilite_outline()]);
+    $postgrid  = hilite_regions_closure(
+	            [$detail_start,
+		     $detail_stop,
+		     $self->hilite_fill(),
+		     $self->hilite_outline()
+		    ]);
   }
   elsif ($section eq 'detail'){
     $postgrid = make_postgrid_callback($settings);
@@ -1377,11 +1461,14 @@ sub create_panel_args {
 	      -key_style    => $keystyle,
 	      -empty_tracks => $source->global_setting('empty_tracks')    || DEFAULT_EMPTYTRACKS,
 	      -pad_top      => $image_class->gdMediumBoldFont->height+2,
+              -pad_bottom   => 3,
 	      -image_class  => $image_class,
 	      -postgrid     => $postgrid,
 	      -background   => $args->{background} || '',
 	      -truecolor    => $source->global_setting('truecolor') || 0,
 	      -extend_grid  => 1,
+              -gridcolor    => $source->global_setting('grid color') || 'lightcyan',
+              -gridmajorcolor    => $source->global_setting('grid major color') || 'cyan',
 	      @pass_thru_args,   # position is important here to allow user to override settings
 	     );
 
@@ -1417,6 +1504,8 @@ sub segment_coordinates {
   my $self    = shift;
   my $segment = shift;
   my $flip    = shift;
+
+  return unless $segment;
 
   # Create the tracks that we will need
   my ($seg_start,$seg_stop ) = ($segment->start,$segment->end);
@@ -1464,6 +1553,7 @@ sub create_track_args {
 				   -end   => $segment->end,
 				   -class => $class);
       };
+      warn $@ if $@;
       @args = ($segment,
 	       @default_args,
 	       $source->default_style,
@@ -1529,28 +1619,30 @@ sub map_html {
 }
 
 # this returns a coderef that will indicate whether an added (external) feature is placed
-# in the overview, region or detailed panel. If the section name begins with a "?", then
-# if not otherwise stated, the feature will be placed in this section.
+# in the overview, region or detailed panel. It is necessary to avoid one section's features
+# from being placed in another section's track.
 sub feature_file_select {
   my $self             = shift;
   my $required_section = shift;
 
   my $undef_defaults_to_true;
-  if ($required_section =~ /^\?(.+)/) {
+  if ($required_section =~ /detail/) {
     $undef_defaults_to_true++;
-    $required_section = $1;
   }
 
   return sub {
+      my $file    = shift;
+      my $type    = shift;
 
-    # This sub is no longer really needed
-    return 1;
+      my $section = $file->setting($type=>'section')
+	            || $file->setting(general=>'section');
+      my ($modifier) = $type =~ /:(overview|region}detail)$/;
+      $section     ||= $modifier;
 
-    my $file  = shift;
-    my $type  = shift;
-    my $section = $file->setting($type=>'section') || $file->setting(general=>'section');
-    return $undef_defaults_to_true if !defined$section;
-    return $section =~ /$required_section/;
+      return $undef_defaults_to_true
+	  if !defined $section;
+
+      return $section  =~ /$required_section/;
   };
 }
 
@@ -1573,17 +1665,6 @@ sub do_bump {
       :  $option == 4 ? 2
       :  $option == 5 ? 2
       :  0;
-}
-
-sub do_glyph {
-  my $self = shift;
-  my ($track_name, $length) = @_;
-
-  my $source            = $self->source;
-
-  my $conf_glyph        = $source->semantic_setting($track_name => 'glyph',$length);
-
-  return $conf_glyph;
 }
 
 sub do_label {
@@ -1762,8 +1843,9 @@ sub make_link_target {
 
   $label    ||= $source->feature2label($feature) or return;
   my $link_target = $source->code_setting($label,'link_target')
-    || $source->code_setting('LINK DEFAULTS' => 'link_target')
-    || $source->code_setting(general => 'link_target');
+    || $source->code_setting('TRACK DEFAULTS' => 'link_target')
+    || $source->globals->code_setting(general => 'link_target')
+    || '_blank';
   $link_target = eval {$link_target->($feature,$panel,$track)} if ref($link_target) eq 'CODE';
   $source->_callback_complain($label=>'link_target') if $@;
   return $link_target;
@@ -1841,7 +1923,7 @@ sub hilite_regions_closure {
         my $panel  = shift;
         my $left   = $panel->pad_left;
         my $top    = $panel->top;
-        my $bottom = $panel->bottom;
+        my $bottom = $panel->bottom+$panel->pad_bottom;
         for my $r (@h_regions) {
             my ( $h_start, $h_end, $bgcolor, $fgcolor ) = @$r;
             my ( $start, $end ) = $panel->location2pixel( $h_start, $h_end );
@@ -1850,7 +1932,6 @@ sub hilite_regions_closure {
                 $start--;
             }    # so that we always see something
                  # assuming top is 0 so as to ignore top padding
-
             $gd->filledRectangle(
                 $left + $start,
                 0, $left + $end,
@@ -1870,15 +1951,13 @@ sub hilite_regions_closure {
 }
 
 sub hilite_fill {
-return 'yellow';
-    #return defined $CONFIG->setting('hilite fill')
-    #? $CONFIG->setting('hilite fill')
-    #: 'yellow';
+    my $self = shift;
+    return $self->source->global_setting('hilite fill') || 'yellow';
 }
 
 sub hilite_outline {
-return 'yellow';
-    #return $CONFIG->setting('hilite outline');
+    my $self = shift;
+    return $self->source->global_setting('hilite outline') || 'yellow';
 }
 
 1;

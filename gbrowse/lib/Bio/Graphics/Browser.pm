@@ -1,10 +1,10 @@
 package Bio::Graphics::Browser;
-# $Id: Browser.pm,v 1.219 2008/11/26 18:33:02 lstein Exp $
+# $Id: Browser.pm,v 1.226 2009/01/25 19:19:24 lstein Exp $
 # Globals and utilities for GBrowse and friends
 
 use strict;
 use warnings;
-use base 'Bio::Graphics::FeatureFile';
+use base 'Bio::Graphics::Browser::AuthorizedFeatureFile';
 
 use File::Spec;
 use File::Path 'mkpath';
@@ -18,6 +18,7 @@ use Carp 'croak','carp';
 use CGI 'redirect','url';
 
 my %CONFIG_CACHE;
+our $VERSION = 1.987;
 
 sub new {
   my $class            = shift;
@@ -31,7 +32,8 @@ sub new {
     return $CONFIG_CACHE{$config_file_path}{object};
   }
 
-  my $self = $class->SUPER::new(-file=>$config_file_path);
+  my $self = $class->SUPER::new(-file=>$config_file_path,
+                                -safe=>1);
 
   # a little trick here -- force the setting of "config_base" from the config file
   # base if not explicitly overridden
@@ -45,31 +47,15 @@ sub new {
   return $self;
 }
 
-## override setting to default to the [general] section
-sub setting {
-  my $self = shift;
-  my @args = @_;
-  if (@args == 1) {
-    unshift @args,'general';
-  }
-  elsif (!defined $args[0]) {
-    $args[0] = 'general';
-  }
-  else {
-    $args[0] = 'general'
-      if $args[0] ne 'general' && lc($args[0]) eq 'general';  # buglet
-  }
-  $self->SUPER::setting(@args);
-}
-
 ## methods for dealing with paths
 sub resolve_path {
   my $self = shift;
   my $path = shift;
   my $path_type = shift; # one of "config" "htdocs" or "url"
   return unless $path;
-  return $path if $path =~ m!^/!;     # absolute path
-  return $path if $path =~ m!\|\s*$!; # a pipe
+  return $path if $path =~ m!^/!;           # absolute path
+  return $path if $path =~ m!\|\s*$!;       # a pipe
+  return $path if $path =~ m!^(http|ftp):!; # an URL
   my $method = ${path_type}."_base";
   $self->can($method) or croak "path_type must be one of 'config','htdocs', or 'url'";
   my $base   = $self->$method or return $path;
@@ -174,6 +160,12 @@ sub slave_dir {
     return $path;
 }
 
+sub slave_status_path {
+    my $self = shift;
+    my $path = File::Spec->catfile($self->tmp_base,'slave_status');
+    return $path;
+}
+
 # these are relative to the config base
 sub plugin_path    { shift->config_path('plugin_path')     }
 sub language_path  { shift->config_path('language_path')   }
@@ -203,7 +195,14 @@ sub data_sources {
 sub data_source_description {
   my $self = shift;
   my $dsn  = shift;
-  $self->setting($dsn=>'description');
+  return $self->setting($dsn=>'description');
+}
+
+sub data_source_show {
+    my $self = shift;
+    my $dsn  = shift;
+    return if $self->setting($dsn=>'hide');
+    return $self->authorized($dsn);
 }
 
 sub data_source_path {
@@ -238,6 +237,7 @@ sub get_source_from_cgi {
     my $self = shift;
 
     my $source = CGI::param('source') || CGI::param('src') || CGI::path_info();
+    $source    =~ s!\#$!!;  # get rid of trailing # left by IE
     $source    =~ s!^/+!!;  # get rid of leading & trailing / from path_info()
     $source    =~ s!/+$!!;
     

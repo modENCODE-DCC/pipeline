@@ -4,7 +4,7 @@
                       This class handles region-specific configuration.
 
  Sheldon McKay <mckays@cshl.edu>
- $Id: regionSelect.js,v 1.5 2008/08/06 21:09:42 mwz444 Exp $
+ $Id: regionSelect.js,v 1.7 2008/12/23 08:07:12 lstein Exp $
 
 */
 
@@ -57,24 +57,6 @@ Region.prototype.initialize = function() {
   self.left    = self.elementLocation(i,'x1');
   self.right   = self.elementLocation(i,'x2');
   self.selectLayer = p.parentNode.parentNode;
-
-//   try {
-//       regionBalloon = new Balloon();
-//       regionBalloon.vOffset  = 1;
-//       regionBalloon.showOnly = 2; // just show twice                                                                                                                                                               
-//       var helpFunction = function(event) {
-// 	  if (!event) {
-// 	      event = window.event;
-// 	  }
-// 	  var help = '<b>Region:</b> Click here to recenter or click and drag left or right to select a region';
-// 	  regionBalloon.showTooltip(event,help,0,250);
-//       }
-//       i.onmouseover = helpFunction;
-//   }
-//   catch(e) {
-//       i.setAttribute('title','click and drag to select a region');
-//   }
-
   self.scalebar = i;
   self.addSelectMenu('region');
   self.addSelectBox('region');
@@ -110,6 +92,10 @@ Region.prototype.loadSegmentInfo = function() {
   if (actualWidth > expectedWidth) {
     this.padLeft     += actualWidth - expectedWidth;
   }
+
+  // We fetch the left margin again because the controller can change 
+  // the size & position of the section after it is created.
+  this.left       = this.elementLocation(document.getElementById(this.imageId),'x1');
 
   this.pixelStart   = this.left  + this.padLeft;
 }

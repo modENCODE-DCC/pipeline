@@ -9,15 +9,16 @@ use File::Copy;
 use GBrowseInstall;
 
 my $build = GBrowseInstall->new(
-    module_name  => 'GBrowse',
-    dist_version => '2.00',
-    dist_author  => 'Lincoln Stein <lincoln.stein@gmail.com>',
-    dist_abstract=> 'The GMOD Generic Genome Browser',
-    license      => 'perl',
+    module_name        => 'GBrowse',
+    dist_version_from  => 'lib/Bio/Graphics/Browser.pm',
+    dist_author        => 'Lincoln Stein <lincoln.stein@gmail.com>',
+    dist_abstract      => 'The GMOD Generic Genome Browser',
+    license            => 'perl',
 
     requires     => {
 	'perl'                => '5.008',
-	'Bio::Root::Version'  => '1.005002',
+	'Bio::Root::Version'  => '1.005009001',
+	'Bio::Graphics'       => '1.83',
 	'GD'                  => '2.07',
 	'IO::String'          => 0,
 	'CGI::Session'        => '4.02',
@@ -26,11 +27,21 @@ my $build = GBrowseInstall->new(
 	'Storable'            => 0,
 	'JSON'                => 0,
 	'LWP'                 => 0,
+        'ExtUtils::CBuilder'  => 0,
+    },
+    recommends  => { 
+	'DB_File::Lock'            => 0,
+	'DBI'                      => 0,
+	'DBD::mysql'               => 0,
+	'DBD::Pg'                  => 0,
+	'GD::SVG'                  => 0,
+	'Statistics::Descriptive'  => 0,
+	'Safe::World'              => 0,
+	'FCGI'                     => 0,
     },
     script_files => [
 	'bin/gbrowse_slave',
 	'bin/make_das_conf.pl',
-	'bin/gbrowse_slave',
 # not sure if these still work
 #	'bin/register_moby_services.pl',
 #	'bin/process_wormbase.pl',
@@ -78,13 +89,15 @@ $build->add_build_element('database');
 $build->create_build_script;
 print STDERR <<END;
 Now run:
-  ./Build config
   ./Build test
   ./Build demo          (optional)
   ./Build install       (as superuser/administrator)
-  ./Build apache_conf   (to get appropriate config file)
         -or-
   ./Build install_slave (optional, for slave installations)
+
+Other useful targets:
+  ./Build reconfig      (to reconfigure install locations)
+  ./Build demostop      (to stop the demo)
 END
 
 exit 0;

@@ -1,4 +1,4 @@
-package GuessDirectories;
+package GBrowseGuessDirectories;
 
 use IO::Socket::INET;
 use File::Spec;
@@ -36,6 +36,14 @@ sub databases {
     my $self = shift;
     return '/srv/gbrowse2/databases'             if $ENV{DEB_BUILD_ARCH}; # FHS system
     return File::Spec->catfile($self->htdocs,'databases');
+}
+
+sub apache {
+    my $self = shift;
+    return -x '/usr/sbin/httpd'   ? '/usr/sbin/httpd'
+	 : -x '/usr/sbin/apache2' ? '/usr/sbin/apache2'
+	 : -x '/usr/sbin/apache'  ? '/usr/sbin/apache'
+	 : undef;
 }
 
 sub apache_root {
@@ -125,6 +133,11 @@ sub wwwuser {
     return (getpwuid($<))[0];
 }
 
+sub installconf {
+    my $self = shift;
+    return   'y';
+}
+
 sub apachemodules {
     my $self = shift;
     my $root = $self->apache_root;
@@ -152,10 +165,9 @@ sub apachemodules {
 # to httpd.conf without modifying the main file
 sub apache_includes {
     my $self = shift;
-    return "/tmp/stupid_directory";
     return '/etc/apache2/conf.d' if -d '/etc/apache2/conf.d';
     return '/etc/apache/conf.d'  if -d '/etc/apache/conf.d';
-    return '/etc/httpd/conf.d'   if -d '/etc/httpd/conf.id';
+    return '/etc/httpd/conf.d'   if -d '/etc/httpd/conf.d';
     return;
 }
 

@@ -5,19 +5,22 @@ use warnings;
 use base 'Bio::Graphics::Browser::Render';
 use Bio::Graphics::Browser::Shellwords;
 use Bio::Graphics::Karyotype;
-use Bio::Graphics::Browser::Util qw[citation get_section_from_label url_label];
+use Bio::Graphics::Browser::Util qw[citation url_label];
+use JSON;
 use Digest::MD5 'md5_hex';
 use Carp 'croak';
 use CGI qw(:standard escape start_table end_table);
 use Text::Tabs;
-eval "use GD::SVG";
 
 use constant JS    => '/gbrowse/js';
 use constant ANNOTATION_EDIT_ROWS => 25;
 use constant ANNOTATION_EDIT_COLS => 100;
 use constant DEBUG => 0;
 
-sub render_top {
+use constant HAVE_SVG => eval "require GD::SVG; 1";
+our $CAN_PDF;
+
+sub render_html_start {
   my $self  = shift;
   my $title = shift;
   my $dsn   = $self->data_source;
@@ -25,6 +28,23 @@ sub render_top {
   $html    .= $self->render_balloon_settings();
   $html    .= $self->render_select_menus();
   return $html;
+}
+
+sub render_top {
+    my $self = shift;
+    my ($title,$features) = @_;
+    my $html =  $self->render_user_header;
+    $html   .=  $self->render_title($title,$self->state->{name} && @$features == 0);
+    $html   .=  $self->html_frag('html1',$self->state);
+    $html   .=  $self->render_instructions;
+    return  $self->toggle({nodiv=>1},'banner','',$html)
+	  . $self->render_links;
+}
+
+sub render_user_header {
+    my $self = shift;
+    my $settings = $self->state;
+    return $settings->{head} ? $self->data_source->global_setting('header') : '';
 }
 
 sub render_bottom {
@@ -37,69 +57,36 @@ sub render_navbar {
   my $self    = shift;
   my $segment = shift;
 
+  warn "render_navbar()" if DEBUG;
+
   my $settings = $self->state;
   my $source   = '/'.$self->session->source.'/';
 
   my $searchform = join '',(
-                start_form(
-                    -name   => 'searchform',
-                    -id     => 'searchform',
+      start_form(
+	  -name   => 'searchform',
+	  -id     => 'searchform',
                     
-                    # Submitting through the Controller seems to have been a bad idea
-                    #-onSubmit => q[ 
-                    #    Controller.update_coordinates("set segment " + document.searchform.name.value); 
-                    #    var return_val = (document.searchform.force_submit.value==1); 
-                    #    document.searchform.force_submit.value=0;
-                    #    return return_val;
-                    #],
-                ),
-                hidden(-name=>'force_submit',-value=>0),
-                div({ -id => 'search_form_objects' },
-                  $self->render_search_form_objects(),
-                ),
-			    end_form
-			    );
+      ),
+      hidden(-name=>'force_submit',-value=>0),
+      div({ -id   => 'search_form_objects' },
+	  $self->render_search_form_objects(),
+      ),
+      end_form
+  );
 
   my $search = $self->setting('no search')
     ? '' : b($self->tr('Landmark')).':'.br().$searchform;
 
-  my $plugin_form = join '',(
-			     start_form(-name=>'pluginform',-id=>'pluginform',
-					-onSubmit=>'return false'),
-			     $self->plugin_menu(),
-			     end_form);
+  my $plugin_form = div({-id=>'plugin_form'},$self->plugin_form());
 
-  my $source_form = join '',(
-			     start_form(-name=>'sourceform',
-					-id=>'sourceform',
-					-onSubmit=>''),
-			     $self->source_menu(),
-			     end_form
-			    );
+  my $source_form = div({-id=>'source_form'},$self->source_form());
 
-  my $sliderform = '';
-  if ($segment) {
-    $sliderform =
-      join '',(
-	       start_form(-name=>'sliderform',-id=>'sliderform',-onSubmit=>'return false'),
-	       b($self->tr('Scroll').': '),
-	       $self->slidertable($segment),
-	       b(
-		 checkbox(-name=>'flip',
-			  -checked=>$settings->{flip},-value=>1,
-			  -label=>$self->tr('Flip'),-override=>1,
-              -onClick => 'Controller.update_coordinates(this.name + " " + this.checked)',
-                )
-		),
-	       hidden(-name=>'navigate',-value=>1,-override=>1),
-	       end_form
-	      );
-  }
+  my $sliderform  = div({-id=>'slider_form'},$self->sliderform($segment));
 
   return $self->toggle('Search',
 		       div({-class=>'searchbody'},
-			   $self->html_frag('html1',$segment,$settings)||'',
-			   table({-border=>0,-class=>'searchbody'},
+			   table({-border=>0},
 				 TR(td($search),td($plugin_form)),
 				 TR(td({-align=>'left'},
 				       $source_form,
@@ -108,12 +95,67 @@ sub render_navbar {
 				       $sliderform || '&nbsp;'
 				    )
 				 )
-			   )
+			   ),
+			   $self->html_frag('html3',$self->state)
 		       )
     )
-    . div( { -id => "plugin_configure_div"},'&nbsp;'  )
-    . br({-clear=>'all'})
-;
+      . div( { -id => "plugin_configure_div"},'');
+}
+
+sub plugin_form {
+    my $self     = shift;
+    my $settings = $self->state;
+
+    return $settings->{GALAXY_URL}
+    ? button(-name    => $self->tr('SEND_TO_GALAXY'),
+	      -onClick  => $self->galaxy_link).
+       button(-name    => $self->tr('CANCEL'),
+	      -onClick => $self->galaxy_clear.";Controller.update_sections(['plugin_form'])",
+       )
+     : join '',(
+	start_form(-name=>'pluginform',
+		   -id=>'pluginform',
+		   -onSubmit=>'return false'),
+	   $self->plugin_menu(),
+	   end_form);
+}
+
+
+sub source_form {
+    my $self = shift;
+    join '',(
+	start_form(-name=>'sourceform',
+		   -id=>'sourceform',
+		   -onSubmit=>''),
+	$self->source_menu(),
+	end_form
+    );
+}
+
+sub sliderform {
+    my $self    = shift;
+    my $segment = shift;
+    my $settings = $self->state;
+    if ($segment) {
+	return
+	    join '',(
+		start_form(-name=>'sliderform',-id=>'sliderform',-onSubmit=>'return false'),
+		b($self->tr('Scroll').': '),
+		$self->slidertable($segment),
+		b(
+		    checkbox(-name=>'flip',
+			     -checked=>$settings->{flip},-value=>1,
+			     -label=>$self->tr('Flip'),-override=>1,
+			     -onClick => 'Controller.update_coordinates(this.name + " " + this.checked)',
+		    )
+		),
+		hidden(-name=>'navigate',-value=>1,-override=>1),
+		end_form
+	    );
+    } 
+    else  {
+	return '';
+    }
 }
 
 sub render_search_form_objects {
@@ -166,27 +208,47 @@ sub render_html_head {
                balloon.config.js
 	       GBox.js
                controller.js
-);
+    );
 
   # pick stylesheets;
+  my @css_links;
+  my @style = shellwords($self->setting('stylesheet') || '/gbrowse/gbrowse.css');
+  for my $s (@style) {
+      my ($url,$media) = $s =~ /^([^(]+)(?:\((.+)\))?/;
+      $media ||= 'all';
+      push @css_links,CGI::Link({-rel=>'stylesheet',
+				 -type=>'text/css',
+				 -href=>$self->globals->resolve_path($url,'url'),
+				 -media=>$media});
+  }
+
+
   my @stylesheets;
-#  my $titlebar   = $self->is_safari() ? 'css/titlebar-safari.css' : 'css/titlebar-default.css';
   my $titlebar   = 'css/titlebar-default.css';
-  my $stylesheet = $self->setting('stylesheet')||'/gbrowse/gbrowse';
-  push @stylesheets,{src => $self->globals->resolve_path($stylesheet,'url')};
+  my $stylesheet = $self->setting('stylesheet')||'/gbrowse/gbrowse.css';
   push @stylesheets,{src => $self->globals->resolve_path('css/tracks.css','url')};
   push @stylesheets,{src => $self->globals->resolve_path('css/karyotype.css','url')};
   push @stylesheets,{src => $self->globals->resolve_path($titlebar,'url')};
+
+  # colors for "rubberband" selection 
+  my $set_dragcolors = '';
+  if (my $fill = $self->data_source->global_setting('hilite fill')) {
+      $fill =~ s/^(\d+,\d+,\d+)$/rgb($1)/;
+      $fill =~ s/^(#[0-9A-F]{2}[0-9A-F]{2}[0-9A-F]{2})[0-9A-F]{2}$/$1/;
+      $fill =~ s/^(\w+):[\d.]+$/$1/;
+      $set_dragcolors = "set_dragcolors('$fill');";
+  }
 
   # put them all together
   my @args = (-title    => $title,
               -style    => \@stylesheets,
               -encoding => $self->tr('CHARSET'),
 	      -script   => \@scripts,
+	      -head     => \@css_links,
 	     );
   push @args,(-head=>$self->setting('head'))    if $self->setting('head');
   push @args,(-lang=>($self->language_code)[0]) if $self->language_code;
-  push @args,(-onLoad=>'initialize_page()');
+  push @args,(-onLoad=>"initialize_page();$set_dragcolors");
 
   return start_html(@args);
 }
@@ -221,6 +283,7 @@ GPlain.images = "$balloon_images/GPlain";
 var GFade = new Balloon;
 BalloonConfig(GFade,'GFade');
 GFade.images = "$balloon_images/GBubble";
+GFade.opacity = 100;
 
 // A formatted box
 // Note: Box is a subclass of Balloon
@@ -307,59 +370,146 @@ sub _render_select_menu {
 sub render_title {
     my $self  = shift;
     my $title = shift;
-    return h1({-id=>'page_title'},$title),
+    my $error = shift;
+    my $settings = $self->state;
+    return $settings->{head}
+        ? h1({-id=>'page_title',-class=>$error ? 'error' : 'normal'},$title)
+	: '';
 }
 
 sub render_instructions {
-  my $self = shift;
-  my $settings = $self->session->page_settings;
+  my $self     = shift;
+  my $settings = $self->state;
+  my $oligo    = $self->plugins->plugin('OligoFinder') ? ', oligonucleotide (15 bp minimum)' : '';
 
-  my $svg_link     = GD::SVG::Image->can('new') ?
-    a({-href=>'?make_image=GD::SVG',-target=>'_blank'},'['.$self->tr('SVG_LINK').']'):'';
-  my $reset_link   = a({-href=>"?reset=1",-class=>'reset_button'},'['.$self->tr('RESET').']');
+  return $settings->{head}
+  ? div({-class=>'searchtitle'},
+      $self->toggle('Instructions',
+		    div({-style=>'margin-left:2em'},
+			$self->setting('search_instructions') ||
+			$self->tr('SEARCH_INSTRUCTIONS',$oligo),
+			$self->setting('navigation_instructions') ||
+			$self->tr('NAVIGATION_INSTRUCTIONS'),
+			br(),
+			$self->examples(),
+			br(),$self->html_frag('html2',$self->state)
+		    )
+		  )
+      )
+  : '';
+}
+
+sub render_links {
+  my $self     = shift;
+  my $settings = $self->state;
+
+  my $svg_link     = HAVE_SVG
+      ? a({-href=>'?make_image=GD::SVG',-target=>'_blank'},      '['.$self->tr('SVG_LINK').']')
+      : '';
+
+  my $pdf_link     = HAVE_SVG && $self->can_generate_pdf()
+    ? a({-href=>'?make_image=PDF',    -target=>'_blank'},'['.$self->tr('PDF_LINK').']')
+    : '';
+
+  my $reset_link   = a({-href=>'?reset=1',-class=>'reset_button'},    '['.$self->tr('RESET').']');
   my $help_link    = a({-href=>$self->general_help(),-target=>'help'},'['.$self->tr('Help').']');
   my $plugin_link  = $self->plugin_links($self->plugins);
-  my $oligo        = $self->plugins->plugin('OligoFinder') ? ', oligonucleotide (15 bp minimum)' : '';
+  my $galaxy_link  = a({-href=>'javascript:'.$self->galaxy_link},     '['.$self->tr('SEND_TO_GALAXY').']');
+  my $image_link   = a({-href=>'?make_image=GD',-target=>'_blank'},   '['.$self->tr('IMAGE_LINK').']');
   my $rand         = substr(md5_hex(rand),0,5);
 
-  # standard status bar
-  my $html =  ''; 
 
-  $html .= table({-border=>0, -width=>'100%',-cellspacing=>0,-class=>'searchtitle'},
-		   TR(
-		      td({-align=>'left', -colspan=>2},
-			 $self->toggle('Instructions',
-				       br(),
-				       $self->setting('search_instructions') ||
-				       $self->tr('SEARCH_INSTRUCTIONS',$oligo),
-				       $self->setting('navigation_instructions') ||
-				       $self->tr('NAVIGATION_INSTRUCTIONS'),
-				       br(),
-				       $self->examples()
-				      )
-			),
-		     ),
-		   TR(
-		      th({-align=>'left', -colspan=>2,-class=>'linkmenu'},
-			 $settings->{name} || $settings->{ref} ?
-			 (
-			  a({-href=>"?rand=$rand;head=".((!$settings->{head})||0)},
-			    '['.$self->tr($settings->{head} ? 'HIDE_HEADER' : 'SHOW_HEADER').']'),
-			  a({-href=>'?bookmark=1'},'['.$self->tr('BOOKMARK').']'),
-              a({-href        => '#',
-                 -onMouseDown => "GPlain.showTooltip(event,'url:?share_track=all')"},
-                '[' . ($self->tr('SHARE_ALL') || "Share These Tracks" ) .']'),
-			  a({-href=>'?make_image=GD',-target=>'_blank'},'['.$self->tr('IMAGE_LINK').']'),
-			  $plugin_link,
-			  $svg_link,
-			 ) : (),
-			 $help_link,
-			 $reset_link
-			),
-		     )
-		  );
+  my @standard_links        = (
+      $help_link,
+      $reset_link
+      );
+
+  my @segment_showing_links =(
+      a({-href=>'?bookmark=1'},'['.$self->tr('BOOKMARK').']'),
+      a({-href=>'#',
+	 -onMouseDown=>'visibility("upload_tracks_panel",1);new Effect.ScrollTo("upload_tracks_panel");setTimeout(\'new Effect.Highlight("upload_tracks_panel_title")\',1000)'},
+      '['.$self->tr('Add_your_own_tracks').']'),
+      a({-href        => '#',
+	 -onMouseDown => "GFade.showTooltip(event,'url:?share_track=all')"},
+	'[' . ($self->tr('SHARE_ALL') || "Share These Tracks" ) .']'),
+      $plugin_link,
+      $galaxy_link,
+      $image_link,
+      $svg_link,
+      $pdf_link,
+      );
+
+  my $segment_present = $self->region->feature_count == 1;
+
+  # standard status bar
+  return div({-class=>'searchtitle',-style=>'font-weight:bold'},
+	     $segment_present ? @segment_showing_links : (),
+	     @standard_links);
+}
+
+# for the subset of plugins that are named in the 'quicklink plugins' option, create
+# quick links for them.
+sub plugin_links {
+  my $self    = shift;
+  my $plugins = shift;
+
+  my $quicklink_setting = $self->setting('quicklink plugins') or return '';
+  my @plugins           = shellwords($quicklink_setting)      or return '';
+  my $labels            = $plugins->menu_labels;
+
+  my @result;
+  for my $p (@plugins) {
+    my $plugin = $plugins->plugin($p) or next;
+    my $action = "?plugin=$p;plugin_do=".$self->tr('Go');
+    push @result,a({-href=>$action,-target=>'_new'},"[$labels->{$p}]");
+  }
+  return join ' ',@result;
+}
+
+sub galaxy_form {
+    my $self     = shift;
+    my $segment  = shift;
+
+    my $settings = $self->state;
+    my $source   = $self->data_source;
+
+    my $galaxy_url = $settings->{GALAXY_URL} 
+                  || $source->global_setting('galaxy outgoing') ;
+    return '' unless $galaxy_url;
+
+    my $URL  = $source->global_setting('galaxy incoming');
+    $URL    ||= url(-full=>1,-path_info=>1);
+
+    my $action = $galaxy_url =~ /\?/ ? "$galaxy_url&URL=$URL" : "$galaxy_url?URL=$URL";
+    
+    my $html = start_multipart_form(-name  => 'galaxyform',
+				    -action => $action,
+				    -method => 'POST');
+
+    # Make sure to include all necessary parameters in URL to ensure that gbrowse will retrieve the data
+    # when Galaxy posts the URL.
+    my $dbkey  = $source->global_setting('galaxy build name') || $source->name;
+    my $labels = join('+',map {escape($_)} $self->detail_tracks);
+
+    my $seg = $segment->seq_id.':'.$segment->start.'..'.$segment->end;
+		      
+    $html .= hidden(-name=>'dbkey',-value=>$dbkey);
+    $html .= hidden(-name=>'gbgff',-value=>1);
+    $html .= hidden(-name=>'q',-value=>$seg);
+    $html .= hidden(-name=>'t',-value=>$labels);
+    $html .= hidden(-name=>'s',-value=>'off');
+    $html .= hidden(-name=>'d',-value=>'edit');
+    $html .= endform();
+
+# Copied from gbrowse 1.69 -- not sure if still appropriate
+#   my $plugin_action = param('plugin_action');
+#   if ($plugin_action eq $CONFIG->tr('Go') && param('plugin') eq 'invoke_galaxy') {
+#     $html .= script('document.galaxyform.submit()');
+#   }
+
   return $html;
 }
+
 
 # This surrounds the track table with a toggle
 sub render_toggle_track_table {
@@ -377,13 +527,7 @@ sub render_track_table {
 
   # tracks beginning with "_" are special, and should not appear in the
   # track table.
-  my @labels     = grep {!/^_/} ($source->detail_tracks,
-				 $source->overview_tracks,
-				 $source->plugin_tracks,
-				 $source->regionview_tracks,
-				 $self->uploaded_sources->files,
-				 $self->remote_sources->sources,
-  );
+  my @labels     = $self->potential_tracks;
   my %labels     = map {$_ => $self->label2key($_)}              @labels;
   my @defaults   = grep {$settings->{features}{$_}{visible}  }   @labels;
 
@@ -448,7 +592,8 @@ sub render_track_table {
 				      -override   => 1,
 				     );
       $table = $self->tableize(\@checkboxes);
-      my $visible = exists $settings->{section_visible}{$id} ? $settings->{section_visible}{$id} : 1;
+      my $visible = exists $settings->{section_visible}{$id} 
+                    ? $settings->{section_visible}{$id} : 1;
 
       my ($control,$section)=$self->toggle_section({on=>$visible,nodiv => 1},
 						   $id,
@@ -474,11 +619,12 @@ sub render_track_table {
   autoEscape(1);
   my $slice_and_dice = $self->indent_categories(\%section_contents,\@categories);
   return join( "\n",
-		      start_form(-name=>'trackform',
-				 -id=>'trackform'),
-		      div({-class=>'searchbody',-style=>'padding-left:1em'},$slice_and_dice),
-		      end_form
-		     );
+	       start_form(-name=>'trackform',
+			  -id=>'trackform'),
+	       div({-class=>'searchbody',-style=>'padding-left:1em'},$slice_and_dice),
+	       end_form,
+	       $self->html_frag('html5',$settings),
+	       );
 }
 
 sub indent_categories {
@@ -542,7 +688,6 @@ sub render_multiple_choices {
     my $self     = shift;
     my $features = shift;
     my $terms2hilite = shift;
-
     my $karyotype = Bio::Graphics::Karyotype->new(source   => $self->data_source,
 						  language => $self->language);
     $karyotype->add_hits($features);
@@ -568,136 +713,126 @@ sub render_global_config {
         ? join ' ', @{ $settings->{h_region} }
         : '';
 
+    my %seen;
+
+    my $region_size = $settings->{region_size} || 0;
+    my @region_size  = shellwords($self->data_source->global_setting('region sizes'));
+    my @region_sizes = grep {!$seen{$_}++} 
+                          sort {$b<=>$a}
+                             grep {defined $_ && $_ > 0} ($region_size,@region_size);
     my $content
         = start_form( -name => 'display_settings', -id => 'display_settings' )
-        . table(
-        { -class => 'searchbody', -border => 0, -width => '100%' },
-        TR( { -class => 'searchtitle' },
-            td( b(  checkbox(
-                        -name     => 'grid',
-                        -label    => $self->tr('SHOW_GRID'),
-                        -override => 1,
-                        -checked  => $settings->{grid} || 0,
-			-onChange => 'Controller.set_display_option(this.name,this.checked ? 1 : 0)', 
-                    )
-                )
-            ),
-            td( b( $self->tr('Image_width') ),
-                br,
-                radio_group(
-                    -name     => 'width',
-                    -values   => \@widths,
-                    -default  => $settings->{width},
-                    -override => 1,
-		    -onChange => 'Controller.set_display_option(this.name,this.value)', 
-                ),
-            ),
-            td( span(
-                    { -title => $self->tr('FEATURES_TO_HIGHLIGHT_HINT') },
-                    b( $self->tr('FEATURES_TO_HIGHLIGHT') ),
-                    br,
-                    textfield(
-                        -name     => 'h_feat',
-                        -value    => $feature_highlights,
-                        -size     => 50,
-                        -override => 1,
-		        -onChange => 'Controller.set_display_option(this.name,this.value)', 
-                    ),
-                ),
-            ),
-        ),
-        TR( { -class => 'searchtitle' },
-            td( $self->data_source->cache_time
-                ? ( b(  checkbox(
-                            -name     => 'cache',
-                            -label    => $self->tr('CACHE_TRACKS'),
-                            -override => 1,
-                            -checked  => $settings->{cache},
-                            -onChange => 'Controller.set_display_option(this.name,this.checked?1:0)'
-                        )
-                    )
-                    )
-                : ()
-            ),
-            td( b( $self->tr("TRACK_NAMES") ),
-                br,
-                radio_group(
-                    -name   => "sk",
-                    -values => [ "sorted", "unsorted" ],
-                    -labels => {
-                        sorted   => $self->tr("ALPHABETIC"),
-                        unsorted => $self->tr("VARYING")
-                    },
-                    -default  => $settings->{sk},
-                    -override => 1
-                ),
-            ),
+        . div( {-class=>'searchbody'},
+	       table ({-border => 0, -cellspacing=>0},
+		      TR( { -class => 'searchtitle' },
+			  td( b(  checkbox(
+				      -name     => 'grid',
+				      -label    => $self->tr('SHOW_GRID'),
+				      -override => 1,
+				      -checked  => $settings->{grid} || 0,
+				      -onChange => 'Controller.set_display_option(this.name,this.checked ? 1 : 0)', 
+				  )
+			      )
+			  ),
+			  td( b( $self->tr('Image_width') ),
+			      br,
+			      radio_group(
+				  -name     => 'width',
+				  -values   => \@widths,
+				  -default  => $settings->{width},
+				  -override => 1,
+				  -onChange => 'Controller.set_display_option(this.name,this.value)', 
+			      ),
+			  ),
+			  td( span(
+				  { -title => $self->tr('FEATURES_TO_HIGHLIGHT_HINT') },
+				  b( $self->tr('FEATURES_TO_HIGHLIGHT') ),
+				  br,
+				  textfield(
+				      -id       => 'h_feat',
+				      -name     => 'h_feat',
+				      -value    => $feature_highlights,
+				      -size     => 50,
+				      -override => 1,
+				      -onChange => 'Controller.set_display_option(this.name,this.value)', 
+				  ),
+				  a({-href=>'#',
+				     -onClick=>'Controller.set_display_option("h_feat","_clear_");$("h_feat").value=""'},
+				    $self->tr('CLEAR_HIGHLIGHTING'))
+			      ),
+			  ),
+		      ),
+		      TR( { -class => 'searchtitle' },
+			  td( $self->data_source->cache_time
+			      ? ( b(  checkbox(
+					  -name     => 'cache',
+					  -label    => $self->tr('CACHE_TRACKS'),
+					  -override => 1,
+					  -checked  => $settings->{cache},
+					  -onChange => 'Controller.set_display_option(this.name,this.checked?1:0)'
+				      )
+				  )
+			      )
+			      : ()
+			  ),
 
-            td( span(
-                    { -title => $self->tr('REGIONS_TO_HIGHLIGHT_HINT') },
-                    b( $self->tr('REGIONS_TO_HIGHLIGHT') ),
-                    br,
-                    textfield(
-                        -name     => 'h_region',
-                        -value    => $region_highlights,
-                        -size     => 50,
-                        -override => 1,
-		        -onChange    => 'Controller.set_display_option(this.name,this.value)', 
-                    ),
-                ),
-            ),
-        ),
-        TR( { -class => 'searchtitle' },
-            td( { -align => 'left' },
-                b(  checkbox(
-                        -name     => 'show_tooltips',
-                        -label    => $self->tr('SHOW_TOOLTIPS'),
-                        -override => 1,
-                        -checked  => $settings->{show_tooltips},
-                        -onChange => 'Controller.set_display_option(this.name,this.checked?1:0)'
-                    ),
-                )
-            ),
-            td( { -id => 'ks_label', },
-                b( $self->tr('KEY_POSITION') ),
-                br,
-                radio_group(
-                    -name   => 'ks',
-                    -values => \@key_positions,
-                    -labels => {
-                        between => $self->tr('BETWEEN'),
-                        bottom  => $self->tr('BENEATH'),
-                        left    => $self->tr('LEFT'),
-                        right   => $self->tr('RIGHT'),
-                    },
-                    -default  => $settings->{ks},
-                    -override => 1,
-                    -id       => 'key positions',
-                )
-            ),
-            td( $self->setting('region segment')
-                ? ( b( $self->tr('Region_size') ),
-                    br,
-                    textfield(
-                        -name     => 'region_size',
-                        -default  => $settings->{region_size},
-                        -override => 1,
-                        -size     => 20,
-                        -onChange   => 'Controller.set_display_option(this.name,this.value)',
-                    ),
-
-                    )
-                : (),
-            ),
-        ),
-        TR( { -class => 'searchtitle' },
-            td( {   -colspan => 3,
-                    -align   => 'right'
-                },
-                b( submit( -name => $self->tr('Update_settings') ) )
-            )
-        )
-        ) . end_form();
+			  td('&nbsp;'),
+			  
+			  td( span(
+				  { -title => $self->tr('REGIONS_TO_HIGHLIGHT_HINT') },
+				  b( $self->tr('REGIONS_TO_HIGHLIGHT') ),
+				  br,
+				  textfield(
+				      -id       => 'h_region',
+				      -name     => 'h_region',
+				      -value    => $region_highlights,
+				      -size     => 50,
+				      -override => 1,
+				      -onChange    => 'Controller.set_display_option(this.name,this.value)', 
+				  ),
+				  a({-href=>'#',
+				     -onClick=>'Controller.set_display_option("h_region","_clear_");$("h_region").value=""'
+				    },
+				    $self->tr('CLEAR_HIGHLIGHTING'))
+			      ),
+			  ),
+		      ),
+		      TR( { -class => 'searchtitle' },
+			  td( { -align => 'left' },
+			      b(  checkbox(
+				      -name     => 'show_tooltips',
+				      -label    => $self->tr('SHOW_TOOLTIPS'),
+				      -override => 1,
+				      -checked  => $settings->{show_tooltips},
+				      -onChange => 'Controller.set_display_option(this.name,this.checked?1:0)'
+				  ),
+			      )
+			  ),
+			  td('&nbsp;'),
+			  td( $self->setting('region segment')
+			      ? ( b( $self->tr('Region_size') ),
+				  br,
+				  popup_menu(
+				      -name     => 'region_size',
+				      -default  => $settings->{region_size},
+				      -values   => \@region_sizes,
+				      -override => 1,
+				      -onChange   => 'Controller.set_display_option(this.name,this.value)',
+				  ),
+				  
+			      )
+			      : (),
+			  ),
+		      ),
+		      TR( { -class => 'searchtitle' },
+			  td( {   -colspan => 3,
+				  -align   => 'right'
+			      },
+			      b( submit( -name => $self->tr('Update_settings') ) )
+			  )
+		      )
+	       )
+	) . end_form();
 
     return $self->toggle( 'Display_settings', $content );
 }
@@ -705,20 +840,22 @@ sub render_global_config {
 # This surrounds the external table with a toggle
 sub render_toggle_external_table {
   my $self     = shift;
-  return $self->toggle('UPLOAD_TRACKS', $self->render_external_table());
+  return a({-name=>'upload_tracks'},$self->toggle('upload_tracks', $self->render_external_table()));
 }
 
 sub render_external_table {
     my $self = shift;
-    my $feature_files = shift;
 
+    $self->init_database();
     my $state = $self->state;
+
     my $content 
         = div( { -id => "external_utility_div" }, '' )
         . start_form( -name => 'externalform', -id => 'externalform' )
-        . $self->upload_table
-        . $self->das_table
+        . div({-class=>'uploadbody'},$self->upload_table,
+	      $self->das_table)
         . end_form();
+    $content .= $self->html_frag('html6',$state);
     return $content;
 }
 
@@ -727,10 +864,9 @@ sub upload_table {
   my $settings  = $self->state;
 
   # start the table.
-  my $cTable = start_table({-border=>0,-width=>'100%',-id=>'upload_table',})
+  my $cTable = start_table({-border=>0,-cellspacing=>0,-cellpadding=>0,-width=>'100%',-id=>'upload_table',})
     . TR(
 	 th({-class=>'uploadtitle', -colspan=>4, -align=>'left'},
-	    $self->tr('Upload_title').':',
 	    a({-href=>$self->annotation_help(),-target=>'_new'},'['.$self->tr('HELP').']'))
 	);
 
@@ -772,11 +908,11 @@ sub upload_file_rows {
     my $link        = a( { -href => "?$download=$file" }, "[$name]" );
 
     my @info = $self->get_uploaded_file_info( $self->track_visible($file)
-            && $uploaded_sources->feature_file($file) );
+					      && $self->external_data->{$file});
 
     my $escaped_file = CGI::escape($file);
     $return_html .= TR(
-        { -class => 'uploadbody' },
+        { -class => 'uploadbody'},
         th( { -width => '20%', -align => 'right' }, $link ),
         td( { -colspan => 3 },
             button(
@@ -796,7 +932,8 @@ sub upload_file_rows {
                 )),
     );
     $return_html .= TR( { -class => 'uploadbody' },
-        td('&nbsp;'), td( { -colspan => 3 }, @info ) );
+        td('&nbsp;'), td( { -colspan => 3}, @info ) );
+    $return_html .= span({-id => $escaped_file});
     return $return_html;
 }
 
@@ -874,7 +1011,7 @@ sub das_table {
 
 	  my $f = $remote_sources->transform_url($url,$segment);
 
-	  next unless $url =~ /^(ftp|http):/ && $feature_files->{$url};
+	  next unless $url =~ /^(ftp|http):/ && exists $feature_files->{$url};
 	  my $escaped_url = CGI::escape($url);
           my $ulabel = url_label($url);
           $ulabel = '' unless $ulabel ne $url;
@@ -886,8 +1023,12 @@ sub das_table {
             -onClick => 'Controller.delete_upload_file("' . $url . '");'
          ),
 		 br,
-		 a({-href=>$f,-target=>'help'},'['.$self->tr('Download').']'),
-		 $self->get_uploaded_file_info($self->track_visible($url) && $feature_files->{$url})
+		 a({-href=>$f,-target=>'help'},
+		   '['.$self->tr('Download').']'),
+		 $feature_files->{$url} 
+		 && $self->get_uploaded_file_info($self->track_visible($url) 
+						  && $feature_files->{$url}
+		 )
 	      );
       }
   }
@@ -904,11 +1045,7 @@ sub das_table {
        ),
     );
 
-  return table({-border=>0,-width=>'100%'},
-	       TR(
-		  th({-class=>'uploadtitle',-align=>'left',-colspan=>2},
-		     $self->tr('Remote_title').':',
-		     a({-href=>$self->annotation_help().'#remote',-target=>'help'},'['.$self->tr('Help').']'))),
+  return table({-border=>0,-cellspacing=>0,-cellpadding=>0,-width=>'100%'},
 	       TR({-class=>'uploadbody'},\@rows),
 	      );
 }
@@ -921,7 +1058,7 @@ sub tableize {
   my $columns = $self->data_source->global_setting('config table columns') || 3;
   my $rows    = int( @$array/$columns + 0.99 );
 
-  my $cwidth = 100/$columns . '%';
+  my $cwidth = int(100/$columns+0.5) . '%';
 
   my $html = start_table({-border=>0,-width=>'100%'});
   for (my $row=0;$row<$rows;$row++) {
@@ -965,7 +1102,7 @@ sub edit_uploaded_file {
         . button(
         -name    => 'accept_button',
         -value   => $self->tr('ACCEPT_RETURN'),
-        -onClick => 'Controller.commit_file_edit("' . $file . '");'
+        -onClick => qq[Controller.commit_file_edit("$file");],
         );
 
     $return_str .= table(
@@ -1073,23 +1210,31 @@ sub plugin_configuration_form {
     my $plugin_type = $plugin->type;
     my $plugin_name = $plugin->name;
 
-    print CGI::header('text/html');
-    print start_html(),
-              start_form(
+    print CGI::header(-type=>'text/html',     
+		      -cache_control =>'no-cache');
+    print start_form(
 		  -name     => 'configure_plugin',
 		  -id       => 'configure_plugin',
 		  ),
-	  submit(
-            -name    => 'plugin_button',
-            -value   => $self->tr('Configure_plugin'),
-          ),
+	  button(-value => $self->tr('Cancel'),
+ 		 -onClick=>'Balloon.prototype.hideTooltip(1)'),
+	  button(-value => $self->tr('Configure_plugin'),
+ 		 -onClick=>'Controller.reconfigure_plugin('
+                 . '"'.$self->tr('Configure_plugin').'"'
+                 . qq(, "plugin:$plugin_name")
+                 . qq(, "plugin_configure_div")
+                 . qq(, "$plugin_type")
+                 . qq(, this.parentNode)
+		 . ');Balloon.prototype.hideTooltip(1)'),
           $plugin->configure_form(),
-	  submit(
-            -name    => 'plugin_button',
-            -value   => $self->tr('Configure_plugin'),
-          ),
-          end_form(),
-          end_html();
+          end_form();
+}
+
+# wrap arbitrary HTML in a named div
+sub wrap_in_div {
+    my $self   = shift;
+    my $div_id = shift;
+    return div({-id=>$div_id},@_);
 }
 
 # Wrap the plugin configuration html into a form and tie it into the controller 
@@ -1105,8 +1250,9 @@ sub wrap_plugin_configuration {
         -onSubmit => 'return false;',
     );
     if ($config_html) {
-        my $plugin_type = $plugin->type;
-        my $plugin_name = $plugin->name;
+        my $plugin_type        = $plugin->type;
+        my $plugin_name        = $plugin->name;
+	my @plugin_description = $plugin->description;
         my @buttons;
 
         # Cancel Button
@@ -1157,8 +1303,10 @@ sub wrap_plugin_configuration {
               $plugin_type eq 'finder'
             ? $self->tr('Find')
             : $self->tr('Configure'),
-            $plugin_name
+            $plugin_name,
         );
+	$return_html .= div({-style=>'font-size:small'},@plugin_description);
+
         my $button_html = join( '&nbsp;',
             @buttons[ 0 .. @buttons - 2 ],
             b( $buttons[-1] ),
@@ -1186,22 +1334,24 @@ sub wrap_plugin_configuration {
 sub wrap_track_in_track_div {
     my $self       = shift;
     my %args       = @_;
-    my $track_name = $args{'track_name'};
-    my $track_html = $args{'track_html'};
+    my $track_id      = $args{'track_id'};
+    my $track_name    = $args{'track_name'};
+    my $track_html    = $args{'track_html'};
 
-    # track_type Used in register_track() javascript method
+    # track_type used in register_track() javascript method
     my $track_type = $args{'track_type'} || 'standard';
 
-    my $section = get_section_from_label($track_name);
-    my $class = $track_name =~ /scale/i ? 'scale' : 'track';
+    my $section = $self->get_section_from_label($track_id);
+    my $class   = $track_id =~ /scale/i ? 'scale' : 'track';
 
     return div(
-        {   -id    => "track_" . $track_name,
+        {   -id    => "track_" . $track_id,
             -class => $class,
         },
         $track_html
         )
         . qq[<script type="text/javascript" language="JavaScript">Controller.register_track("]
+	. $track_id   . q[", "]
         . $track_name . q[", "]
         . $track_type . q[", "]
         . $section
@@ -1222,13 +1372,16 @@ sub do_plugin_header {
 }
 
 sub slidertable {
-  my $self = shift;
-  my $segment = shift;
+  my $self    = shift;
+  my $state   = $self->state;
 
-  my $whole_segment = $self->whole_segment;
+  # try to avoid reopening the database -- recover segment
+  # and whole segment lengths from our stored state if available
+  my $span  = $self->thin_segment->length;
+  my $max   = $self->thin_whole_segment->length;
+
   my $buttonsDir    = $self->globals->button_url;
 
-  my $span       = $segment->length;
   my $half_title = $self->unit_label(int $span/2);
   my $full_title = $self->unit_label($span);
   my $half       = int $span/2;
@@ -1246,14 +1399,18 @@ sub slidertable {
 		  -onClick => "Controller.update_coordinates(this.name)"
      ),
      '&nbsp;',
-     image_button(-src=>"$buttonsDir/minus.gif",-name=>"zoom out $fine_zoom",
+     image_button(-src=>"$buttonsDir/mminus.png",
+		  -name=>"zoom out $fine_zoom",
+		  -style=>'background-color: transparent',
 		  -title=>"zoom out $fine_zoom",
 		  -onClick => "Controller.update_coordinates(this.name)"
      ),
      '&nbsp;',
-     $self->zoomBar($segment,$whole_segment,$buttonsDir),
+     $self->zoomBar($span,$max),
      '&nbsp;',
-     image_button(-src=>"$buttonsDir/plus.gif",-name=>"zoom in $fine_zoom",
+     image_button(-src=>"$buttonsDir/mplus.png",
+		  -name=>"zoom in $fine_zoom",
+		  -style=>'background-color: transparent',
 		  -title=>"zoom in $fine_zoom",
 		  -onClick => "Controller.update_coordinates(this.name)",
      ),
@@ -1278,15 +1435,13 @@ sub slidertable {
 sub zoomBar {
   my $self = shift;
 
-  my ($segment,$whole_segment) = @_;
+  my ($length,$max) = @_;
 
   my $show   = $self->tr('Show');
-  my $length = $segment->length;
-  my $max    = $whole_segment->length;
 
   my %seen;
   my @r         = sort {$a<=>$b} $self->data_source->get_ranges();
-  my @ranges	= grep {!$seen{$_}++ && $_<=$max} sort {$b<=>$a} $segment->length,@r;
+  my @ranges	= grep {!$seen{$_}++ && $_<=$max} sort {$b<=>$a} @r,$length;
 
   my %labels    = map {$_=>$show.' '.$self->unit_label($_)} @ranges;
   return popup_menu(-class   => 'searchtitle',
@@ -1307,7 +1462,9 @@ sub source_menu {
   my @sources      = $globals->data_sources;
   my $show_sources = $self->setting('show sources');
   $show_sources    = 1 unless defined $show_sources;   # default to true
+  @sources         = grep {$globals->data_source_show($_)} @sources;
   my $sources = $show_sources && @sources > 1;
+
   return b($self->tr('DATA_SOURCE')).br.
     ( $sources ?
       popup_menu(-name   => 'source',
@@ -1338,19 +1495,18 @@ sub track_config {
         $state->{features}{$label}{override_settings} = {};
     }
 
-    my $override = $state->{features}{$label}{override_settings};
-
+    my $override = $state->{features}{$label}{override_settings}||{};
     my $return_html = start_html();
 
     # truncate too-long citations
-    my $cit_txt = citation( $data_source, $label, $self->language )
-        || $self->tr('NO_CITATION');
+    my $cit_txt = citation( $data_source, $label, $self->language ) || ''; #$self->tr('NO_CITATION');
 
     $cit_txt =~ s/(.{512}).+/$1\.\.\./;
     my $citation = h4($key) . p($cit_txt);
-    my $height = $data_source->fallback_setting( $label => 'height' ) || 5;
-    my $width = $data_source->fallback_setting( $label => 'linewidth' ) || 1;
-    my $glyph = $data_source->fallback_setting( $label => 'glyph' ) || 'box';
+    my $height   = $data_source->fallback_setting( $label => 'height' )    || 5;
+    my $width    = $data_source->fallback_setting( $label => 'linewidth' ) || 1;
+    my $glyph    = $data_source->fallback_setting( $label => 'glyph' )     || 'box';
+    my $stranded = $data_source->fallback_setting( $label => 'stranded');
     my @glyph_select = shellwords(
         $data_source->fallback_setting( $label => 'glyph select' ) );
     @glyph_select
@@ -1378,19 +1534,6 @@ END
         -id   => $form_name,
     );
 
-    ### Create the javascript that will serialize the form.
-    # I'm not happy about this but the prototype method only seems to be
-    # reporting the default values when the form is inside a balloon.
-    my $form_serialized_js = join q[+'&'+], map {qq['$_='+escape($_.value)]} (
-        "format_option", "glyph",  "bgcolor", "fgcolor",
-        "linewidth",     "height", "limit",
-    );
-
-    # "show_track" is a special case since it's a checkbox
-    # :( This is so ugly.
-    my $preserialize_js = "var show_track_checked = 0;"
-        . "if(show_track.checked){show_track_checked =1;}";
-    $form_serialized_js .= q[+'&'+] . "'show_track='+show_track_checked";
 
     $form .= table(
         { -border => 0 },
@@ -1475,32 +1618,44 @@ END
                 )
             )
         ),
-        TR( td(),
-            td( button(
-                    -style   => 'background:pink',
-                    -name    => $self->tr('Revert'),
-                    -onClick => $reset_js
+        TR( th( { -align => 'right' }, $self->tr('STRANDED') ),
+            td(checkbox(
+                    -name    => 'stranded',
+		    -override=> 1,
+		    -value   => 1,
+                    -checked => defined $override->{'stranded'} 
+		                  ? $override->{'stranded'} 
+                                  : $stranded,
+		    -label   => '',
                 )
             )
         ),
-        TR( td(),
-            td( button(
-                    -name    => $self->tr('Cancel'),
-                    -onClick => 'Balloon.prototype.hideTooltip(1)'
-                    )
-                    . '&nbsp;'
-                    . button(
-                    -name => $self->tr('Change'),
-                    -onClick =>
-                        "$preserialize_js;Controller.reconfigure_track('$label',$form_serialized_js, show_track.checked);",
-                    )
-            )
-        ),
+        TR(td({-colspan=>2},
+	      button(
+                    -style   => 'background:pink',
+                    -name    => $self->tr('Revert'),
+                    -onClick => $reset_js
+	      ),
+	      button(
+		  -name    => $self->tr('Cancel'),
+		  -onClick => 'Balloon.prototype.hideTooltip(1)'
+	      ),
+	      button(
+		  -name => $self->tr('Change'),
+		  -onClick =><<END
+	    Element.extend(this);
+	    var ancestors    = this.ancestors();
+	    var form_element = ancestors.find(function(el) {return el.nodeName=='FORM'; });
+	    Controller.reconfigure_track('$label',form_element)
+END
+	      )
+	   )
+	)
     );
     $form .= end_form();
 
     $return_html
-        .= table( TR( td( { -valign => 'top', -width => '50%' }, [ $citation, $form ] ) ) );
+        .= table( TR( td( { -valign => 'top' }, [ $citation, $form ] ) ) );
     $return_html .= end_html();
     return $return_html;
 }
@@ -1528,12 +1683,15 @@ sub share_track {
     }
 
     my $gbgff;
+    my $segment = $label =~  /:region$/   ? '$region'
+                 :$label =~  /:overview$/ ? '$overview'
+                 :'$segment';
     if ( $label =~ /^(http|ftp):/ ) {    # reexporting and imported track!
         $gbgff = $label;
     }
     else {
         $gbgff = url( -full => 1, -path_info => 1 );
-        $gbgff .= "?gbgff=1;q=\$segment;t=$labels";
+        $gbgff .= "?gbgff=1;q=$segment;t=$labels";
         $gbgff .= ";id=" . $state->{id} if $labels =~ /file:/;
     }
 
@@ -1606,9 +1764,9 @@ sub share_track {
 ################### various utilities ###################
 
 sub html_frag {
-  my $self = shift;
+  my $self     = shift;
   my $fragname = shift;
-  my $a = $self->data_source->code_setting(general => $fragname);
+  my $a = $self->data_source->global_setting($fragname);
   return $a->(@_) if ref $a eq 'CODE';
   return $a || '';
 }
@@ -1617,19 +1775,25 @@ sub html_frag {
 ############################## toggle code ########################
 sub toggle {
   my $self = shift;
+
+  my %args = ();
+  if (ref $_[0]) {
+      %args = %{shift()};
+  }
+  
   my $title = shift;
   my @body  = @_;
 
   my $page_settings = $self->state;
 
   my $id    = "\L${title}_panel\E";
-  my $label = $self->tr($title)                              or return '';
+  my $label = $self->tr($title) || '';
   my $state = $self->data_source->section_setting($title)    or return '';
   return '' if $state eq 'off';
   my $visible = exists $page_settings->{section_visible}{$id} ? 
     $page_settings->{section_visible}{$id} : $state eq 'open';
 
-  return $self->toggle_section({on=>$visible},
+  return $self->toggle_section({on=>$visible,%args},
 			       $id,
 			       b($label),
 			       @body);
@@ -1645,6 +1809,9 @@ sub toggle_section {
   my $buttons = $self->globals->button_url;
   my $plus  = "$buttons/plus.png";
   my $minus = "$buttons/minus.png";
+  my $break = div({-id=>"${name}_break",
+		   -style=>$visible ? 'display:none' : 'display:block'
+		  },'&nbsp;');
 
   my $show_ctl = div({-id=>"${name}_show",
 		       -class=>'ctl_hidden',
@@ -1657,13 +1824,46 @@ sub toggle_section {
 		       -style=>$visible ? 'display:inline' : 'display:none',
 		       -onClick=>"visibility('$name',0)"
                      },
-		     img({-src=>$minus,-alt=>'-'}).'&nbsp;'.span({-class=>'tctl'},$section_title));
+		     img({-src=>$minus,-alt=>'-'}).'&nbsp;'.span({-class=>'tctl',-id=>"${name}_title"},$section_title));
   my $content  = div({-id    => $name,
 		      -style=>$visible ? 'display:inline' : 'display:none',
 		      -class => 'el_visible'},
 		     @section_body);
-  my @result = $config{nodiv} ? ($show_ctl.$hide_ctl,$content) : div(($show_ctl.$hide_ctl,$content));
+  my @result =  $config{nodiv} ? (div({-style=>'float:left'},$show_ctl.$hide_ctl),$content)
+                :$config{tight}? (div({-style=>'float:left'},$show_ctl.$hide_ctl).$break,$content)
+                : div($show_ctl.$hide_ctl,$content);
   return wantarray ? @result : "@result";
+}
+
+sub can_generate_pdf {
+    my $self   = shift;
+    my $source = $self->data_source;
+
+    return $CAN_PDF if defined $CAN_PDF;
+    return $CAN_PDF = $source->global_setting('generate pdf') 
+	if defined $source->global_setting('generate pdf');
+
+    return $CAN_PDF=0 unless `which inkscape`;
+    # see whether we have the needed .inkscape and .gnome2 directories
+    my $home = (getpwuid($<))[7];
+    my $user = (getpwuid($<))[0];
+    my $inkscape_dir = File::Spec->catfile($home,'.inkscape');
+    my $gnome2_dir   = File::Spec->catfile($home,'.gnome2');
+    if (-e $inkscape_dir && -w $inkscape_dir
+	&&  -e $gnome2_dir   && -w $gnome2_dir) {
+	return $CAN_PDF=1;
+    } else {
+	print STDERR
+	    join(' ',
+		 qq(GBROWSE NOTICE: To enable PDF generation, please enter the directory "$home"),
+		 qq(and run the commands:),
+		 qq("sudo mkdir .inkscape .gnome2"),
+		 qq(and "sudo chown $user .inkscape .gnome2". ),
+		 qq(To turn off this message add "generate pdf = 0"),
+		 qq(to the [GENERAL] section of your GBrowse.conf configuration file.)
+	    );
+	return $CAN_PDF=0;
+    }
 }
 
 1;

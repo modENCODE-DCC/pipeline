@@ -1,4 +1,7 @@
 package Bio::Graphics::Browser::Session;
+
+# $Id: Session.pm,v 1.9 2008/12/17 19:56:56 lstein Exp $
+
 use strict;
 use warnings;
 
@@ -37,9 +40,9 @@ sub lock {
 
     open my $fh,$mode,$lockpath 
 	or die "Couldn't open lockfile $lockpath: $!";
-    warn "waiting on session lock..." if DEBUG;
+    warn "[$$] waiting on session lock..." if DEBUG;
     flock ($fh,LOCK_EX);
-    warn "...got session lock" if DEBUG;
+    warn "[$$] ...got session lock" if DEBUG;
     $self->lockfh($fh);
 }
 

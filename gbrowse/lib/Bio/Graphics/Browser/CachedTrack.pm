@@ -1,6 +1,6 @@
 package Bio::Graphics::Browser::CachedTrack;
 
-# $Id: CachedTrack.pm,v 1.3 2008/10/02 03:49:21 lstein Exp $
+# $Id: CachedTrack.pm,v 1.6 2009/01/06 07:38:24 lstein Exp $
 # This package defines a Bio::Graphics::Browser::Track option that manages
 # the caching of track images and imagemaps.
 
@@ -106,11 +106,11 @@ sub lock {
     my $self    = shift;
     my $dotfile = $self->dotfile;
     my $tsfile  = $self->tsfile;
-    my $error   = $self->errorfile;
+    # my $error   = $self->errorfile;
     if (-e $dotfile) {  # if it exists, then either we are in process or something died
 	return if $self->status eq 'PENDING';
     }
-    unlink $error if -e $error;
+    # unlink $error if -e $error;
     my $f = IO::File->new(">$dotfile") or die "Can't open $dotfile for writing: $!";
     flock $f,LOCK_EX;
     $f->print(time());
@@ -129,19 +129,28 @@ sub flag_error {
     my $msg  = shift;
     my $errorfile = $self->errorfile;
     open my $fh,'>',$errorfile or die;
-    print $fh,$msg;
+    print $fh $msg;
     close $fh;
     $self->unlock;
+}
+
+sub errstr {
+    my $self = shift;
+    my $errorfile = $self->errorfile;
+    open my $fh,'<',$errorfile or return;
+    chomp (my $msg = <$fh>);
+    return $msg;
 }
 
 sub put_data {
     my $self            = shift;
     my ($gd,$map)       = @_;
-    $self->{data}{gd}   = $gd;
+    $self->{data}{gd}   = $gd->can('gd2') ? $gd->gd2 : $gd;
     $self->{data}{map}  = $map;
     my $datafile        = $self->datafile;
     store $self->{data},$datafile;
     $self->unlock;
+    unlink $self->errorfile if -e $self->errorfile;
     return;
 }
 
@@ -158,7 +167,13 @@ sub get_data {
 sub gd {
     my $self = shift;
     my $data = $self->get_data or return;
-    return $data->{gd};
+
+    # The ? statement here accomodates the storage of GD::SVG objects,
+    # which do not support the call to newFromGd2Data.
+    return (ref($data->{gd}) 
+	    && ref($data->{gd})=~/^GD/)
+	? $data->{gd}
+        : GD::Image->newFromGd2Data($data->{gd});
 }
 
 sub map {
@@ -193,8 +208,6 @@ sub status {
     my $tsfile   = $self->tsfile;
     my $datafile = $self->datafile;
     my $errorfile = $self->errorfile;
-
-
 
     # if a dotfile exists then either we are in the midst of updating the
     # contents of the directory, or something has gone wrong and we are

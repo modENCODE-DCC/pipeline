@@ -15,7 +15,7 @@ use FindBin '$Bin';
 use lib "$Bin/testdata";
 use TemplateCopy; # for the template_copy() function
 
-use constant TEST_COUNT => 137;
+use constant TEST_COUNT => 138;
 use constant CONF_FILE  => "$Bin/testdata/conf/GBrowse.conf";
 
 my $PID;
@@ -46,13 +46,13 @@ chdir $Bin;
 use lib "$Bin/../lib";
 use Bio::Graphics::Browser;
 use Bio::Graphics::Browser::Render::HTML;
-use Bio::Graphics::Browser::Render::Server;
+use Bio::Graphics::Browser::Render::Slave;
 
 # Test remote rendering
 # Notice that $ENV{GBROWSE_DOCS} is NOT set when we launch these servers.
 # It is set at run time as part of the exchange between master and slave.
-my @servers = (Bio::Graphics::Browser::Render::Server->new(LocalPort=>'dynamic'), # alignments
-	       Bio::Graphics::Browser::Render::Server->new(LocalPort=>'dynamic'), # cleavage sites
+my @servers = (Bio::Graphics::Browser::Render::Slave->new(LocalPort=>'dynamic'), # alignments
+	       Bio::Graphics::Browser::Render::Slave->new(LocalPort=>'dynamic'), # cleavage sites
     );
 
 # rewrite the template config files

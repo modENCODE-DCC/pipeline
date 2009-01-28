@@ -151,8 +151,10 @@ sub run {
 	my $child = fork();
 	$self->Fatal("Couldn't fork: $!") unless defined $child;
 	if ($child) {
+	    $self->Info("Forked child PID $child");
 	    $c->close();
 	} else {
+	    Bio::Graphics::Browser::DataBase->clone_databases();
 	    $self->process_connection($c);
 	    $d->close();
 	    $c->close();
@@ -233,31 +235,38 @@ sub render_tracks {
     my $panel_args      = thaw param('panel_args');
 
     $self->Debug("render_tracks(): Opening database...");
-    my $db = $datasource->open_database($tracks->[0] || 'general');
+
+    # Find the segment - it may be hiding in any of the databases.
+    my (%seenit,$segment,$db);
+    for my $track ('general',@$tracks) {
+	$db = $datasource->open_database($track) or next;
+	next if $seenit{$db}++;
+	($segment) = $db->segment(-name	=> $settings->{'ref'},
+				  -start=> $settings->{'start'},
+				  -stop	=> $settings->{'stop'});
+	last if $segment;
+    }
+
+    $self->Fatal("Can't get segment for $settings->{ref}:$settings->{start}..$settings->{stop} (1)")
+	unless $segment;
+
     $self->Debug("render_tracks(): Got database handle $db");
     $self->Debug("rendering tracks @$tracks");
 
-    # extract segments
-    my ($segment) = $db->segment(-name	=> $settings->{'ref'},
-				 -start	=> $settings->{'start'},
-				 -stop	=> $settings->{'stop'});
-    $self->Fatal("Can't get segment for $settings->{ref}:$settings->{start}..$settings->{stop}")
-	unless $segment;
 
     # BUG: duplicated code from Render.pm -- move into a common place
+    $panel_args->{section} ||= '';  # prevent uninit variable warnings
     if ($panel_args->{section} eq 'overview') {
 	$segment = Bio::Graphics::Browser::Region->whole_segment($segment,$settings);
     } elsif ($panel_args->{section} eq 'region') {
 	$segment  = Bio::Graphics::Browser::Region->region_segment($segment,$settings);
     }
 
-    $self->Fatal("Can't get segment for $settings->{ref}:$settings->{start}..$settings->{stop}")
+    $self->Fatal("Can't get segment for $settings->{ref}:$settings->{start}..$settings->{stop} (2)")
 	unless $segment;
 	    
     # generate the panels
     $self->Debug("Calling RenderPanels->new()");
-    my $tmpdir = $datasource->global_setting('tmp_slave') || $self->tmpdir;
-    $datasource->globals->setting('general',tmpimages=>$tmpdir);
     my $renderer = Bio::Graphics::Browser::RenderPanels->new(-segment  => $segment,
 							     -source   => $datasource,
 							     -settings => $settings,
@@ -297,7 +306,7 @@ sub render_tracks {
 	$results{$label} = {map       => $map,
 			    width     => $width,
 			    height    => $height,
-			    imagedata => $imagedata};
+			    imagedata => eval{$imagedata->gd2}};
     }
     my $content = nfreeze \%results;
     return $content;
@@ -306,7 +315,7 @@ sub render_tracks {
 sub search_features {
     my $self = shift;
 
-    my $searchterm      = param('searchterm');
+    my $searchargs      = thaw param('searchargs');
     my $tracks	        = thaw param('tracks');
     my $settings	= thaw param('settings');
     my $datasource	= thaw param('datasource');
@@ -320,7 +329,7 @@ sub search_features {
 
     warn "SERVER, dbid = ",$settings->{dbid} if DEBUG;
 
-    my $results = $search->search_features_locally($searchterm);
+    my $results = $search->search_features_locally($searchargs);
     return unless $results;
     my @features = map { $self->clone_feature($_) } grep {defined $_} @$results;
     return nfreeze(\@features);
@@ -350,12 +359,6 @@ sub clone_feature {
     $clone->gbrowse_dbid($f->gbrowse_dbid) 
 	if $level == 0 && $f->can('gbrowse_dbid');
     return $clone;
-}
-
-sub tmpdir {
-    my $self   = shift;
-    my $tmpdir = File::Spec->tmpdir();
-    return File::Spec->catfile($tmpdir,'gbrowse_slave');
 }
 
 sub setup_environment {

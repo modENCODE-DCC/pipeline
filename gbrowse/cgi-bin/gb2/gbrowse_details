@@ -7,7 +7,7 @@ use Bio::Graphics::Browser::Markup;
 use Bio::Graphics::Browser::Realign 'align';
 use Bio::Graphics::Glyph::generic;
 
-our $VERSION = '$Id: gbrowse_details,v 1.4 2008/11/26 21:16:12 lstein Exp $';
+our $VERSION = '$Id: gbrowse_details,v 1.8 2009/01/06 07:38:24 lstein Exp $';
 our ($INDEX,%COLORS,%URLS,%formatterCache);
 
 
@@ -21,8 +21,22 @@ my $conf_file = $ENV{GBROWSE_MASTER} || DEFAULT_MASTER;
 my $conf      = Bio::Graphics::Browser->new(File::Spec->catfile($conf_dir,$conf_file))
     or die "Couldn't read globals";
 
-my $detail_renderer = DetailRenderer->new($conf);
-$detail_renderer->run();
+my $fcgi = Bio::Graphics::Browser::Render->fcgi_request;
+
+if ($fcgi) {
+
+    while ($fcgi->Accept >= 0) {
+	CGI->initialize_globals();
+	DetailRenderer->new($conf)->run();
+	$fcgi->Finish();
+    }
+
+}
+
+else {
+    DetailRenderer->new($conf)->run();
+}
+
 
 exit 0;
 
@@ -108,7 +122,7 @@ sub run {
     } else {
 	$search_term = $name;
     }
-    my $features = $search->search_features($search_term);
+    my $features = $search->search_features({-search_term=>$search_term});
 
     warn "features = @$features" if DEBUG;
     warn "segments = ",join ' ',$features->[0]->segments if (DEBUG && @$features);
@@ -276,7 +290,9 @@ sub get_seq {
     my $start = $f->start;
     my $end   = $f->end;
     my $strand = $f->strand;
-    my $db    = $self->source->open_database('GENERAL') or return;
+
+    # the sequence must live in the database flagged in the [GENERAL] section
+    my $db    = $self->source->open_database() or return; 
     my $seg   = $db->segment($ref,$start,$end) or return;
     return $strand >= 0 ? $seg->seq : $seg->seq->revcom;
 }
@@ -600,8 +616,8 @@ sub remote_content {
     # the key for the text or code-ref in the gbrowse config file
     my ($key,$feat) = @_;
 
-  my $contents = $self->source->setting('TOOLTIPS',$key) 
-      or die "$key is empty";
+    my $contents = $self->source->setting('TOOLTIPS',$key) 
+	or die "$key is empty";
     my $coderef = (ref $contents||'') eq 'CODE';
     return $contents unless $coderef;
 

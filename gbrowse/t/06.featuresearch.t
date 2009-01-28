@@ -39,7 +39,7 @@ END {
 chdir $Bin;
 use lib "$Bin/../lib";
 use Bio::Graphics::Browser;
-use Bio::Graphics::Browser::Render::Server;
+use Bio::Graphics::Browser::Render::Slave;
 use Bio::Graphics::Browser::Region;
 use Bio::Graphics::Browser::RegionSearch;
 
@@ -47,9 +47,9 @@ use lib "$Bin/testdata";
 use TemplateCopy; # for the template_copy() function
 
 # Test remote rendering
-my @servers = (Bio::Graphics::Browser::Render::Server->new(LocalPort=>'dynamic'), # main
-	       Bio::Graphics::Browser::Render::Server->new(LocalPort=>'dynamic'), # volvox4 "heterodox sites"
-	       Bio::Graphics::Browser::Render::Server->new(LocalPort=>'dynamic'), # volvox3 "cleavage sites"
+my @servers = (Bio::Graphics::Browser::Render::Slave->new(LocalPort=>'dynamic'), # main
+	       Bio::Graphics::Browser::Render::Slave->new(LocalPort=>'dynamic'), # volvox4 "heterodox sites"
+	       Bio::Graphics::Browser::Render::Slave->new(LocalPort=>'dynamic'), # volvox3 "cleavage sites"
     );
 
 for ('volvox_final.conf','yeast_chr1.conf') {
@@ -84,7 +84,7 @@ my $region = Bio::Graphics::Browser::Region->new(
     }
     );
 
-my $features = $region->search_features('Contig:ctgA');
+my $features = $region->search_features({-search_term => 'Contig:ctgA'});
 ok($features);
 ok(ref $features,'ARRAY');
 ok(scalar @$features,1);
@@ -92,16 +92,16 @@ ok($features->[0]->method,'chromosome');
 ok($features->[0]->start,1);
 ok($features->[0]->end,50000);
 
-$features    = $region->search_features('Contig:ctgA:10001..20000');
+$features    = $region->search_features({-search_term => 'Contig:ctgA:10001..20000'});
 ok($features->[0]->length,10000);
 
-$features    = $region->search_features('HOX');
+$features    = $region->search_features({-search_term => 'HOX'});
 ok(scalar @$features,4);
 
-$features    = $region->search_features('Match:seg*');
+$features    = $region->search_features({-search_term => 'Match:seg*'});
 ok(scalar @$features,2);
 
-$features    = $region->search_features('My_feature:f12');
+$features    = $region->search_features({-search_term => 'My_feature:f12'});
 ok(scalar @$features,1);
 
 $region = Bio::Graphics::Browser::Region->new(
@@ -110,10 +110,10 @@ $region = Bio::Graphics::Browser::Region->new(
       db     => $source->open_database('CleavageSites'),
     }
     );
-$features    = $region->search_features('Cleavage*');
+$features    = $region->search_features({-search_term => 'Cleavage*'});
 ok(scalar @$features,15);
 
-$features    = $region->search_features('Cleavage11');
+$features    = $region->search_features({-search_term => 'Cleavage11'});
 ok(scalar @$features,1);
 
 $region = Bio::Graphics::Browser::Region->new(
@@ -123,10 +123,10 @@ $region = Bio::Graphics::Browser::Region->new(
     }
     );
 
-$features    = $region->search_features('Cleavage11');
+$features    = $region->search_features({-search_term => 'Cleavage11'});
 ok(scalar @$features,0);
 
-$features    = $region->search_features('Heterodox14');
+$features    = $region->search_features({-search_term => 'Heterodox14'});
 ok(scalar @$features,1);
 
 
@@ -137,13 +137,13 @@ my $search = Bio::Graphics::Browser::RegionSearch->new(
     }
     );
 $search->init_databases();
-$features    = $search->search_features_locally('HOX');
+$features    = $search->search_features_locally({-search_term => 'HOX'});
 ok(scalar @$features,4);
 
-$features    = $search->search_features_locally('Binding_site:B07'); # test removal of duplicate features
+$features    = $search->search_features_locally({-search_term => 'Binding_site:B07'}); # test removal of duplicate features
 ok(scalar @$features,1);
 
-$features    = $search->search_features_locally('My_feature:f12');
+$features    = $search->search_features_locally({-search_term => 'My_feature:f12'});
 ok(scalar @$features,2);
 my @dbids = sort map {$_->gbrowse_dbid} @$features;
 ok("@dbids","general volvox2:database");
@@ -151,13 +151,13 @@ ok("@dbids","general volvox2:database");
 my @seqid = sort map {$_->seq_id} @$features;
 ok("@seqid","ctgA ctgB");
 
-$features    = $search->search_features_remotely('Heterodox14');  # this will appear in volvox4
+$features    = $search->search_features_remotely({-search_term => 'Heterodox14'});  # this will appear in volvox4
 ok(scalar @$features,1);
 
-$features    = $search->search_features_remotely('Cleavage11');  # this will appear in volvox3
+$features    = $search->search_features_remotely({-search_term => 'Cleavage11'});  # this will appear in volvox3
 ok(scalar @$features,1);
 
-$features    = $search->search_features_remotely('Cleavage*');  # this will appear in volvox3
+$features    = $search->search_features_remotely({-search_term => 'Cleavage*'});  # this will appear in volvox3
 ok(scalar @$features,15);
 
 exit 0;
@@ -172,6 +172,7 @@ END {
 	foreach (@servers) { $_->kill }
 	unlink 'testdata/conf/volvox_final.conf',
      	       'testdata/conf/yeast_chr1.conf';
+	rmtree('/tmp/gbrowse_testing',0,0);
     }
 }
 

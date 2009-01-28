@@ -1,6 +1,6 @@
 ---
 name: GBrowse
-version: 2.00
+version: 1.987
 author:
   - 'Lincoln Stein <lincoln.stein@gmail.com>'
 abstract: The GMOD Generic Genome Browser
@@ -8,9 +8,11 @@ license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Bio::Root::Version: 1.005002
+  Bio::Graphics: 1.82
+  Bio::Root::Version: 1.005009001
   CGI::Session: 4.02
   Digest::MD5: 0
+  ExtUtils::CBuilder: 0
   File::Temp: 0
   GD: 2.07
   IO::String: 0
@@ -18,19 +20,87 @@ requires:
   LWP: 0
   Storable: 0
   perl: 5.008
+recommends:
+  DBD::Pg: 0
+  DBD::mysql: 0
+  DBI: 0
+  DB_File::Lock: 0
+  FCGI: 0
+  GD::SVG: 0
+  Safe::World: 0
+  Statistics::Descriptive: 0
 provides:
+  Bio::DB::Das::BioSQL:
+    file: lib/Bio/DB/Das/BioSQL.pm
+    version: 0.02
+  Bio::DB::Das::BioSQL::BioDatabaseAdaptor:
+    file: lib/Bio/DB/Das/BioSQL/BioDatabaseAdaptor.pm
+  Bio::DB::Das::BioSQL::DBAdaptor:
+    file: lib/Bio/DB/Das/BioSQL/DBAdaptor.pm
+  Bio::DB::Das::BioSQL::Feature:
+    file: lib/Bio/DB/Das/BioSQL/Segment.pm
+  Bio::DB::Das::BioSQL::Iterator:
+    file: lib/Bio/DB/Das/BioSQL/Iterator.pm
+  Bio::DB::Das::BioSQL::PartialSeqAdaptor:
+    file: lib/Bio/DB/Das/BioSQL/PartialSeqAdaptor.pm
+  Bio::DB::Das::BioSQL::Segment:
+    file: lib/Bio/DB/Das/BioSQL/Segment.pm
+    version: 0.02
+  Bio::DB::Das::Chado:
+    file: lib/Bio/DB/Das/Chado.pm
+    version: 0.11
+  Bio::DB::Das::Chado::Segment:
+    file: lib/Bio/DB/Das/Chado/Segment.pm
+    version: 0.11
+  Bio::DB::Das::Chado::Segment::Feature:
+    file: lib/Bio/DB/Das/Chado/Segment/Feature.pm
+    version: 0.12
+  Bio::DB::Das::ChadoIterator:
+    file: lib/Bio/DB/Das/Chado.pm
+  Bio::DB::GFF::Aggregator::match_gap:
+    file: lib/Bio/DB/GFF/Aggregator/match_gap.pm
+  Bio::DB::GFF::Aggregator::reftranscript:
+    file: lib/Bio/DB/GFF/Aggregator/reftranscript.pm
+    version: 0.10
+  Bio::DB::GFF::Aggregator::waba_alignment:
+    file: lib/Bio/DB/GFF/Aggregator/waba_alignment.pm
+    version: 0.20
+  Bio::DB::GFF::Aggregator::wormbase_gene:
+    file: lib/Bio/DB/GFF/Aggregator/wormbase_gene.pm
+    version: 0.30
+  Bio::DB::GFF::SyntenyBlock:
+    file: lib/Bio/DB/GFF/SyntenyBlock.pm
+  Bio::DB::GFF::SyntenyIO:
+    file: lib/Bio/DB/GFF/SyntenyIO.pm
+  Bio::DB::Tagger:
+    file: lib/Bio/DB/Tagger.pm
+  Bio::DB::Tagger::Iterator:
+    file: lib/Bio/DB/Tagger.pm
+  Bio::DB::Tagger::Tag:
+    file: lib/Bio/DB/Tagger/Tag.pm
+  Bio::DB::Tagger::mysql:
+    file: lib/Bio/DB/Tagger/mysql.pm
   Bio::Graphics::Browser:
     file: lib/Bio/Graphics/Browser.pm
+    version: 1.987
   Bio::Graphics::Browser::CachedTrack:
     file: lib/Bio/Graphics/Browser/CachedTrack.pm
+  Bio::Graphics::Browser::DataBase:
+    file: lib/Bio/Graphics/Browser/DataBase.pm
   Bio::Graphics::Browser::DataSource:
     file: lib/Bio/Graphics/Browser/DataSource.pm
   Bio::Graphics::Browser::GFFPrinter:
     file: lib/Bio/Graphics/Browser/GFFPrinter.pm
+  Bio::Graphics::Browser::GFFhelper:
+    file: lib/Bio/Graphics/Browser/GFFhelper.pm
   Bio::Graphics::Browser::I18n:
     file: lib/Bio/Graphics/Browser/I18n.pm
   Bio::Graphics::Browser::Markup:
     file: lib/Bio/Graphics/Browser/Markup.pm
+  Bio::Graphics::Browser::MetaSegment:
+    file: lib/Bio/Graphics/Browser/RegionSearch.pm
+  Bio::Graphics::Browser::MetaSegment::Iterator:
+    file: lib/Bio/Graphics/Browser/RegionSearch.pm
   Bio::Graphics::Browser::OptionPick:
     file: lib/Bio/Graphics/Browser/OptionPick.pm
   Bio::Graphics::Browser::PadAlignment:
@@ -54,6 +124,8 @@ provides:
     file: lib/Bio/Graphics/Browser/Render/HTML.pm
   Bio::Graphics::Browser::Render::Slave:
     file: lib/Bio/Graphics/Browser/Render/Slave.pm
+  Bio::Graphics::Browser::Render::Slave::Status:
+    file: lib/Bio/Graphics/Browser/Render/Slave/Status.pm
   Bio::Graphics::Browser::RenderPanels:
     file: lib/Bio/Graphics/Browser/RenderPanels.pm
   Bio::Graphics::Browser::Session:
@@ -68,25 +140,13 @@ provides:
     file: lib/Bio/Graphics/Browser/Util.pm
   Bio::Graphics::GBrowseFeature:
     file: lib/Bio/Graphics/GBrowseFeature.pm
-  Bio::Graphics::Glyph::phylo_align:
-    file: lib/Bio/Graphics/Glyph/phylo_align.pm
-  Bio::Graphics::Glyph::smoothing:
-    file: lib/Bio/Graphics/Glyph/smoothing.pm
-  Bio::Graphics::Glyph::spectrogram:
-    file: lib/Bio/Graphics/Glyph/spectrogram.pm
-  Bio::Graphics::Glyph::trace:
-    file: lib/Bio/Graphics/Glyph/trace.pm
-  Bio::Graphics::Glyph::wiggle_box:
-    file: lib/Bio/Graphics/Glyph/wiggle_box.pm
-  Bio::Graphics::Glyph::wiggle_density:
-    file: lib/Bio/Graphics/Glyph/wiggle_density.pm
-  Bio::Graphics::Glyph::wiggle_xyplot:
-    file: lib/Bio/Graphics/Glyph/wiggle_xyplot.pm
   Bio::Graphics::Karyotype:
     file: lib/Bio/Graphics/Karyotype.pm
-  Bio::Graphics::Wiggle:
-    file: lib/Bio/Graphics/Wiggle.pm
-generated_by: Module::Build version 0.2808
+  CGI::Toggle:
+    file: lib/CGI/Toggle.pm
+  FakeHomol:
+    file: lib/Bio/Graphics/Browser/GFFhelper.pm
+generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

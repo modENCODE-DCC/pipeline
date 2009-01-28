@@ -56,7 +56,7 @@ sub segments {
 sub seg {
   my $self = shift;
   unless (exists $self->{segment}) {
-      my $segments = $self->segments;
+      my $segments     = $self->segments;
       $self->{segment} = $segments->[0] if @$segments;
       if (my $seg = $self->{segment}) {
 	  my $state = $self->state;
@@ -89,19 +89,27 @@ sub set_features_by_region {
     return $features;
 }
 
+# For backward compatibility, you can call search_features() either
+# with a scalar string, in which case it will be treated as a search
+# string to be parsed and search (for example "chrI:1000.2000") or
+# call with a hashref containing the arguments to be passed to
+# the db adaptor's features() method.
 sub search_features {
   my $self         = shift;
-  my $search_term  = shift;
+  my $args         = shift;
 
   my $db    = $self->db;
   my $state = $self->state;
-  $search_term ||= $state->{name};
 
-  defined $search_term && length $search_term > 0 or return; 
+  $args   ||= { };
+  unless (%$args) {
+      return unless $state->{name};
+      $args->{-search_term} = $state->{name};
+  }
 
-  warn "SEARCHING FOR $search_term" if DEBUG; 
+  warn "SEARCHING FOR ",join ' ',%$args if DEBUG; 
 
-  my $features = $self->search_db($search_term);
+  my $features = $self->search_db($args);
   $self->features($features);
   return $features;
 }
@@ -129,10 +137,10 @@ sub features2segments {
 }
 
 sub get_whole_segment {
-  my $self = shift;
-
+  my $self    = shift;
   my $segment = shift;
-  my $factory = $segment->factory;
+
+  my $factory = $self->source->open_database();
 
   # the segment class has been deprecated, but we still must support it
   my $class   = eval {$segment->seq_id->class} || eval{$factory->refclass};
@@ -143,13 +151,19 @@ sub get_whole_segment {
   $whole_segment;
 }
 
+
 sub search_db {
   my $self = shift;
-  my $name = shift;
+  my $args = shift;
 
-  my ($ref,$start,$stop,$class,$id) = $self->parse_feature_name($name);
-  my $features = $self->lookup_features($ref,$start,$stop,$class,$name,$id);
-  return $features;
+  if (my $name = $args->{-search_term}) {
+      my ($ref,$start,$stop,$class,$id) = $self->parse_feature_name($name);
+      return $self->lookup_features($ref,$start,$stop,$class,$name,$id);
+  }
+  else {
+      my @features = $self->db->features(%$args);
+      return wantarray ? @features : \@features;
+  }
 }
 
 sub lookup_features {
@@ -368,8 +382,9 @@ Given a detail segment, return the whole seq_id that contains it
 sub whole_segment {
     my $self    = shift;
     my $segment = shift || $self->seg;
+    return unless $segment;
     my $db      = $segment->factory;
-    my $class   = eval {$segment->seq_id->class} || eval{$db->refclass};
+    my $class   = eval {$segment->seq_id->class} || eval{$db->refclass} || 'Sequence';
     my ($whole) = $db->segment(-class=>$class,
 			       -name=>$segment->seq_id);
     return $whole;
@@ -388,10 +403,8 @@ sub region_segment {
     my $segment  = shift || $self->seg;
     my $settings = shift;
     my $whole    = shift;
-    $whole     ||= $self->whole_segment($segment) or return;
 
-    my $db       = $whole->factory;
-    my $class    = eval {$segment->seq_id->class} || eval{$db->refclass};
+    $whole     ||= $self->whole_segment($segment) or return;
 
     my $regionview_length = $settings->{region_size};
     my $detail_start      = $segment->start;
@@ -408,6 +421,10 @@ sub region_segment {
     my $regionview_start = int($midpoint - $regionview_length/2 + 1);
     my $regionview_end = int($midpoint + $regionview_length/2);
 
+    if ($regionview_length > $whole->length) {
+	$regionview_length = $whole->length;
+    }
+
     if ($regionview_start < $whole_start) {
 	$regionview_start = 1;
 	$regionview_end   = $regionview_length;
@@ -418,10 +435,16 @@ sub region_segment {
 	$regionview_end   = $whole_end;
     }
 
-    my ($region_segment) = $db->segment(-class => $class,
-					-name  => $segment->seq_id,
-					-start => $regionview_start,
-					-end   => $regionview_end);
+    my $db       = eval {$segment->factory};
+    my $class    = eval {$segment->seq_id->class} || eval{$db->refclass};
+
+    my ($region_segment) = $db ? $db->segment(-class => $class,
+					      -name  => $segment->seq_id,
+					      -start => $regionview_start,
+					      -end   => $regionview_end)
+                              :Bio::Graphics::Feature->new(-name  => $segment->seq_id,
+							   -start => $regionview_start,
+							   -end   => $regionview_end);
     return $region_segment;
 }
 

@@ -11,7 +11,7 @@ use File::Path 'rmtree','mkpath';
 use File::Temp 'tempdir';
 use File::Spec;
 use IO::File;
-use GuessDirectories;
+use GBrowseGuessDirectories;
 
 my @OK_PROPS = (conf          => 'Directory for GBrowse\'s config and support files?',
 		htdocs        => 'Directory for GBrowse\'s static images & HTML files?',
@@ -20,9 +20,13 @@ my @OK_PROPS = (conf          => 'Directory for GBrowse\'s config and support fi
 		cgibin        => 'Apache CGI scripts directory?',
 		portdemo      => 'Internet port to run demo web site on (for demo)?',
 		apachemodules => 'Apache loadable module directory (for demo)?',
-		wwwuser       => 'User account under which Apache daemon runs?');
+		wwwuser       => 'User account under which Apache daemon runs?',
+		installconf   => 'Automatically update Apache config files to run GBrowse?',
+    );
 my %OK_PROPS = @OK_PROPS;
 
+# TO FIX: this contains much of the same code as in the non-demo build
+# and should be refactored.
 sub ACTION_demo {
     my $self = shift;
     $self->depends_on('config_data');
@@ -34,22 +38,63 @@ sub ACTION_demo {
 	CLEANUP=>0,
 	);
     my $port = $self->config_data('portdemo') 
-	|| GuessDirectories->portdemo();
+	|| GBrowseGuessDirectories->portdemo();
     my $modules = $self->config_data('apachemodules')
-	|| GuessDirectories->apachemodules;
+	|| GBrowseGuessDirectories->apachemodules;
 
     mkdir "$dir/conf";
+    mkdir "$dir/htdocs";
     mkdir "$dir/logs";
     mkdir "$dir/locks";
-    rmtree(["$home/htdocs/tmp"]);
+    mkdir "$dir/tmp";
 
+    # make copies of htdocs and conf
+    open my $saveout,">&STDOUT";
+    open STDOUT,">/dev/null";
+
+    my $f    = IO::File->new('MANIFEST');
+    while (<$f>) {
+	chomp;
+	if (m!^(conf|htdocs|cgi-bin)!) {
+	    $self->copy_if_modified($_ => $dir);
+	} elsif (m!^sample_data!) {
+	    my ($subdir) = m!^sample_data/([^/]+)/!;
+	    $self->copy_if_modified(from    => $_,
+				    to_dir  => "$dir/htdocs/databases/$subdir",
+				    flatten => 1,
+		);
+	}
+    }
+    close $f;
+    open STDOUT,"<&",$saveout;
+
+    # fix GBrowse.conf to point to correct directories
+    for my $f ('GBrowse.conf',
+	       'yeast_simple.conf',
+	       'yeast_chr1+2.conf',
+	       'yeast_renderfarm.conf') {
+	my $in  = IO::File->new("$dir/conf/$f")         or die $!;
+	my $out = IO::File->new("$dir/conf/$f.new",'>') or die $!;
+	while (<$in>) {
+	    s!\$CONF!$dir/conf!g;
+	    s!\$HTDOCS!$dir/htdocs!g;
+	    s!\$DATABASES!$dir/htdocs/databases!g;
+	    s!\$TMP!$dir/tmp!g;
+	    s!\$VERSION!$self->dist_version!eg;
+	    s!^url_base\s*=.+!url_base               = /!g;
+	    $out->print($_);
+	}
+	close $out;
+	rename "$dir/conf/$f.new","$dir/conf/$f";
+    }
+    
     my $conf_data = $self->httpd_conf($dir,$port);
     my $conf = IO::File->new("$dir/conf/httpd.conf",'>')
 	or die "$dir/conf/httpd.conf: $!";
     $conf->print($conf_data);
     $conf->close;
 
-    $conf_data = $self->gbrowse_conf($port,$home);
+    $conf_data = $self->gbrowse_demo_conf($port,$dir);
     $conf = IO::File->new("$dir/conf/apache_gbrowse.conf",'>') 
 	or die "$dir/conf/apache_gbrowse.conf: $!";
     $conf->print($conf_data);
@@ -61,20 +106,19 @@ sub ACTION_demo {
     $mime->print($conf_data);
     $mime->close;
 
-    my $apache =  -x '/usr/sbin/httpd'   ? '/usr/sbin/httpd'
-	        : -x '/usr/sbin/apache2' ? '/usr/sbin/apache2'
-                : -x '/usr/sbin/apache'  ? '/usr/sbin/apache'
-                : 'not found';
-    if ($apache eq 'not found') {
-	die "Could not find apache executable on this system. Can't run demo";
-    }
+    my $apache =  GBrowseGuessDirectories->apache
+	or die "Could not find apache executable on this system. Can't run demo";
+
+    print STDERR "Starting apache....\n";
     system "$apache -k start -f $dir/conf/httpd.conf";
+    sleep 3;
     if (-e "$dir/logs/apache2.pid") {
+	print STDERR "Demo config and log files have been written to $dir\n";
 	print STDERR "Demo is now running on http://localhost:$port\n";
 	print STDERR "Run \"./Build demostop\" to stop it.\n";
 	$self->config_data(demodir=>$dir);
     } else {
-	print STDERR "Apache failed to start.\n";
+	print STDERR "Apache failed to start. Perhaps the demo is already running?\n";
 	if (-e "$dir/logs/error.log") {
 	    print STDERR "==Apache Error Log==\n";
 	    my $f = IO::File->new("$dir/logs/error.log");
@@ -92,7 +136,10 @@ sub ACTION_demostop {
 	print STDERR "Demo doesn't seem to be running.\n";
 	return;
     }
-    system "apache2 -k stop -f $dir/conf/httpd.conf";
+    my $apache =  GBrowseGuessDirectories->apache
+	or die "Could not find apache executable on this system. Can't stop demo";
+
+    system "$apache -k stop -f $dir/conf/httpd.conf";
     rmtree([$dir,"$home/htdocs/tmp"]);
     $self->config_data('demodir'=>undef);
     print STDERR "Demo stopped.\n";
@@ -159,7 +206,7 @@ sub ACTION_config {
 	# next if $self->config_data($key);
 	$opts{$key} = prompt($props->{$key},
 			     $opts{$key} ||
-			     GuessDirectories->$key($opts{apache}));
+			     GBrowseGuessDirectories->$key($opts{apache}));
 	if ($props->{$key} =~ /directory/i) {
 	    my ($volume,$dir) = File::Spec->splitdir($opts{$key});
 	    my $top_level     = File::Spec->catfile($volume,$dir);
@@ -185,35 +232,39 @@ sub ACTION_config_data {
     $self->SUPER::ACTION_config_data;
 }
 
-#sub ACTION_apache_conf {
-#    my $self = shift;
-#    $self->depends_on('config');
-#
-#    my $docs   = basename($self->config_data('htdocs'));
-#    print STDERR <<END;
-#
-#INSTRUCTIONS: Paste the following into your Apache configuration
-#file. You may wish to save it separately and include it using the
-#Apache "Include /path/to/file" directive. Then restart Apache and
-#point your browser to http://your.site/$docs/ to start browsing the
-#sample genomes.
-#
-#>>>>>> cut here <<<<<
-#END
-#;
-#    print $self->apache_conf;
-#}
+sub ACTION_apache_conf {
+    my $self = shift;
+    $self->depends_on('config');
+
+    my $docs   = basename($self->config_data('htdocs'));
+    print STDERR <<END;
+
+INSTRUCTIONS: Paste the following into your Apache configuration
+file. You may wish to save it separately and include it using the
+Apache "Include /path/to/file" directive. Then restart Apache and
+point your browser to http://your.site/$docs/ to start browsing the
+sample genomes.
+
+>>>>>> cut here <<<<<
+END
+;
+    print $self->apache_conf;
+}
 
 sub apache_conf {
     my $self = shift;
-    my $dir    = $self->config_data('htdocs');
-    my $conf   = $self->config_data('conf');
-    my $cgibin = $self->config_data('cgibin');
-    my $tmp    = $self->config_data('tmp');
-    my $cgiroot= basename($cgibin);
-    my $docs   = basename($dir);
-    my $inc    = $self->added_to_INC;
-    $inc      .= "\n  " if $inc;
+    my $dir     = $self->config_data('htdocs');
+    my $conf    = $self->config_data('conf');
+    my $cgibin  = $self->config_data('cgibin');
+    my $tmp     = $self->config_data('tmp');
+    my $cgiroot = basename($cgibin);
+    my $docs    = basename($dir);
+    my $perl5lib= $self->added_to_INC;
+    my $inc     = $perl5lib ? "SetEnv PERL5LIB \"$perl5lib\"" : '';
+    my $fcgi_inc= $perl5lib ? "-initial-env PERL5LIB=$perl5lib"        : '';
+    my $modperl_switches = $perl5lib
+	? "PerlSwitches ".join ' ',map{"-I$_"} split ':',$perl5lib
+        : '';
 
     return <<END;
 Alias        "/$docs/i/" "$tmp/images/"
@@ -225,8 +276,28 @@ ScriptAlias  "/gb2"      "$cgibin/gb2"
 </Directory>
 
 <Directory "$cgibin/gb2">
-  ${inc}SetEnv GBROWSE_CONF   "$conf"
+  ${inc}
+  SetEnv GBROWSE_CONF   "$conf"
 </Directory>
+
+
+<IfModule mod_fastcgi.c>
+  Alias /fgb2 "$cgibin/gb2"
+  <Location /fgb2>
+    SetHandler   fastcgi-script
+  </Location>
+  FastCgiConfig $fcgi_inc -initial-env GBROWSE_CONF=$conf
+</IfModule>
+
+<IfModule mod_perl.c>
+   Alias /mgb2 "$cgibin/gb2"
+   $modperl_switches
+   <Location /mgb2>
+     SetHandler perl-script
+     PerlResponseHandler ModPerl::Registry
+     PerlOptions +ParseHeaders
+   </Location>
+</IfModule>
 END
 }
 
@@ -235,18 +306,18 @@ sub ACTION_install {
     $self->depends_on('config_data');
     $self->install_path->{conf} 
         ||= $self->config_data('conf')
-	    || GuessDirectories->conf;
+	    || GBrowseGuessDirectories->conf;
     $self->install_path->{htdocs}
         ||= $self->config_data('htdocs')
-	    || GuessDirectories->htdocs;
+	    || GBrowseGuessDirectories->htdocs;
     $self->install_path->{'cgi-bin'} 
         ||= $self->config_data('cgibin')
-	    || GuessDirectories->cgibin;
+	    || GBrowseGuessDirectories->cgibin;
     $self->install_path->{'etc'} 
-        ||= File::Spec->catfile($self->prefix||'',GuessDirectories->etc);
+        ||= File::Spec->catfile($self->prefix||'',GBrowseGuessDirectories->etc);
     $self->install_path->{'database'} 
         ||= $self->config_data('database')
-	    || GuessDirectories->databases;
+	    || GBrowseGuessDirectories->databases;
     
     # there's got to be a better way to avoid overwriting the config file
     my $old_conf = File::Spec->catfile($self->install_path->{conf},'GBrowse.conf');
@@ -265,10 +336,10 @@ sub ACTION_install {
 	rename "$old_conf.orig",$old_conf;
     }
 
-    my $user = $self->config_data('wwwuser') || GuessDirectories->wwwuser;
+    my $user = $self->config_data('wwwuser') || GBrowseGuessDirectories->wwwuser;
 
     # fix some directories so that www user can write into them
-    my $tmp = $self->config_data('tmp') || GuessDirectories->tmp;
+    my $tmp = $self->config_data('tmp') || GBrowseGuessDirectories->tmp;
     mkdir $tmp;
     my ($uid,$gid) = (getpwnam($user))[2,3];
 
@@ -304,7 +375,7 @@ sub ACTION_install {
 sub ACTION_install_slave {
     my $self = shift;
     $self->install_path->{'etc'} 
-        ||= File::Spec->catfile($self->prefix||'',GuessDirectories->etc);
+        ||= File::Spec->catfile($self->prefix||'',GBrowseGuessDirectories->etc);
     $self->SUPER::ACTION_install();
 }
 
@@ -379,18 +450,22 @@ sub process_etc_files {
 	    or !$self->up_to_date('_build/config_data',"blib/$_");
     }
     # generate the apache config data
-    my $includes = GuessDirectories->apache_includes || '';
-#    my $target   = "blib${includes}/gbrowse2.conf";
-#    if ($includes && !$self->up_to_date('_build/config_data',$target)) {
-#	warn "Creating include file for Apache config: $target\n";
-#	my $dir = dirname($target);
-#	mkpath([$dir]);
-#	if (my $f = IO::File->new("blib${includes}/gbrowse2.conf",'>')) {
-#	    $f->print($self->apache_conf);
-#	    $f->close;
-#	}
-#
-#    }
+    my $includes = GBrowseGuessDirectories->apache_includes || '';
+    my $target   = "blib${includes}/gbrowse2.conf";
+    if ($includes && !$self->up_to_date('_build/config_data',$target)) {
+	if ($self->config_data('installconf') =~ /^[yY]/) {
+	    warn "Creating include file for Apache config: $target\n";
+	    my $dir = dirname($target);
+	    mkpath([$dir]);
+	    if (my $f = IO::File->new("blib${includes}/gbrowse2.conf",'>')) {
+		$f->print($self->apache_conf);
+		$f->close;
+	    }
+	} else {
+	    warn "Not updating Apache config automatically. Please run ./Build apache_conf to see the recommended directives.\n";
+	}
+
+    }
 }
 
 sub process_database_files {
@@ -433,6 +508,7 @@ sub substitute_in_place {
 	s/\$CGIBIN/$cgibin/g;
 	s/\$WWWUSER/$wwwuser/g;
 	s/\$DATABASES/$databases/g;
+	s/\$VERSION/$self->dist_version/eg;
 	s/\$TMP/$tmp/g;
 	$out->print($_);
     }
@@ -456,7 +532,10 @@ sub httpd_conf {
     my ($dir,$port) = @_;
 
     my $modules = $self->config_data('apachemodules')
-	|| GuessDirectories->apachemodules;
+	|| GBrowseGuessDirectories->apachemodules;
+
+    my $user    = $>;
+    my ($group) = $) =~ /^(\d+)/;
 
     return <<END;
 ServerName           "localhost"
@@ -467,6 +546,8 @@ ErrorLog             "$dir/logs/error.log"
 LogFormat            "%h %l %u %t \\"%r\\" %>s %b" common
 CustomLog            "$dir/logs/access.log"      common
 LogLevel             warn
+User                 #$user
+Group                #$group
 
 Timeout              300
 KeepAlive            On
@@ -514,16 +595,19 @@ Include "$dir/conf/apache_gbrowse.conf"
 END
 }
 
-sub gbrowse_conf {
+sub gbrowse_demo_conf {
     my $self = shift;
     my ($port,$dir) = @_;
-    my $inc         = $self->added_to_INC;
-    $inc           .= "\n" if $inc;
+    my $inc  = "$dir/blib/lib:$dir/blib/arch:$dir/lib";
+    my $more = $self->added_to_INC;
+    $inc    .= ":$more" if $more;
 
     return <<END;
 NameVirtualHost *:$port
 <VirtualHost *:$port>
 	ServerAdmin webmaster\@localhost
+	Alias        "/i/"       "$dir/tmp/images/"
+	ScriptAlias  "/cgi-bin/" "$dir/cgi-bin/"
 	
 	DocumentRoot $dir/htdocs/
 	<Directory />
@@ -537,14 +621,13 @@ NameVirtualHost *:$port
 		allow from all
 	</Directory>
 
-	ScriptAlias /cgi-bin/ $dir/cgi-bin/
 	<Directory "$dir/cgi-bin/">
-		SetEnv PERL5LIB $dir/blib/lib:$dir/blib/arch:$dir/lib
+		SetEnv PERL5LIB $inc
 		SetEnv GBROWSE_MASTER GBrowse.conf
                 SetEnv GBROWSE_CONF   $dir/conf
                 SetEnv GBROWSE_DOCS   $dir/htdocs
                 SetEnv GBROWSE_ROOT   /
-		${inc}AllowOverride None
+		AllowOverride None
 		Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
 		Order allow,deny
 		Allow from all
@@ -576,9 +659,7 @@ sub config_done {
 sub added_to_INC {
     my $self = shift;
     my @inc    = grep {!/install_util/} eval {$self->_added_to_INC};  # not in published API
-    return @inc ? 'SetEnv PERL5LIB '.
-	          join(':',@inc)
-		: '';
+    return @inc ? join(':',@inc) : '';
 }
 
 sub perl5lib {
@@ -597,51 +678,6 @@ sub scriptdir {
 		   :'installsitebin';
     return $Config::Config{$scriptdir};
 }
-
-# sub biographics_needs_patch  {
-#     my $self = shift;
-#     eval "require Bio::Graphics::Panel; 1"   or return 1;
-#     my $version = eval {Bio::Graphics::Panel->api_version} || 0;
-#     return $version < 1.8;
-# }
-
-# sub biodbseqfeature_needs_patch  {
-#     my $self = shift;
-#     eval "require Bio::DB::SeqFeature::Store; 1"   or return 1;
-#     my $version = eval {Bio::DB::SeqFeature::Store->api_version} || 0;
-#     return $version < 1.2;
-# }
-
-
-# sub patch_biographics {
-#     my $self   = shift;
-#     $self->config(patch_biographics=>1);
-# }
-
-# sub patch_biodbseqfeature {
-#     my $self = shift;
-#     $self->config(patch_biodbseqfeature=>1);
-# }
-
-# sub find_pm_files {
-#     my $self = shift;
-#     my %results  = %{$self->_find_file_by_type('pm','lib')};
-
-#     my @extra_libs;
-#     push @extra_libs,'extras/biographics'     
-# 	if $self->biographics_needs_patch || $ENV{GBROWSE_DEBIAN_BUILD};
-#     push @extra_libs,'extras/biodbseqfeature' 
-# 	if $self->biodbseqfeature_needs_patch || $ENV{GBROWSE_DEBIAN_BUILD};
-
-#     for my $l (@extra_libs) {
-# 	my $r = $self->_find_file_by_type('pm',$l);
-# 	for my $k (keys %$r) {
-# 	    $r->{$k} =~ s!$l/!lib/!;
-# 	}
-# 	%results = (%results,%$r);
-#     }
-#     return \%results;
-# }
 
 1;
 

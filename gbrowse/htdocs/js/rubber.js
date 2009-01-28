@@ -3,7 +3,7 @@
  rubber.js -- a base class for drag/rubber-band selection in gbrowse
 
  Sheldon McKay <mckays@cshl.edu>
- $Id: rubber.js,v 1.9 2008/09/30 11:34:54 mwz444 Exp $
+ $Id: rubber.js,v 1.10 2008/11/07 16:18:08 lstein Exp $
 
 */
 
@@ -161,6 +161,7 @@ SelectArea.prototype.startRubber = function(self,event) {
   self.disableSelection(self.selectLayer);
 
   self.selectPixelStart = self.eventLocation(event,'x');
+
   YAHOO.util.Dom.setStyle(self.selectBox,'visibility','hidden');
   YAHOO.util.Dom.setStyle(self.selectBox,'left',self.selectPixelStart+'px');
   YAHOO.util.Dom.setStyle(self.selectBox,'width','2px');
