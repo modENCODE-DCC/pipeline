@@ -86,10 +86,12 @@
     animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
     antibodies = ["antibody"]
     arrays = ["ADF", "array_data_file", "array"]
+    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA" ]
 
     animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
     antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
     array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
+    sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
   %>
   <% if animal_reagents.size > 0 then %>
     <li>
@@ -137,6 +139,27 @@
     <li>
       <b>Arrays:</b>
       <%= array_reagents.sort { |t1, t2| t1.value <=> t2.value }.map { |tag| 
+        name = tag.value 
+        url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
+
+        short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+        if url_tag then
+          link_to short_name, "#{url_tag.value}#{name}"
+        elsif name =~ /^[A-Z]\w+:/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
+          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+        else
+          short_name
+        end
+      }.uniq.join(", ") %>
+    </li>
+  <% end %>
+  <% if sample_reagents.size > 0 then %>
+    <li>
+      <b>Samples:</b>
+      <%= sample_reagents.sort { |t1, t2| t1.value <=> t2.value }.map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
