@@ -1490,9 +1490,9 @@ private
     old_tracks.each { |track_name, values|
       (tracktype, details) = values["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
       (tracknum, projnum) = track_name.match(/_(\d+)_(\d+)$/)[1].to_i
-      new_track_name = track_name.sub(/_#{tracknum}_/, "_#{tracknum+diff}_").sub(/_#{old_project_id}$/, "_#{new_project_id}")
+      new_track_name = "_#{tracknum+diff}_#{new_project_id}"
 
-      (tn, vs) = new_tracks.find { |t| t[0] == new_track_name }
+      (tn, vs) = new_tracks.find { |t| t[0].match(/#{new_track_name}$/) }
       (tracktp, deets) = vs["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
 
       if !(tracktype == tracktp && details == deets) then
