@@ -1,0 +1,14 @@
+<% @citations.each do |citation, tracks| %>
+  For the track<%= "s" if tracks.size > 1 %>:<br/>
+  <div style="margin-left: 15px">
+    <% tracks.each do |track| %>
+      <b>[<%= track[0] %>]</b> (Download file(s) <%= link_to track[1], :action => :download, :id => @project.id, :root => :tracks, :highlight => track[1] %>.)<br/>
+    <% end %>
+  </div>
+  <br/>
+  The citation is:<br/>
+  <div style="width: 700px; margin-left: 15px; border: thin dashed black; padding: 5px;">
+    <%= citation %>
+  </div>
+  <hr style="width:800px; height: 5px; background-color: grey" align="left"/>
+<% end %>
