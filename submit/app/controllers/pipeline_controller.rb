@@ -1499,7 +1499,7 @@ private
       (tracktp, deets) = vs["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
 
       if !(tracktype == tracktp && details == deets) then
-        return "Can't deal with mismatched types #{tracktype}#{details} != #{tracktp}#{deets}"
+        return "Cannot deal with mismatched types #{tracktype}#{details} != #{tracktp}#{deets}"
       end
 
 
@@ -1510,6 +1510,8 @@ private
       copy_of_old["citation"] = vs["citation"] # Keep new citation schema name
 
       old_zoom_level = copy_of_old[:semantic_zoom]
+
+      copy_of_old[:semantic_zoom] = Hash.new if !vs[:semantic_zoom].values.first
 
       if copy_of_old[:semantic_zoom].values.first then
         copy_of_old[:semantic_zoom].values.first["feature"] = vs[:semantic_zoom].values.first["feature"] # Keep new feature type and num
