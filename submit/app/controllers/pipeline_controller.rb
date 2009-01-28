@@ -1499,11 +1499,22 @@ private
         return "Can't deal with mismatched types #{tracktype}#{details} != #{tracktp}#{deets}"
       end
 
+
       copy_of_old = Marshal.restore(Marshal.dump(values))
       copy_of_old["feature"] = vs["feature"] # Keep new feature type and num
       copy_of_old["key"] = vs["key"] # Keep new key name
       copy_of_old["database"] = vs["database"] # Keep new database schema name
       copy_of_old["citation"] = vs["citation"] # Keep new citation schema name
+
+      old_zoom_level = copy_of_old[:semantic_zoom]
+
+      if copy_of_old[:semantic_zoom].values.first then
+        copy_of_old[:semantic_zoom].values.first["feature"] = vs[:semantic_zoom].values.first["feature"] # Keep new feature type and num
+        copy_of_old[:semantic_zoom].values.first["key"] = vs[:semantic_zoom].values.first["key"] # Keep new key name
+        copy_of_old[:semantic_zoom].values.first["database"] = vs[:semantic_zoom].values.first["database"] # Keep new database schema name
+        copy_of_old[:semantic_zoom].values.first["citation"] = vs[:semantic_zoom].values.first["citation"] # Keep new citation schema name
+        copy_of_old[:semantic_zoom].values.first.reject! { |k, v| v == nil }
+      end
 
       newstanza[tn] = copy_of_old
     }
