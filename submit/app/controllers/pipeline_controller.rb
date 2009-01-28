@@ -79,6 +79,9 @@ class PipelineController < ApplicationController
           :get_gbrowse_config
         ]
 
+  def citation
+    action_not_found
+  end
   def edit
     begin
       @project = Project.find(params[:id])
