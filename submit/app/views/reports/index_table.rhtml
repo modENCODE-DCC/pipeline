@@ -1,0 +1,389 @@
+<div id="testing">
+<center>
+<h1>modENCODE DCC Statistics-table format</h1>
+<p>
+This page provides an overview of all the modENCODE project submissions in a tabular format.</p>
+</center>
+<br />
+<div id="active_submissions">
+<hr />
+<h2 align=center>modENCODE-wide Data Submission Overview</h2>
+<br />
+<table>
+    <%    
+      data_hash = Hash.new{|k,v| k[v] = []} 
+      @all_active_by_status.sort.each{|stati,dist| dist.sort.map{|k,v| data_hash[k] += [v]}} 
+      legend = @all_active_by_status.map{|status,d| status}.sort
+
+      data_hash2 = Hash.new{|k,v| k[v] = []} 
+      temp = []
+      for i in 0..@all_active_by_status.length-1
+        temp += [@all_active_by_status.find{|k,v| k==@active_status[i] }] unless nil
+      end
+      temp.each{|stati,dist| dist.sort.map{|k,v| data_hash2[k] += [v]}} 
+      legend2 = @active_status
+      totals_hash = Hash.new{|status,v| status[v] = 0}
+      temp.each{|stati,dist| dist.map{|pi,v| totals_hash[stati] += v}}
+      active_sum = 0
+      totals_hash.map{|s,v| active_sum+=v}
+      color2=["ff0000","ff9900","ffff00","00cc00","00ccff","0033ff","9999ff","9900cc","cc0099","660066","666666"]
+    %>
+<tr valign="top"><td align="center">
+    <%= google_stacked_vert_bar_chart([], :data => data_hash2.sort, :title => "Distribution of Active Submissions|as of #{Time.now.strftime("%b %d %Y")}", :width => 600, :height => 350, :legend => legend2, :color => color2.join(","),  :chbh => "35,30,20", :show_legend => true, :align => "center") %>
+</td>
+<td style="vertical-align: middle;" >
+  <table class="summary_stats">
+    <tr class="header">
+      <th class='header' style='width: 15px;'>&nbsp;</th><th class='header'>project PI</th><%= @active_status.map{|s| "<th class='header'>#{s}</th>"}.join("") %><th class='header'>Total</th> 
+    </tr>
+      <%#= data_hash2.sort.map{|pi,status| "<tr class='content20'><td style='background-color: ##{color2[data_hash2.sort.map{|k,v| k}.index(pi)]}; width: 5px; '>&nbsp;</td><td class='content'><b>#{pi}</b></th>"+(status.map{|v| "<td class='content2'>#{v}</td>"}.join("\n"))+"<td class='content2'><b>#{status.sum}</b></td>"+"</tr>"}.join("\n") %>
+      <%= data_hash2.sort.map{|pi,status| "<tr class='#{pi}'><th style= width: 5px; '>&nbsp;</th><td><b>#{pi}</b></th>"+(status.map{|v| "<td class='content2'>"+(v>0 ? "#{v}":"-")+"</td>"}.join("\n"))+"<td class='content2'><b>#{status.sum}</b></td>"+"</tr>"}.join("\n") %>
+    <tr class="footer">
+      <td>&nbsp;</td><td><b>Totals</b></td><%= legend2.map{|s| "<td class='content2'><b>#{totals_hash[s]}</b></td>"}.join("")%><td class='content2'><b><%="#{active_sum}"%></b></td>
+    </tr>
+  </table>
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<p class="caption">
+<b>Currently active modENCODE submissions, binned by status.</b> This represents the distribution of data validation status for each submission made to the DCC that has yet to be released, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.  
+Progression from "New" to "Released" is from left to right.
+Numbers above the bars depict the total number of submissions currently at that status.  
+Numbers in parentheses indicate the total active submissions for that particular project PI.  
+"n" value in the title represents the sum of all active projects for all PIs.  
+</p>
+</td>
+</tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%    
+      data_hash = Hash.new{|k,v| k[v] = []} 
+      @all_projects_by_pi.sort.each{|pi,stati| stati.map{|k,v| data_hash[k] += [v]}} 
+      legend = @all_projects_by_pi.sort.map{|pi,stati| pi}
+      color = ["cccccc","00cc00"]
+    %>
+
+<%= google_stacked_vert_bar_chart([], :title => "Distribution of Submissions by Project PI|as of #{Time.now.strftime("%b %d %Y")}", :color =>color.join(","), :chxt => "x,y", :width => 650, :min => 0, :data => data_hash, :legend => legend, :show_legend => true, :align => "right" ) %>
+</td>
+<td style="vertical-align: middle;" >
+  <table class="summary_stats">
+    <tr class="header">
+      <th>&nbsp;</th><th>&nbsp;</th><%= legend.map{|pi| "<th class='header'>#{pi}</th>"}.join("") %><th class='header'>Totals</th> 
+    </tr>
+      <%#= data_hash.sort.map{|s,v| "<tr class='content' style='background-color: ##{opague_color[data_hash.sort.map{|k,v| k}.index(s)]};'>"+"<td class='content'><b>#{s}</b>"+v.map{|val| "<td class='content2'>#{val}</td>"}.join("\n")+"<td class='content2'><b>#{v.sum}</b></td></tr>" } %>
+      <%= data_hash.sort.map{|s,v| "<tr class='#{s}'>"+"<th>&nbsp</th><td class='content'><b>#{s}</b>"+v.map{|val| "<td class='content2'>#{val}</td>"}.join("\n")+"<td class='content2'><b>#{v.sum}</b></td></tr>" } %>
+    <tr class="footer">
+      <td>&nbsp;</td><td class='content'><b>Totals</b></td><%= legend.map{|s| "<td class='content2'><b>#{@all_projects_by_pi[s].sum{|k,v| v}}</b></td>"}.join("")%><td class='content2'><b><%="#{data_hash.map{|s,v| v.sum}.sum}"%></b></td>
+    </tr>
+  </table>
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<p class="caption">
+<b>Distribution of modENCODE submissions, binned by Project PI.</b> This represents the cumulative distribution of submissions made to the DCC (both active and released), by PI, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of submissions by that particular project.  
+Numbers in parentheses indicate the total for that particular status (active, released).  
+"n" value in the title represents the sum of all active and released projects.  
+</p> 
+</td>
+</tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%
+      data_hash = Hash.new{|k,v| k[v] = []}
+      @all_new_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
+}}
+      legend = @all_new_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
+
+    %>
+
+
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066,666666", :show_legend => true) %>
+</td>
+<td>
+<p class="caption">
+<b>Submissions initiated to modENCODE DCC, binned by Quarter**.</b> This represents the distribution of submissions initiated to the DCC, regardless of current status, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of submissions for all PIs for that quarter.  
+Numbers in parentheses indicate the total for that particular project PI.  
+"n" value in the title represents the sum of all initiated submissions.  
+<i>Individual quarters are broken down by project PI in the "New Submissions per quarter", below.</i>
+</p>
+</td></tr>
+<tr><td>&nbsp</td><td>&nbsp</td></tr>
+<tr><td align="center">
+    <%
+      data_hash = Hash.new{|k,v| k[v] = []}
+      @all_released_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
+}}
+      legend = @all_released_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
+
+    %>
+
+
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 400, :legend => legend, :color =>"cc0000,ff9900,ffff00,00cc00,00ccff,0033ff,9999ff,9900cc,cc0099,660066,666666", :show_legend => true) %>
+</td>
+<td>
+<p class="caption">
+<b>Submissions released by modENCODE DCC, binned by Quarter**.</b> This represents the distribution of submissions released by the modENCODE DCC to GBrowse, modMINE, and worm/flybase, binned by quarter.  Current quarter stats are as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
+Numbers above the bars depict the total number of released submissions for all PIs for that quarter.  
+Numbers in parentheses indicate the total for that particular project PI.  
+"n" value in the title represents the sum of all released submissions.  
+<i>Individual quarters are broken down by project PI in the "Released Submissions per quarter", below.</i>
+</p>
+</td></tr>
+</table>
+</div>
+
+<div>
+<br />
+    <hr />
+<br/>
+    <h2 align="center">Overview of modENCODE New Submissions per quarter**</h2>
+<p>Each chart represents the total number of data submissions initiated per modENCODE project PI for the given quarter.
+Numbers above the bars depict the total number of new submissions by that particular project PI.
+"n" value in the title represents the sum of new submissions for the given quarter for all projects.  
+<% missing_quarters = @all_new_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
+<% if (missing_quarters.length > 0) %>
+     <i>There were no New Submissions during the following quarters: <%= missing_quarters.join(', ') %></i>
+   <%end%>
+</p> 
+    <%       legend = @all_new_projects_per_group_per_quarter.first[1].map{|p,d| p}.sort %>
+<center>    
+<%= @all_new_projects_per_group_per_quarter.sort.each { |h| }.map{|q,p|
+    google_vert_bar_chart([], :data => p.sort,
+      :title => "modENCODE Submissions Initiated in #{q}", :width => 535, :color => "660066")+"<br />" unless p.map{|pi,n| n}.sum ==0 } %></center>
+<br />
+
+</div>
+
+<div>
+<br />
+    <hr />
+<br />
+    <h2 align="center">Overview of modENCODE Released Submissions per quarter**</h2>
+<p>Each chart represents the total number of data submissions released per modENCODE project PI for the given quarter.
+Numbers above the bars depict the total number of released submissions by that particular project PI.
+"n" value in the title represents the sum of released submissions for the given quarter for all projects.
+<% missing_quarters = @all_released_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
+
+<% if (missing_quarters.length > 0) %>
+     <i>There were no Released Submissions during the following quarters: <%= missing_quarters.join(', ') %></i>
+   <%end%>
+
+</p>
+    <%       legend = @all_released_projects_per_group_per_quarter.first[1].map{|p,d| p}.sort %>
+<center>    <%= @all_released_projects_per_group_per_quarter.sort.each { |h| }.map{|q,p|
+    google_vert_bar_chart([], :data => p.sort,
+      :title => "modENCODE Submissions Released in #{q}", :width => 535, :color => "00cc00")+"<br />"  unless p.map{|pi,n| n}.sum ==0  } %></center>
+
+</div>
+
+
+
+<div>
+<br />
+    <hr />
+<br />
+    <h2 align="center">Overall Validation Statistics</h2>
+<center>
+<p>
+A few statistics* for the performance of different steps in the validation pipeline.  Times are calculated only for steps that "passed"  Times are given in days:hours:minutes:seconds format.
+</p>
+
+<% missing_quarters = @all_released_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
+<%
+   upload_commands = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
+   upload_fails = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
+   upload_scatter = Array.new
+   upload_commands.each{|cmd| upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
+   upload_times = upload_scatter.sort.map{|a| a[1].round}
+   upload_sum = upload_times.sum
+
+   validate_commands = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
+   validate_fails = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
+   validate_scatter = Array.new
+   validate_commands.each{|cmd| validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
+   validate_times = validate_scatter.sort.map{|a| a[1].round}
+   validate_sum = validate_times.sum
+
+   findtrack_fails = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
+   findtrack_commands = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
+   findtrack_scatter = Array.new
+   findtrack_commands.each{|cmd| findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
+   findtrack_times = findtrack_scatter.sort.map{|a| a[1].round}
+   findtrack_sum = findtrack_times.sum
+
+   load_fails =  (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Load::Status::LOADED}
+   load_commands = (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status==Load::Status::LOADED}
+   load_scatter = Array.new
+   load_commands.each{|cmd| load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
+   load_times = load_scatter.sort.map{|a| a[1].round}
+   load_sum = load_times.sum
+
+   #released_projects = Project.find_all_by_status(Project::Status::RELEASED)
+   #project_duration = Array.new
+   #released_projects.each{|p| project_duration.push [p.id, [(((Command.find_all_by_project_id(p.id)).find_all{|cmd| cmd.type==(Release.name)}).find{|cmd| cmd.status=="released"})].map{|c| (c.end_time-p.created_at) unless c.nil?}.first]}
+
+%>
+	<br />
+   <table class="summary_stats">
+   <tr class="header"><th>command</th><th>#passes</th><th>sum</th><th>min</th><th>max</th><th>mean</th><th>stdev</th><th>median</th><th>#fails</th><th style="text-align: left">Notes</th></tr>
+   <tr class="content"><td class="content">Validate</td>
+       <td class="content2"><%= "#{validate_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(validate_sum)}"%></td>
+       <td class="content"><%= if validate_times.min < 1 then "<1s" else "#{convert_time(validate_times.min)}" end %></td>
+       <td class="content"><%= "#{convert_time(validate_times.max)}"%> </td>
+       <td class="content"><%= "#{convert_time(validate_times.mean)}"%> </td>
+       <td class="content"><%= "#{convert_time(validate_times.stdev)}"%> </td>
+       <td class="content"><%= "#{convert_time(validate_times.median)}"%> </td>
+       <td class="content2"><%= "#{validate_fails.length}"%></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   <tr class="content"><td class="content">Uploads</td>
+       <td class="content2"><%= "#{upload_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(upload_sum)}"%></td>
+       <td class="content"><%= if upload_times.min < 1 then "< 1s" else "#{convert_time(upload_times.min)}" end %></td>
+       <td class="content"><%= "#{convert_time(upload_times.max)}"%> </td>
+       <td class="content"><%=  if upload_times.mean < 1 then "< 1s" else "#{convert_time(upload_times.mean)}" end %> </td>
+       <td class="content"><%=  if upload_times.stdev < 1 then "< 1s" else "#{convert_time(upload_times.stdev)}" end %> </td>
+       <td class="content"><%= if upload_times.median < 1 then "< 1s" else "#{convert_time(upload_times.median)}" end %> </td>
+       <td class="content2"><%= "#{upload_fails.length}"%></td>
+       <td class="notes" >via url:<%="#{upload_commands.find_all{|c| c.type==Upload::Url.name}.length}"%><br />via local file: <%="#{upload_commands.find_all{|c| c.type==Upload::File.name}.length}"%></td>
+   </tr>
+   <tr class="content"><td class="content">DB Load</td>
+       <td class="content2"><%= "#{load_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(load_sum)}"%></td>
+       <td class="content"><%= if load_times.min < 1 then "<1s" else "#{convert_time(load_times.min)}" end%></td>
+       <td class="content"><%= "#{convert_time(load_times.max)}"%> </td>
+       <td class="content"><%= "#{convert_time(load_times.mean)} "%></td>
+       <td class="content"><%= "#{convert_time(load_times.stdev)} "%></td>
+       <td class="content"><%= "#{convert_time(load_times.median)} "%></td>
+       <td class="content2"><%= "#{load_fails.length}"%></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   <tr class="content"><td class="content">Find Tracks</td>
+       <td class="content2"><%= "#{findtrack_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(findtrack_sum)}"%></td>
+       <td class="content"><%= if findtrack_times.min < 1 then "<1s" else "#{convert_time(findtrack_times.min)}" end%></td>
+       <td class="content"><%= "#{convert_time(findtrack_times.max)}"%> </td>
+       <td class="content"><%="#{convert_time(findtrack_times.mean)}"%></td>
+       <td class="content"><%="#{convert_time(findtrack_times.stdev)}"%></td>
+       <td class="content"><%="#{convert_time(findtrack_times.median)}"%></td>
+       <td class="content2"><%= "#{findtrack_fails.length}"%></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   </table>
+<p align="left">
+*Note that there are a few "runaway" processes that show extremely long durations.  We have not removed outliers from these statistics.  Probably the most informative number is the "median" value for average run times.
+</p>
+
+<%
+   #adjusted times by removing items beyond 3*stdevs
+   aj_upload_commands = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
+   aj_upload_fails = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
+   aj_upload_scatter = Array.new
+   aj_upload_commands.each{|cmd| aj_upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (upload_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   aj_upload_times = aj_upload_scatter.sort.map{|a| a[1].round}
+
+   aj_validate_commands = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
+   aj_validate_fails = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
+   aj_validate_scatter = Array.new
+   aj_validate_commands.each{|cmd| aj_validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (validate_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   aj_validate_times = aj_validate_scatter.sort.map{|a| a[1].round}
+
+   aj_findtrack_fails = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
+   aj_findtrack_commands = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
+   aj_findtrack_scatter = Array.new
+   aj_findtrack_commands.each{|cmd| aj_findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (findtrack_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   aj_findtrack_times = aj_findtrack_scatter.sort.map{|a| a[1].round}
+
+   aj_load_fails =  (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Load::Status::LOADED}
+   aj_load_commands = (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status==Load::Status::LOADED}
+   aj_load_scatter = Array.new
+   aj_load_commands.each{|cmd| aj_load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (load_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   aj_load_times = aj_load_scatter.sort.map{|a| a[1].round}
+
+%>
+<br />
+    <h2 align="center">Overall Validation Statistics (corrected)</h2>
+<p>
+A few statistics* for the performance of different steps in the validation pipeline.  Times are calculated only for steps that "passed"  Times are given in days:hours:minutes:seconds format.  Outliers (t>3*stdev) have been removed.
+</p>
+
+   <table class="summary_stats">
+   <tr class="header"><th>command</th><th>#passes</th><th>sum</th><th>min</th><th>max</th><th>mean</th><th>stdev</th><th>median</th><th>#fails</th><th>#outliers</th><th style="text-align: left">Notes</th></tr>
+   <tr class="content"><td class="content">Validate</td>
+       <td class="content2"><%= "#{aj_validate_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(aj_validate_times.sum)}"%></td>
+       <td class="content"><%= if aj_validate_times.min < 1 then "<1s" else "#{convert_time(aj_validate_times.min)}" end %></td>
+       <td class="content"><%= "#{convert_time(aj_validate_times.max)}"%> </td>
+       <td class="content"><%= "#{convert_time(aj_validate_times.mean)}"%> </td>
+       <td class="content"><%= "#{convert_time(aj_validate_times.stdev)}"%> </td>
+       <td class="content"><%= "#{convert_time(aj_validate_times.median)}"%> </td>
+       <td class="content2"><%= "#{aj_validate_fails.length}"%></td>
+       <td class="content2"><%= "#{validate_times.length - aj_validate_times.length}" %></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   <tr class="content"><td class="content">Uploads</td>
+       <td class="content2"><%= "#{aj_upload_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(aj_upload_times.sum)}"%></td>
+       <td class="content"><%= if aj_upload_times.min < 1 then "< 1s" else "#{convert_time(aj_upload_times.min)}" end %></td>
+       <td class="content"><%= "#{convert_time(aj_upload_times.max)}"%> </td>
+       <td class="content"><%=  if aj_upload_times.mean < 1 then "< 1s" else "#{convert_time(aj_upload_times.mean)}" end %> </td>
+       <td class="content"><%=  if aj_upload_times.stdev < 1 then "< 1s" else "#{convert_time(aj_upload_times.stdev)}" end %> </td>
+       <td class="content"><%= if aj_upload_times.median < 1 then "< 1s" else "#{convert_time(aj_upload_times.median)}" end %> </td>
+       <td class="content2"><%= "#{aj_upload_fails.length}"%></td>
+       <td class="content2"><%= "#{upload_times.length - aj_upload_times.length}" %></td>
+       <td class="notes" >via url:<%="#{upload_commands.find_all{|c| c.type==Upload::Url.name}.length}"%><br />via local file: <%="#{upload_commands.find_all{|c| c.type==Upload::File.name}.length}"%></td>
+   </tr>
+   <tr class="content"><td class="content">DB Load</td>
+       <td class="content2"><%= "#{aj_load_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(aj_load_times.sum)}"%></td>
+       <td class="content"><%= if load_times.min < 1 then "<1s" else "#{convert_time(aj_load_times.min)}" end%></td>
+       <td class="content"><%= "#{convert_time(aj_load_times.max)}"%> </td>
+       <td class="content"><%= "#{convert_time(aj_load_times.mean)} "%></td>
+       <td class="content"><%= "#{convert_time(aj_load_times.stdev)} "%></td>
+       <td class="content"><%= "#{convert_time(aj_load_times.median)} "%></td>
+       <td class="content2"><%= "#{aj_load_fails.length}"%></td>
+       <td class="content2"><%= "#{load_times.length - aj_load_times.length}" %></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   <tr class="content"><td class="content">Find Tracks</td>
+       <td class="content2"><%= "#{aj_findtrack_times.length}"%></td>
+       <td class="content"><%=  "#{convert_time(aj_findtrack_times.sum)}"%></td>
+       <td class="content"><%= if findtrack_times.min < 1 then "<1s" else "#{convert_time(aj_findtrack_times.min)}" end%></td>
+       <td class="content"><%= "#{convert_time(aj_findtrack_times.max)}"%> </td>
+       <td class="content"><%="#{convert_time(aj_findtrack_times.mean)}"%></td>
+       <td class="content"><%="#{convert_time(aj_findtrack_times.stdev)}"%></td>
+       <td class="content"><%="#{convert_time(aj_findtrack_times.median)}"%></td>
+       <td class="content2"><%= "#{aj_findtrack_fails.length}"%></td>
+       <td class="content2"><%= "#{findtrack_times.length - aj_findtrack_times.length}" %></td>
+       <td class="notes">&nbsp;</td>
+   </tr>
+   </table>
+
+<br />
+    <%#= google_scatter_plot([], :data => findtrack_times, :title => "FindTracks command duration|y-axis (s)", :width => 300, :height => 300, :align => "center", :max => "#{findtrack_times.max}") %>
+    <%#= google_scatter_plot([], :data => upload_times, :title => "Upload command duration|y-axis (s)", :width => 300, :height => 300, :align => "center", :max => "#{upload_times.max}") %>
+    <%#= google_scatter_plot([], :data => validate_times, :title => "Validate command duration|y-axis (s)", :width => 300, :height => 300, :align => "center", :max => "#{validate_times.max}") %>
+    <%#= google_scatter_plot([], :data => load_times, :title => "DB Load command duration|y-axis (s)", :width => 300, :height => 300, :align => "center", :max => "#{load_times.max}") %>
+
+    <%
+      bell_findtrack = [[1,5],[2,10],[3,4],[10,1],[200,5]]    
+    %>
+    <%#= google_scatter_plot_xy([], :data => bell_findtrack, :title => "FindTracks command duration (s) vs. frequency", :width => 300, :height =>300, :align => "center", :max => "#{findtrack_times.max}") %>
+
+
+<br />
+
+</center>
+</div>
+
+</div>
+<br />
+<br />
+
+**Quarters are defined as follows:<br />
+  <%= @quarters.sort.map{|k,v| "<b>#{k}</b>: #{v["start"]} - #{v["end"]}"}.join("<br />") %>
