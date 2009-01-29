@@ -1068,8 +1068,12 @@ class PipelineController < ApplicationController
     @checklist_for_release_by_pi = [ 
       [ "Submission files okay?", { :controller => :public, :action => :download, :id => @project } ],
       [ "GBrowse tracks okay?", { :action => :configure_tracks, :id => @project } ],
-      [ "modMINE data okay?", {} ],
-      [ "GEO submission okay?", {} ],
+      [ "Metadata okay?", { :controller => :public, :action => :citation, :id => @project } ],
+
+###### TODO: COMMENTED OUT UNTIL THIS PART OF THE PIPELINE IS DONE ######
+#      [ "modMINE data okay?", {} ],
+#      [ "GEO submission okay?", {} ],
+########################################################################
       # Worm/Flybase?
     ]
 
