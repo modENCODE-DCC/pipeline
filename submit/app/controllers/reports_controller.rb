@@ -51,6 +51,10 @@
 class ReportsController < ApplicationController
   before_filter :login_required
 
+  def index_table
+    index
+  end
+
   def index
 
    quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)}, 

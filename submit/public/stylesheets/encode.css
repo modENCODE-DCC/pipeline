@@ -24,9 +24,39 @@ A.strong { font-weight: bold; font-size: 110% }
 
 TD { vertical-align: bottom }
 
+tr.Celniker th { background-color: #ff0000; }
+tr.Celniker td { background-color: #ffcccc; }
+tr.Henikoff th { background-color: #ff9900; }
+tr.Henikoff td { background-color: #ffd391; }
+tr.Karpen th { background-color: #ffff00; }
+tr.Karpen td { background-color: #ffffb2; }
+tr.Lai th { background-color: #00cc00; }
+tr.Lai td { background-color: #cfffcf; }
+tr.Lieb th { background-color: #00ccff; }
+tr.Lieb td { background-color: #adefff; }
+tr.MacAlpine th { background-color: #0033ff; }
+tr.MacAlpine td { background-color: #bdcbff; }
+tr.Piano th { background-color: #9999ff; }
+tr.Piano td { background-color: #e0e0ff; }
+tr.Snyder th { background-color: #9900cc; }
+tr.Snyder td { background-color: #deb8eb; }
+tr.Waterston th { background-color: #cc0099; }
+tr.Waterston td { background-color: #ffd9f6; }
+tr.White th { background-color: #660066; text-align: right; width: 15px; }
+tr.White td { background-color: #cabbca; height: 25px; }
+
+tr.Active th { background-color: #cccccc; }
+tr.Active td { background-color: #e6e6e6; }
+tr.Released th { background-color: #00cc00; }
+tr.Released td { background-color: #c7ffc7; }
+
+TABLE.summary_stats TR { height: 25px; border-bottom: 2px solid; text-align: center; }
+TABLE.summary_stats TD { padding-right: 10px; padding-left: 10px; vertical-align: middle; }
 TABLE.summary_stats { border-bottom: 5px solid;  border-top: 5px solid; font-size: 14px; border-collapse: collapse; }
-TABLE.summary_stats TR.header { text-align: center; border-bottom: 3px solid; font-face: bold; height: 30px; }
-TABLE.summary_stats TR.content { height: 42px; }
+TABLE.summary_stats TR.header { text-align: center; border-bottom: 3px solid; font-face: bold; height: 30px; text-align: center; }
+TABLE.summary_stats TR.footer { text-align: center; border-top: 6px double black; font-face: bold; height: 30px; text-align: center; }
+TABLE.summary_stats TR.content { height: 35px; }
+TABLE.summary_stats TR.content20 { height: 25px; }
 TABLE.summary_stats TD.notes { text-align: left; border-bottom: 2px solid; width: 200px; vertical-align: middle; }
 TABLE.summary_stats TD.header { text-align: right; width: 100px; padding-right: 10px; padding-left: 10px; border-bottom: 5px solid; vertical-align: middle; }
 TABLE.summary_stats TD.content { text-align: right; width: 100px; padding-right: 10px; padding-left: 10px; border-bottom: 2px solid; vertical-align: middle; }
