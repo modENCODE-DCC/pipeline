@@ -243,6 +243,7 @@ class PipelineController < ApplicationController
       return
     end
 
+
     @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
@@ -252,6 +253,14 @@ class PipelineController < ApplicationController
 
     @user_can_write = check_user_can_write @project, :skip_redirect => true
     @user_is_owner = check_user_is_owner @project
+
+    if params[:new_comment] && @user_can_write then
+      @project.comments.new(:comment => params[:new_comment], :user => current_user).save
+      redirect_to :action => :show, :id => @project
+      return
+    end
+
+    @comments = @project.comments.find(:all, :order => :created_at).reverse
 
     # GBrowse link if available
     ts = nil

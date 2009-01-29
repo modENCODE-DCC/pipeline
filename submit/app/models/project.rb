@@ -7,6 +7,7 @@ class Project < ActiveRecord::Base
   has_many :commands, :dependent => :destroy, :order => :position
   has_many :track_tags, :dependent => :destroy
   has_many :track_stanzas, :dependent => :destroy
+  has_many :comments, :dependent => :destroy, :order => :created_at
 
   validates_presence_of :name
   validates_presence_of :project_type_id
