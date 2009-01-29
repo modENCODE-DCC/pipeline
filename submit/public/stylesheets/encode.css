@@ -59,8 +59,11 @@ TABLE.summary_stats TR.content { height: 35px; }
 TABLE.summary_stats TR.content20 { height: 25px; }
 TABLE.summary_stats TD.notes { text-align: left; border-bottom: 2px solid; width: 200px; vertical-align: middle; }
 TABLE.summary_stats TD.header { text-align: right; width: 100px; padding-right: 10px; padding-left: 10px; border-bottom: 5px solid; vertical-align: middle; }
+TABLE.summary_stats TD.header2 { text-align: right; width: 75px; padding-right: 10px; padding-left: 10px; border-bottom: 5px solid; vertical-align: middle; }
+TABLE.summary_stats TD.header_quarters { text-align: right; width: 50px; padding-right: 10px; padding-left: 10px; border-bottom: 5px solid; vertical-align: middle; }
 TABLE.summary_stats TD.content { text-align: right; width: 100px; padding-right: 10px; padding-left: 10px; border-bottom: 2px solid; vertical-align: middle; }
 TABLE.summary_stats TD.content2 { text-align: center; width: 75px; padding-right: 10px; padding-left: 10px; border-bottom: 2px solid; vertical-align: middle; }
+TABLE.summary_stats TD.content_quarters { text-align: center; width: 50px; padding-right: 10px; padding-left: 10px; border-bottom: 2px solid; vertical-align: middle; }
 
 TABLE.status TH { text-align: right; padding-right: 15px; vertical-align: top; white-space: nowrap; }
 TABLE.archive_list TH, TABLE.archive_list TD { white-space: nowrap; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
