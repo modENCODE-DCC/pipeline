@@ -58,7 +58,7 @@ if ($? == 0) {
   print STDERR "Done.\n";
 } else {
   print STDERR "Failed!\n";
-  exit($?);
+  exit(-1);
 }
 
 exit 0;
