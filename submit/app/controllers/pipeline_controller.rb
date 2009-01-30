@@ -1596,7 +1596,7 @@ private
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
                "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
     @status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both"]
-    @pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
+    @pis = User.all.map { |u| u.pi }.uniq
 
     @active_status = @status[0..6]
 
