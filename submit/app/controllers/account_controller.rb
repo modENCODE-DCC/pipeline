@@ -10,14 +10,22 @@ class AccountController < ApplicationController
   end
 
   def login
+    @redir_to = params[:url]
     return unless request.post?
+    if @redir_to != URI.parse(@redir_to).path then
+      @redir_to = nil
+    end
     self.current_user = User.authenticate(params[:login], params[:password])
     if logged_in?
       if params[:remember_me] == "1"
         self.current_user.remember_me
         cookies[:auth_token] = { :value => self.current_user.remember_token , :expires => self.current_user.remember_token_expires_at }
       end
-      redirect_to(:controller => '/pipeline', :action => 'show_user')
+      if @redir_to then
+        redirect_to @redir_to
+      else
+        redirect_to(:controller => '/pipeline', :action => 'show_user')
+      end
     else
       flash[:error] = "Unknown user or password."
     end
