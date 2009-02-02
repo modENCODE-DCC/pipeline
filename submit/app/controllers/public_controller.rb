@@ -14,15 +14,17 @@ class PublicController < ApplicationController
   end
 
   def list
-    # Anyone can view released projects or those in their group
-    if current_user.is_a?(Moderator) then
-      @projects = Project.all
-    else
-      @projects = Project.all.find_all { |p|
-        p.status == Project::Status::RELEASED || (current_user.is_a?(User) && p.user.pi == current_user.pi)
-      }
-    end
+    @projects = Project.all
+#    # Anyone can view released projects or those in their group
+#    if current_user.is_a?(Moderator) then
+#      @projects = Project.all
+#    else
+#      @projects = Project.all.find_all { |p|
+#        p.status == Project::Status::RELEASED || (current_user.is_a?(User) && p.user.pi == current_user.pi)
+#      }
+#    end
 
+    @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
     if params[:sort] then
       session[:sort_list] = Hash.new unless session[:sort_list]
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
