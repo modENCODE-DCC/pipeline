@@ -1192,6 +1192,7 @@ class TrackFinder
       if tag_track_type then
         if tag_track_type.value == "wiggle" then
           glyph = "wiggle_xyplot"
+          glyph_select = "wiggle_density wiggle_xyplot"
           min_score = -20
           max_score = 20
           neg_color = "orange"
@@ -1199,6 +1200,7 @@ class TrackFinder
           smoothing = "mean"
           smoothing_window = 10
           bicolor_pivot = "zero"
+          sort_order = 'sub ($$) {shift->feature->name cmp shift->feature->name}'
         end
       end
 
@@ -1236,6 +1238,8 @@ class TrackFinder
           track_defs[stanzaname]['smoothing'] = smoothing unless smoothing.nil?
           track_defs[stanzaname]['smoothing_window'] = smoothing_window unless smoothing_window.nil?
           track_defs[stanzaname]['bicolor_pivot'] = bicolor_pivot unless bicolor_pivot.nil?
+          track_defs[stanzaname]['glyph select'] = glyph_select  unless glyph_select .nil?
+          track_defs[stanzaname]['sort_order'] = sort_order unless sort_order.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type

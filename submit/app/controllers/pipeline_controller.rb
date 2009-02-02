@@ -24,6 +24,23 @@ class PipelineController < ApplicationController
       'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }'         => "[GFF ID]", 
       'sub { return shift->source; }'                                            => "[Submission #]",
     },
+    'sort_order' => {
+      '' => " [No sorting]",
+      'sub ($$) {shift->feature->name cmp shift->feature->name}' => "[Feature Name]",
+      'sub ($$) {shift->feature->source cmp shift->feature->source}' => "[Feature Source]",
+    },
+    'category' => [
+      'Preview',
+      'modENCODE tracks: Celniker Group',
+      'modENCODE tracks: Henikoff Group',
+      'modENCODE tracks: Karpen Group',
+      'modENCODE tracks: Lai Group',
+      'modENCODE tracks: Lieb Group',
+      'modENCODE tracks: MacAlpine Group',
+      'modENCODE tracks: Piano Group',
+      'modENCODE tracks: Snyder Group',
+      'modENCODE tracks: Waterston Group'
+    ],
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
