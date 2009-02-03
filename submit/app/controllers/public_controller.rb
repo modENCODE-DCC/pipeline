@@ -158,14 +158,17 @@ class PublicController < ApplicationController
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     unless File.directory?(@root_directory) then
-      redirect_to :action => :list
+      flash[:warning] = "Data has not been extracted. Showing initial submission package."
+      @root = ""
+      @root_directory = PipelineController.new.path_to_project_dir(@project)
     end
 
     @current_directory = params[:path] ? File.expand_path(File.join(@root_directory, params[:path])) : @root_directory
 
     unless File.directory?(@current_directory) then
-      flash[:warning] = "Invalid path: #{@current_directory}"
+      flash[:warning] = "No data found in: #{@current_directory}"
       @current_directory = @root_directory
+      redirect_to :action => :list
     end
     unless @current_directory.index(@root_directory) == 0 then
       flash[:error] = "Invalid path"
