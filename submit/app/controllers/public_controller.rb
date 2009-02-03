@@ -1,12 +1,12 @@
 require 'find'
 class PublicController < ApplicationController
-  before_filter :download_check_user_can_view, :only => 
-  [
-    :get_gbrowse_stanzas,
-    :get_file,
-    :download,
-    :citation
-  ]
+#  before_filter :download_check_user_can_view, :only => 
+#  [
+#    :get_gbrowse_stanzas,
+#    :get_file,
+#    :download,
+#    :citation
+#  ]
 
 
   def index
