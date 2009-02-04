@@ -85,7 +85,8 @@ class AdministrationController < ApplicationController
   def pause
     command = Command.find(params[:id])
     if command && command.status == Command::Status::QUEUED then
-      command.controller.queue
+      command.status = Command::Status::PAUSED
+      command.save
     else
       flash[:warning] = "Couldn't find command #{params[:id]} to pause."
     end
@@ -109,12 +110,6 @@ class AdministrationController < ApplicationController
       oldstatus = command.status
       command.status = Command::Status::PAUSED # Don't do anything silly while moving
       command.save
-
-      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-      all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-      all_waiting_commands = (all_queued_commands + all_paused_commands).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-
-      highest_position = all_waiting_commands.map { |cmd| cmd.queue_position }.max
 
       command.move_to_bottom_in_queue
 
