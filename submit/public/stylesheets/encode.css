@@ -53,8 +53,8 @@ tr.Released td { background-color: #c7ffc7; }
 TABLE.summary_stats TR { height: 25px; border-bottom: 2px solid; text-align: center; }
 TABLE.summary_stats TD { padding-right: 10px; padding-left: 10px; vertical-align: middle; }
 TABLE.summary_stats { border-bottom: 5px solid;  border-top: 5px solid; font-size: 14px; border-collapse: collapse; }
-TABLE.summary_stats TR.header { text-align: center; border-bottom: 3px solid; font-face: bold; height: 30px; text-align: center; }
-TABLE.summary_stats TR.footer { text-align: center; border-top: 6px double black; font-face: bold; height: 30px; text-align: center; }
+TABLE.summary_stats TR.header { text-align: center; border-bottom: 3px solid; font-weight: bold; height: 30px; text-align: center; }
+TABLE.summary_stats TR.footer { text-align: center; border-top: 6px double black; font-weight: bold; height: 30px; text-align: center; }
 TABLE.summary_stats TR.content { height: 35px; }
 TABLE.summary_stats TR.content20 { height: 25px; }
 TABLE.summary_stats TD.notes { text-align: left; border-bottom: 2px solid; width: 200px; vertical-align: middle; }
