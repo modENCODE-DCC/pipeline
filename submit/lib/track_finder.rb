@@ -1176,6 +1176,7 @@ class TrackFinder
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
+      stanzaname.sub!(/^[^A-Za-z]*/, '')
 
       if track_source !~ /\d*_details/ then
         # If this is not a details track...
