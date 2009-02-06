@@ -95,11 +95,16 @@
         <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
         </em></font>
     </div>
-  <div id="user"> Logged In: <strong> <%= @current_user.login -%> </strong>
-  </div>
+    <div id="user"> 
+      <%= link_to '(logout)', {:controller=> 'account', :action => 'logout'}, :class=> "smallLink" %><br/>
+      Logged In: 
+      <%= link_to @current_user.login, {:controller => 'account', :action => 'change_profile' }, :title => "View/Change User Details", :class => "strong" %>
+    </div>
 
     <div id="nav">
       <span style="float:right; text-align:right">
+          <span><%= link_to_unless_current 'Downloads', :controller => 'public', :action => 'list' %></span>
+          |
           <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
           |
         <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;de\
