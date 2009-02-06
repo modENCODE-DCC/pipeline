@@ -7,9 +7,9 @@ class FindTracks < Command
 
   def formatted_status
     if self.stderr.length > 0 then
-      "<pre>#{self.stdout}</pre>"
-    else
       "<pre>#{self.stderr}</pre>"
+    else
+      "<pre>#{self.stdout}</pre>"
     end
   end
   def short_formatted_status
