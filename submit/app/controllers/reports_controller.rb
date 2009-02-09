@@ -89,13 +89,26 @@ class ReportsController < ApplicationController
           step = 1
 	  #identify what step its at
           step = case p.status  
-            when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
-            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
-            when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
-            when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
-            when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
-            when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
-	    when (Project::Status::RELEASE_REJECTED ) : 7
+            when (Project::Status::NEW ) : 1
+	    when Project::Status::UPLOAD_FAILED : 1
+	     when Project::Status::UPLOADING : 1
+            when (Project::Status::UPLOADED) : 2
+            when (Project::Status::VALIDATION_FAILED) : 2
+	    when (Project::Status::VALIDATING) : 2
+            when (Project::Status::EXPAND_FAILED) : 2
+            when (Project::Status::EXPANDED) : 2
+            when Project::Status::VALIDATED : 3
+	    when Project::Status::LOAD_FAILED : 3
+	    when Project::Status::LOADING : 3
+	    when Project::Status::UNLOADING : 3
+            when Project::Status::LOADED : 4
+	    when Project::Status::FINDING_FAILED : 4
+	    when Project::Status::FINDING  : 4
+            when Project::Status::FOUND : 5
+	    when Project::Status::CONFIGURING  : 5
+            when Project::Status::CONFIGURED : 6
+	    when Project::Status::AWAITING_RELEASE : 6
+	    when Project::Status::RELEASE_REJECTED : 7
             when (Project::Status::USER_RELEASED ) : 8
             when (Project::Status::DCC_RELEASED) : 9
             when (Project::Status::RELEASED) : 10   #released to the public
@@ -121,7 +134,7 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_released_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.find_all{|p| p.status==Project::Status::RELEASED}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 }
+    Project.all.find_all{|p| p.status==Project::Status::RELEASED}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 unless Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.length==0}
 
 
     @all_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0} 
@@ -149,7 +162,7 @@ class ReportsController < ApplicationController
           #identify what step its at
           step = case p.status
             when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
-            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 1
+            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Project::Status::EXPAND_FAILED) : 1
             when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 1
             when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 1
             when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 1
