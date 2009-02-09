@@ -20,6 +20,7 @@ class Citation < ActionView::Base
 end
 
 class TrackFinder
+  GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
   @features_processed = 0
   def self.gbrowse_root
     if File.exists? "#{RAILS_ROOT}/config/gbrowse.yml" then
@@ -255,11 +256,13 @@ class TrackFinder
                    f.name, f.uniquename,
                    cvt.name AS type,
                    fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
+                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
-                   o.genus, o.species
+                   o.genus, o.species,
+                   af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
+                   a.program AS analysis
                    FROM data_feature df
                    INNER JOIN feature f ON f.feature_id = df.feature_id
                    INNER JOIN organism o ON f.organism_id = o.organism_id
@@ -273,6 +276,9 @@ class TrackFinder
                        INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
                      ) ON src.feature_id = fl.srcfeature_id
                    ) ON df.feature_id = fl.feature_id
+                   LEFT JOIN (analysisfeature af
+                     INNER JOIN analysis a ON af.analysis_id = a.analysis_id
+                   ) ON f.feature_id = af.feature_id
                    WHERE df.data_id = ANY(?) ORDER BY fl.rank")
     }
     sth_get_parts_of_features = dbh_safe {
@@ -282,11 +288,13 @@ class TrackFinder
                    f.name, f.uniquename,
                    cvt.name AS type,
                    fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank,
+                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
                    frtype.name AS relationship_type
+                   af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
+                   a.program AS analysis
                    FROM feature f
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN feature_relationship fr ON fr.subject_id = f.feature_id
@@ -299,6 +307,9 @@ class TrackFinder
                        INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
                      ) ON src.feature_id = fl.srcfeature_id
                    ) ON f.feature_id = fl.feature_id
+                   LEFT JOIN (analysisfeature af
+                     INNER JOIN analysis a ON af.analysis_id = a.analysis_id
+                   ) ON f.feature_id = af.feature_id
                    WHERE fr.object_id = ANY(?) ORDER BY fl.rank")
     }
 
@@ -380,9 +391,11 @@ class TrackFinder
                   if feature_hash['rank'].to_i == 1 then
                     # The feature_hash is the Target
                     seen_feature['target'] = "#{feature_hash['srcfeature']} #{feature_hash['fmin']} #{feature_hash['fmax']}"
+                    seen_feature['gap'] = feature_hash['residue_info'] if feature_hash['residue_info']
                   elsif feature_hash['rank'].to_i == 0 then
                     # The seen_feature is the Target, because the current feature_hash is the match vs. the chromosome
                     feature_hash['target'] = "#{seen_feature['srcfeature']} #{seen_feature['fmin']} #{seen_feature['fmax']}"
+                    feature_hash['gap'] = seen_feature['residue_info'] if seen_feature['residue_info']
                     features[row["data_name"]][row['feature_id']] = feature_hash
                   end
                 end
@@ -435,9 +448,11 @@ class TrackFinder
                       if subfeature_hash['rank'].to_i == 1 then
                         # The subfeature_hash is the Target
                         seen_subfeature['target'] = "#{subfeature_hash['srcfeature']} #{subfeature_hash['fmin']} #{subfeature_hash['fmax']}"
+                        seen_subfeature['gap'] = subfeature_hash['residue_info'] if subfeature_hash['residue_info']
                       elsif subfeature_hash['rank'].to_i == 0 then
                         # The seen_subfeature is the Target, because the current subfeature_hash is the match vs. the chromosome
                         subfeature_hash['target'] = "#{seen_subfeature['srcfeature']} #{seen_subfeature['fmin']} #{seen_subfeature['fmax']}"
+                        subfeature_hash['gap'] = seen_subfeature['residue_info'] if seen_subfeature['residue_info']
                         features[subfeature_hash["data_name"]][row['feature_id']] = subfeature_hash
                       end
                     end
@@ -822,13 +837,18 @@ class TrackFinder
 
     # Write out GFF
     srcfeature = (feature['srcfeature'] == feature['uniquename']) ? feature['srcfeature'] : feature['feature_id']
-    out = "#{feature['srcfeature']}\t#{tracknum}\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t.\t#{feature['strand']}\t#{feature['phase']}\tID=#{srcfeature}"
+    score = feature['score'] ? feature['score'] : "."
+    out = "#{feature['srcfeature']}\t#{tracknum}\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t#{score}\t#{feature['strand']}\t#{feature['phase']}\tID=#{srcfeature}"
     if !feature['name'].nil? && feature['name'].length > 0 then
       out = out + ";Name=#{feature['name']}"
     elsif !feature['uniquename'].nil? && feature['uniquename'].length > 0 then
       out = out + ";Name=#{feature['uniquename']}"
     end
     out = out + ";Target=#{feature['target']}" unless feature['target'].nil?
+    out = out + ";analysis=#{feature['analysis']}" unless feature['analysis'].nil?
+    out = out + ";normscore=#{feature['normscore']}" unless feature['normscore'].nil?
+    out = out + ";identity=#{feature['identity']}" unless feature['identity'].nil?
+    out = out + ";significance=#{feature['significance']}" unless feature['significance'].nil?
 
     # Parental relationships
     feature["parents"].each do |reltype, parent|
@@ -958,13 +978,20 @@ class TrackFinder
             ap_ids = prev_ap_ids.uniq
             history_depth = history_depth + 1
           end
-          # Add a tag for every feature (name as value, type as type)
           if track_descriptor[:type] == :feature then
+            # Add a tag for every feature (name as value, type as type)
+            analyses = Array.new
             track_descriptor[:data].values.each do |feature|
-              tags.push [ track_descriptor[:experiment_id], nil, feature['name'], feature['type'], 0 ]
+              analyses.push feature['analysis']
+              tags.push [ track_descriptor[:experiment_id], 'Feature', feature['name'], feature['type'], 0 ]
             end
             feature = track_descriptor[:data].values.first
             tags.push [ track_descriptor[:experiment_id], 'Organism', feature['genus'] + " " + feature['species'], 'organism', 0 ]
+
+            # Add a tag for the unique analyses for the features
+            analyses.uniq.each { |analysis|
+              tags.push [ track_descriptor[:experiment_id], 'Analysis', analysis, 'unique_analysis', 0 ]
+            }
           end
           tags.push [ track_descriptor[:experiment_id], 'Track Type', track_descriptor[:type].to_s, 'track_type', 0 ]
 
@@ -1192,6 +1219,7 @@ class TrackFinder
       tag_track_type = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'track_type')
       if tag_track_type then
         if tag_track_type.value == "wiggle" then
+          # Wiggle-only
           glyph = "wiggle_xyplot"
           glyph_select = "wiggle_density wiggle_xyplot"
           min_score = -20
@@ -1202,6 +1230,10 @@ class TrackFinder
           smoothing_window = 10
           bicolor_pivot = "zero"
           sort_order = 'sub ($$) {shift->feature->name cmp shift->feature->name}'
+        else
+          # GFF-only
+          unique_analyses = TrackTag.find_all_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'unique_analysis')
+          unique_analyses = unique_analyses.size > 1 ? unique_analyses.map { |tt| tt.value }.uniq : nil
         end
       end
 
@@ -1230,6 +1262,7 @@ class TrackFinder
           track_defs[stanzaname]['label density'] = 100
           track_defs[stanzaname]['glyph'] = glyph
           track_defs[stanzaname]['connector'] = connector
+          track_defs[stanzaname][:unique_analyses] = unique_analyses unless unique_analyses.nil?
 
           # Wiggle-only stuff
           track_defs[stanzaname]['min_score'] = min_score unless min_score.nil?
