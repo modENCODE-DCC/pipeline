@@ -2,10 +2,9 @@ require 'find'
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
-  GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
   STANZA_OPTIONS = {
-    'fgcolor' => GD_COLORS,
-    'bgcolor' => GD_COLORS,
+    'fgcolor' => TrackFinder::GD_COLORS,
+    'bgcolor' => TrackFinder::GD_COLORS,
     'group_on' => {
       '' => " [No grouping]", 
       'sub { return shift->name }' => "[Feature Name]",
@@ -52,8 +51,8 @@ class PipelineController < ApplicationController
     'connector' => [ 'solid', 'dashed', 'quill', 'none' ],
     'min_score' => :integer,
     'max_score' => :integer,
-    'neg_color' => GD_COLORS,
-    'pos_color' => GD_COLORS,
+    'neg_color' => TrackFinder::GD_COLORS,
+    'pos_color' => TrackFinder::GD_COLORS,
     'smoothing' => [ '', 'mean' ],
     'smoothing_window' => :integer,
     'bicolor_pivot' => {
@@ -880,6 +879,19 @@ class PipelineController < ApplicationController
       # Update main track
       STANZA_OPTIONS.each do |option, values|
         value = params[option]
+
+        if stanzas[stanzaname][:unique_analyses] && option == "bgcolor" then
+          values = Hash[values.map { |i| [i, i] }]
+          n = 0
+          color_mappings = Hash[ stanzas[stanzaname][:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
+          default_color = "lightgrey"
+          sub =  "sub { my @as = shift->each_tag_value(\"analysis\"); return '#{default_color}' unless scalar(@as);"
+          color_mappings.each_pair { |analysis, color|
+            sub += "  return '#{color}' if '#{analysis}' eq $as[0];"
+          }
+          sub += "  return '#{default_color}'; }"
+          values[sub] = "[Color By Analysis]"
+        end 
 
         okay_value = false
         if values.is_a? Array then

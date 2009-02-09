@@ -290,51 +290,65 @@
     <% definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
       <% next if option.is_a? Symbol %>
 
-      <% if @stanza_options[option] %>
+      <% if okay_values = @stanza_options[option] then %>
+        <% 
+          if definition[:unique_analyses] && option == "bgcolor" then
+            okay_values = Hash[okay_values.map { |i| [i, i] }]
+            n = 0
+            color_mappings = Hash[ definition[:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
+            default_color = "lightgrey"
+            sub =  "sub { my @as = shift->each_tag_value(\"analysis\"); return '#{default_color}' unless scalar(@as);"
+            color_mappings.each_pair { |analysis, color|
+              sub += "  return '#{color}' if '#{analysis}' eq $as[0];"
+            }
+            sub += "  return '#{default_color}'; }"
+            okay_values[sub] = "[Color By Analysis]"
+          end 
+        %>
         <span class="flipfield">
-          <span onmousedown="show<%= "TextArea" if @stanza_options[option] == :citation_text %>Form(this, event)">
+          <span onmousedown="show<%= "TextArea" if okay_values == :citation_text %>Form(this, event)">
             <%= option %> = 
-            <% if @stanza_options[option] == :citation_text %>
+            <% if okay_values == :citation_text %>
               <div style="width: 700px; margin-left: 10px; border: thin dashed black; padding: 5px;">
                 <%= value %>
               </div>
             <% else %>
               <span style="font-weight: bold" >
-                <% if @stanza_options[option].is_a? Hash then %>
-                  <%= @stanza_options[option][value] %>
+                <% if okay_values.is_a? Hash then %>
+                  <%= okay_values[value] %>
                 <% else %>
                   <%= value %>
                 <% end %>
               </span>
             <% end %>
           </span>
-          <% if @stanza_options[option].is_a? Array then %>
+          <% if okay_values.is_a? Array then %>
             <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
-              <%= options_for_select @stanza_options[option], value %>
+              <%= options_for_select okay_values, value %>
             </select>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
             </script>
-          <% elsif @stanza_options[option].is_a? Hash then %>
+          <% elsif okay_values.is_a? Hash then %>
             <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
-              <%= options_for_select @stanza_options[option].invert.sort { |a, b| a[0] <=> b[0] }, value %>
+              <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
             </select>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
             </script>
-          <% elsif @stanza_options[option] == :text %>
+          <% elsif okay_values == :text %>
             <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictText);
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
             </script>
-          <% elsif @stanza_options[option] == :citation_text %>
+          <% elsif okay_values == :citation_text %>
             <br style="display:none"/><textarea style="display:none; width: 700px; height: 400px" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>"><%= value %></textarea>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictCitationText);
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideCitationTextField);
             </script>
-          <% elsif @stanza_options[option] == :integer %>
+          <% elsif okay_values == :integer %>
             <input type="text" style="display:none" name="<%=option%>" value="<%=value%>" id="<%="#{stanzaname}_#{option}"%>"/>
             <script type="text/javascript">
               Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictNumeric);
@@ -366,7 +380,7 @@
         </span>
         <br/>
         <% zoom_definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
-          <% if @stanza_options[option] %>
+          <% if okay_values = @stanza_options[option] then %>
             <span class="flipfield">
               <span onmousedown="showForm(this, event)">
                 <%= option %> = 
@@ -374,27 +388,27 @@
                   <%= value %>
                 </span>
               </span>
-              <% if @stanza_options[option].is_a? Array then %>
+              <% if okay_values.is_a? Array then %>
                 <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
-                  <%= options_for_select @stanza_options[option], value %>
+                  <%= options_for_select okay_values, value %>
                 </select>
                 <script type="text/javascript">
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
                 </script>
-              <% elsif @stanza_options[option].is_a? Hash then %>
+              <% elsif okay_values.is_a? Hash then %>
                 <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
-                  <%= options_for_select @stanza_options[option].invert.sort { |a, b| a[0] <=> b[0] }, value %>
+                  <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
                 </select>
                 <script type="text/javascript">
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
                 </script>
-              <% elsif @stanza_options[option] == :text %>
+              <% elsif okay_values == :text %>
                 <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
                 <script type="text/javascript">
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictText);
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideTextField);
                 </script>
-              <% elsif @stanza_options[option] == :integer %>
+              <% elsif okay_values == :integer %>
                 <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
                 <script type="text/javascript">
                   Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictNumeric);
