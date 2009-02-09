@@ -14,9 +14,12 @@
   </ul>
 <% end %>
 
-<% if @projects.blank? %>
-  <p>There are no released projects.</p>
-  <% return %>
+<% if @projects.blank? || @projects.size == 0 %>
+  <% if params[:pi] then %>
+  <p>There are no released for this PI, you can go back to <%= link_to "View All", :action => :list %>.</p>
+  <% else %>
+    <p>There are no released projects.</p>
+  <% end %>
 <% end %>
 
 <table class="archive_list2" style="width: 70%">
@@ -27,7 +30,7 @@
     <th class="name"><%= link_to "Submission Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
     <th class="status">Status</th>
     <th>PI:&nbsp;<% form_tag url_for(:action => :list), :method => :get, :style => "display:inline" do %>
-      <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, session[:download_pi_filter] %></select>
+      <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
     <% end %>
     
     </th>
