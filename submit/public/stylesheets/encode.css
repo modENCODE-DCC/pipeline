@@ -70,8 +70,13 @@ TABLE.archive_list TH, TABLE.archive_list TD { white-space: nowrap; padding-top:
 
 TABLE.archive_list2 TH { white-space: nowrap; padding-top: 2px; text-align: center; padding-right: 10px; padding-left: 7px; vertical-align: top }
 TABLE.archive_list2 TD { white-space: nowrap; padding-top: 2px; text-align: center; padding-right: 10px; padding-left: 7px; vertical-align: top }
-TABLE.archive_list2 TH.name { width: 75%;  white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
-TABLE.archive_list2 TD.name { width: 75%; white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+TABLE.archive_list2 TH.name { width: 520px;  white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+TABLE.archive_list2 TD.name { width: 520px; white-space: normal; padding-top: 2px; text-align: left; padding-right: 15px; vertical-align: top }
+
+TABLE.archive_list2 TH.status { width: 140px; text-align: left; vertical-align: top }
+TABLE.archive_list2 TD.status { width: 140px; text-align: left; vertical-align: top }
+
+TABLE.archive_list2 TD.actions { width: 580px; text-align: left; vertical-align: top }
 
 #container {
 }

@@ -24,7 +24,16 @@ class PublicController < ApplicationController
 #      }
 #    end
 
+
+    @pis = User.all.map { |u| u.pi }.uniq
     @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
+    if params[:pi] then
+      if params[:pi].length > 0 then
+        session[:download_pi_filter] = params[:pi]
+      else
+        session[:download_pi_filter] = nil
+      end
+    end
     if params[:sort] then
       session[:sort_list] = Hash.new unless session[:sort_list]
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
@@ -35,6 +44,9 @@ class PublicController < ApplicationController
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
     end
     @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if session[:download_pi_filter] then
+      @projects.reject! { |p| p.user.pi != session[:download_pi_filter] }
+    end
     if session[:sort_list] then
       sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
       @projects = @projects.sort { |p1, p2|
