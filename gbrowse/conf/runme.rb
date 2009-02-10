@@ -37,12 +37,12 @@ class CGI
   end
 end
 
-all_track_defs = nil
+user_id = nil
 
 organism = ARGV[0]
 
 unless ARGV[1].nil? then
-  all_track_defs = TrackStanza.find_all_by_user_id(ARGV[1])
+  user_id = ARGV[1]
 else
   cgi = CGI.new
   session = CGI::Session.new(cgi, 
@@ -51,20 +51,33 @@ else
   'secret' => "ModENCODE secret session key for tracking FastCGI sessions between users"
   )
   session.cgi = cgi
-
-  all_track_defs = TrackStanza.find_all_by_user_id(session[:user])
+  user_id = session[:user]
 end
 
-# Use released configs if they exist
-released_configs = Array.new
-all_track_defs.each { |td|
-  released_config = TrackStanza.find_by_project_id_and_released(td.project_id, true)
-  released_configs.push released_config if released_config
+
+released_projects = Project.find_all_by_status(Project::Status::RELEASED)
+all_track_defs = TrackStanza.find_all_by_project_id(released_projects)
+unless user_id.nil? then
+  all_pi_users = User.find_all_by_pi(User.find(user_id).pi)
+  all_pi_users_projects = Project.find_all_by_user_id(all_pi_users)
+  all_track_defs += TrackStanza.find_all_by_project_id(all_pi_users_projects)
+  if User.find(user_id).is_a?(Moderator) then
+    all_track_defs += TrackStanza.find_all_by_released(true)
+  end
+end
+
+
+unique_project_ids = all_track_defs.map { |td| td.project_id }.uniq
+unique_project_ids.each { |project_id|
+  project_tds = all_track_defs.find_all { |td| td.project_id == project_id }
+  use_this = project_tds.find { |td| td.released == true } # Released stanza
+  use_this = project_tds.find { |td| td.user_id = user_id } unless use_this # This user's stanza
+  use_this = project_tds.first unless use_this # A stanza from this user's group
+
+  all_track_defs.delete_if { |td| td.project_id == project_id && td != use_this }
 }
-released_configs.each { |td|
-  all_track_defs.delete_if { |atd| atd.project_id == td.project_id }
-  all_track_defs.push td
-}
+
+all_track_defs.delete_if { |td| !(Project::Status::ok_next_states(td.project).include?(Project::Status::CONFIGURING) || td.project.status == Project::Status::RELEASED)  }
 
 track_defs = Hash.new
 all_track_defs.each { |td| track_defs.merge! td.stanza }
