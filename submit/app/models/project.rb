@@ -37,13 +37,15 @@ class Project < ActiveRecord::Base
     def Status.state_position(project)
       state = project.is_a?(Project) ? project.status : project
       ordered_status = [
-        Project::Status::CANCELING, Project::Status::CANCELED, Project::Status::QUEUED, Project::Status::PAUSED, Project::Status::FLAGGED, Project::Status::NEW,
-        Project::Status::FAILED, Project::Status::UPLOADING, Project::Status::UPLOAD_FAILED, Project::Status::UPLOADED, Project::Status::EXPANDING,
-        Project::Status::EXPAND_FAILED, Project::Status::EXPANDED, Project::Status::VALIDATING, Project::Status::VALIDATION_FAILED, Project::Status::VALIDATED,
-        Project::Status::LOADING, Project::Status::LOAD_FAILED, Project::Status::LOADED, Project::Status::UNLOADING, Project::Status::UNLOAD_FAILED, Project::Status::UNLOADED,
-        Project::Status::FINDING, Project::Status::FINDING_FAILED, Project::Status::FOUND, Project::Status::CONFIGURING, Project::Status::CONFIGURED,
+        Project::Status::CANCELING, Project::Status::CANCELED, Project::Status::FLAGGED, Project::Status::NEW, Project::Status::FAILED,
+        Project::Status::UPLOADING, Project::Status::UPLOAD_FAILED, Project::Status::UPLOADED, Project::Status::EXPANDING,
+        Project::Status::EXPAND_FAILED, Project::Status::EXPANDED, Project::Status::VALIDATING, Project::Status::VALIDATION_FAILED,
+        Project::Status::VALIDATED, Project::Status::LOADING, Project::Status::LOAD_FAILED, Project::Status::LOADED,
+        Project::Status::UNLOADING, Project::Status::UNLOAD_FAILED, Project::Status::UNLOADED, Project::Status::FINDING,
+        Project::Status::FINDING_FAILED, Project::Status::FOUND, Project::Status::CONFIGURING, Project::Status::CONFIGURED,
         Project::Status::AWAITING_RELEASE, Project::Status::RELEASE_REJECTED, Project::Status::USER_RELEASED, Project::Status::DCC_RELEASED,
-        Project::Status::RELEASED, Project::Status::DELETING, Project::Status::DELETE_FAILED, Project::Status::DELETED 
+        Project::Status::RELEASED, Project::Status::QUEUED, Project::Status::PAUSED, Project::Status::DELETING,
+        Project::Status::DELETE_FAILED, Project::Status::DELETED 
       ]
       pos = ordered_status.index(state)
       pos.nil? ? 0 : pos
