@@ -125,8 +125,8 @@
 
         %>
         <% if (!Command::Status::is_active_state(p.status)) %>
-          <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="p.status" title="<%= p.status %>" />
-	<% else %>
+          <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="<%= p.status %>" title="<%= p.status %>" />
+        <% else %>
           <%= p.status %>...
         <% end %>    
       </td>

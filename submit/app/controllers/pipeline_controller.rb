@@ -1617,8 +1617,16 @@ private
     if session[:sort_list] then
       sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
       @projects = @projects.sort { |p1, p2|
-        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col] } << p1.id
-        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] } << p2.id
+        p1_attrs = sorts.map { |col| 
+          sort_attr = (session[:sort_list][col][0] == 'backward') ?  p2.attributes[col] : p1.attributes[col]
+          sort_attr = Project::Status::state_position(sort_attr) if col == "status"
+          sort_attr
+        } << p1.id
+        p2_attrs = sorts.map { |col| 
+          sort_attr = (session[:sort_list][col][0] == 'backward') ?  p1.attributes[col] : p2.attributes[col] 
+          sort_attr = Project::Status::state_position(sort_attr) if col == "status"
+          sort_attr
+        } << p2.id
         p1_attrs <=> p2_attrs
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
