@@ -61,13 +61,9 @@
       <th>Duration</th>
       <th>Submitter</th>
       <th>
-        <% if current_user.is_a?(Moderator) && session[:show_filter].nil? then %>
           <% form_tag url_for(:action => :show_group), :method => :get do %>
-            <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] } %></select>
+            <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, @show_filter_pi %></select>
           <% end %>
-        <% else %>
-          PI
-        <% end %>
       </th>
     </tr>
 

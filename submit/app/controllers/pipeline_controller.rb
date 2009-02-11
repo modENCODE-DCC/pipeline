@@ -149,11 +149,18 @@ class PipelineController < ApplicationController
   end
 
   def show_group
-    user_to_view = (params[:pi] && User.find_by_pi(params[:pi]) && current_user.is_a?(Moderator)) ? User.find_by_pi(params[:pi]) : current_user
-    session[:show_filter_user] = user_to_view.id
-    session[:show_filter] = :group
-    status
-    render :action => "status"
+    if params[:pi] == "" then
+      redirect_to :action => "list"
+      return
+    else
+      if params[:pi] then
+        user_to_view = (params[:pi] && User.find_by_pi(params[:pi]) && current_user.is_a?(Moderator)) ? User.find_by_pi(params[:pi]) : current_user
+        session[:show_filter_user] = user_to_view.id
+        session[:show_filter] = :group
+      end
+      status
+      render :action => "status"
+    end
   end
 
   def list
@@ -1580,6 +1587,7 @@ private
       @show_my_queue = user_to_view
     elsif session[:show_filter] == :group then
       @projects = same_group_users.map { |u| u.projects }.flatten
+      @show_filter_pi = same_group_users.first.pi
     else  
       @projects = Project.all
     end
