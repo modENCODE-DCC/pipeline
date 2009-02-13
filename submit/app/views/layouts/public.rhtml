@@ -115,9 +115,9 @@
     </div>
 
     <div id="footer">
-    <%= link_to "Help", "help.html" %>
+    <%= link_to "Help", :controller => :documentation, :action => :help %>
     <%= ' | ' -%>
-    <%= link_to "Contact Us", "contact.html" %>
+    <%= link_to "Contact Us", :controller => :documentation, :action => :contact %>
     </div>
   </div>
 </body>
