@@ -1,5 +1,6 @@
 include Spawn
 include Open5
+require 'socket'
 class CommandController < ApplicationController
   def status
     self.command_object.status
@@ -108,6 +109,7 @@ class CommandController < ApplicationController
   def run
     # Quick 'n dirty distribution: command_object.command = "grid submit " + command_object.command
     command_object.start_time = Time.now
+    command_object.host = Socket.gethostname
     command_object.save
 
     begin
