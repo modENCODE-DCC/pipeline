@@ -26,5 +26,9 @@ ActionController::Routing::Routes.draw do |map|
     :action => 'get_file',
     :path => /.*/,
     :root => /tracks|extracted/
+  map.connect 'public/get_file/:id/:path',
+    :controller => 'public',
+    :action => 'get_file',
+    :path => /.*/
   map.connect ':controller/:action/:id'
 end

@@ -158,14 +158,15 @@ class PublicController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
+    download_dir = ""
+    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
     @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     unless File.directory?(@root_directory) then
       flash[:warning] = "Data has not been extracted. Showing initial submission package."
-      @root = ""
-      @root_directory = PipelineController.new.path_to_project_dir(@project)
+      redirect_to :action => :download, :id => @project
+      return
     end
 
     @current_directory = params[:path] ? File.expand_path(File.join(@root_directory, params[:path])) : @root_directory
@@ -217,7 +218,8 @@ class PublicController < ApplicationController
     end
 
     # TODO: Make sure that this project is actually released
-    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted"
+    download_dir = ""
+    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     file = File.expand_path(File.join(@root_directory, params[:path]))
@@ -229,8 +231,8 @@ class PublicController < ApplicationController
       return
     end
     unless File.file?(file) then
-      flash[:error] = "Invalid path"
-      redirect_to :action => :download
+      flash[:error] = "Invalid path #{file}"
+      redirect_to :action => :download, :id => params[:id], :root => params[:root] 
       return
     end
 
