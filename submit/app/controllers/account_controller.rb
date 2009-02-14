@@ -21,7 +21,7 @@ class AccountController < ApplicationController
         self.current_user.remember_me
         cookies[:auth_token] = { :value => self.current_user.remember_token , :expires => self.current_user.remember_token_expires_at }
       end
-      if @redir_to then
+      if @redir_to && @redir_to.length > 0 then
         redirect_to @redir_to
       else
         redirect_to(:controller => '/pipeline', :action => 'show_user')
