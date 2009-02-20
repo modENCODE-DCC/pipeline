@@ -164,8 +164,13 @@ class PublicController < ApplicationController
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     unless File.directory?(@root_directory) then
-      flash[:warning] = "Data has not been extracted. Showing initial submission package."
-      redirect_to :action => :download, :id => @project
+      if @root.nil? || @root = "" then
+        flash[:error] = "No data for this project."
+        redirect_to :action => :list
+      else
+        flash[:warning] = "Data has not been extracted. Showing initial submission package."
+        redirect_to :action => :download, :id => @project
+      end
       return
     end
 
