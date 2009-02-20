@@ -83,8 +83,8 @@
         p_commands = all_project_commands.count
         deleted_project = all_project_commands.find { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED } ? true : false
         queued_commands = all_queued_commands.find_all { |cmd| cmd.project_id == p.id }
-        active_project = Command::Status::is_active_state(p.status)
-        failed_project = Command::Status::is_failed_state(p.status)
+        active_project = Project::Status::is_active_state(p.status)
+        failed_project = Project::Status::is_failed_state(p.status)
         released_project = p.status == Project::Status::RELEASED
 
         last_upload_command = all_project_commands.find { |cmd| cmd.status == Upload::Status::UPLOADED }
@@ -124,7 +124,7 @@
           end
 
         %>
-        <% if (!Command::Status::is_active_state(p.status)) %>
+        <% if (!Project::Status::is_active_state(p.status)) %>
           <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="<%= p.status %>" title="<%= p.status %>" />
         <% else %>
           <%= p.status %>...

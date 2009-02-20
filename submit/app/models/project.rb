@@ -34,6 +34,32 @@ class Project < ActiveRecord::Base
     DELETED = "deleted" #i don't know if this is necessary
     FLAGGED = "flagged" #this could be useful for signaling between DCC and groups
     
+    def self.is_active_state(state)
+      active_states = [
+        Delete::Status::DELETING,
+        Load::Status::LOADING,
+        Expand::Status::EXPANDING,
+        Release::Status::AWAITING_RELEASE,
+        Unload::Status::UNLOADING,
+        Upload::Status::UPLOADING,
+        Validate::Status::VALIDATING,
+        FindTracks::Status::FINDING
+      ]
+      return active_states.include?(state)
+    end
+
+    def self.is_failed_state(state)
+      failed_states = [
+        Upload::Status::UPLOAD_FAILED,
+        Delete::Status::DELETE_FAILED,
+        Load::Status::LOAD_FAILED,
+        Expand::Status::EXPAND_FAILED,
+        Unload::Status::UNLOAD_FAILED,
+        Validate::Status::VALIDATION_FAILED,
+      ]
+      return failed_states.include?(state)
+    end
+
     def Status.state_position(project)
       state = project.is_a?(Project) ? project.status : project
       ordered_status = [

@@ -8,7 +8,7 @@
   <% next if command.nil? %>
   <div style="margin-left: 4px; padding-top: 0px;">
     <%= command.name %>: 
-    <span style="<%= Command::Status::is_failed_state(command.status) ? "color: red" : "color: black" %>"><%= command.status %></span>
+    <span style="<%= Project::Status::is_failed_state(command.status) ? "color: red" : "color: black" %>"><%= command.status %></span>
     <span style="font-size: 80%; white-space: nowrap;">
       <%= link_to "show output", { :action => :command_status, :id => command }, :popup => ["command_details", "height=400,width=680,location=0,address=0,scrollbars=1"], :target => "_blank" %>
     </span>

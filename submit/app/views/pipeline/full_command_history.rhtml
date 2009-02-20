@@ -52,7 +52,7 @@
       <tr style="background-color: <%= color %>">
         <td><%= command.id %></td>
         <td class="type"><%= command.type %></td>
-        <td style="<%= Command::Status::is_failed_state(command.status) ? "color: red" : "color: black" %><%= command.id==Command.last.id ? ";text-decoration: blink" : "" %>"><%= command.status %></td>
+        <td style="<%= Project::Status::is_failed_state(command.status) ? "color: red" : "color: black" %><%= command.id==Command.last.id ? ";text-decoration: blink" : "" %>"><%= command.status %></td>
         <td><%= command.created_at.strftime("%y %b %d (%H:%M)") %></td>
         <% 
 	  # command duration

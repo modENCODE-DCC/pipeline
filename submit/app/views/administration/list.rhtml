@@ -20,8 +20,8 @@
       <% 
         deleted_project = c.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false 
         queued_commands = c.commands.find_all_by_status(Command::Status::QUEUED).size
-	active_project = Command::Status::is_active_state(c.status)
-	failed_project = Command::Status::is_failed_state(c.status)
+	active_project = Project::Status::is_active_state(c.status)
+	failed_project = Project::Status::is_failed_state(c.status)
       %>
       <tr <%= ' style="BACKGROUND-COLOR: yellow" ' if active_project %>>
         <td 

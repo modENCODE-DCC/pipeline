@@ -46,10 +46,10 @@
     <%
         deleted_project = p.commands.find_all { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED }.size > 0 ? true : false
         queued_commands = p.commands.find_all_by_status(Command::Status::QUEUED).size
-        active_project = Command::Status::is_active_state(p.status)
-        failed_project = Command::Status::is_failed_state(p.status)
+        active_project = Project::Status::is_active_state(p.status)
+        failed_project = Project::Status::is_failed_state(p.status)
 	released_project = p.status == Project::Status::RELEASED
-	#released_project = Command::Status::is_released_state(p.status)
+	#released_project = Project::Status::is_released_state(p.status)
 	last_upload_command = p.commands.find_all_by_status(Upload::Status::UPLOADED).last if !p.commands.nil?
 	last_validate_command = p.commands.find_all_by_status(Validate::Status::VALIDATED).last if !p.commands.nil?
 	last_load_command = p.commands.find_all_by_status(Load::Status::LOADED).last if !p.commands.nil?

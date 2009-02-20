@@ -179,7 +179,7 @@ class PipelineController < ApplicationController
       return
     end
     @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
-    @active_commands = @project.commands.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
  
     render :partial => "command_panel"
@@ -271,7 +271,7 @@ class PipelineController < ApplicationController
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
 
-    @active_commands = @project.commands.all.find_all { |c| Command::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
 
     @user_can_write = check_user_can_write @project, :skip_redirect => true

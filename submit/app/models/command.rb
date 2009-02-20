@@ -12,32 +12,6 @@ class Command < ActiveRecord::Base
     CANCELING = "canceling"
     CANCELED = "canceled"
     PAUSED = "paused"
-
-    def self.is_active_state(state)
-      active_states = [
-        Delete::Status::DELETING,
-        Load::Status::LOADING,
-        Expand::Status::EXPANDING,
-        Release::Status::AWAITING_RELEASE,
-        Unload::Status::UNLOADING,
-        Upload::Status::UPLOADING,
-        Validate::Status::VALIDATING,
-        FindTracks::Status::FINDING
-      ]
-      return active_states.include?(state)
-    end
-
-    def self.is_failed_state(state)
-      failed_states = [
-        Upload::Status::UPLOAD_FAILED,
-        Delete::Status::DELETE_FAILED,
-        Load::Status::LOAD_FAILED,
-        Expand::Status::EXPAND_FAILED,
-        Unload::Status::UNLOAD_FAILED,
-        Validate::Status::VALIDATION_FAILED,
-      ]
-      return failed_states.include?(state)
-    end
   end
 
   def initialize(options = {})
