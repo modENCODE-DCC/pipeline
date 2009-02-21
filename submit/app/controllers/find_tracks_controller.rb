@@ -38,12 +38,7 @@ class FindTracksController < CommandController
       tracks_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "tracks")
       track_finder.delete_tracks(command_object.project.id, tracks_dir)
 
-      (found_tracks, protocol_ids_by_column) = track_finder.find_tracks(experiment_id, command_object.project.id)
-      track_finder.attach_metadata(found_tracks, protocol_ids_by_column)
-
-      track_finder.generate_output(found_tracks, tracks_dir)
-      found_tracks = nil
-
+      track_finder.generate_track_files_and_tags(experiment_id, command_object.project.id, tracks_dir)
       track_finder.load_into_gbrowse(command_object.project.id, tracks_dir)
 
       command_object.status = FindTracks::Status::FOUND

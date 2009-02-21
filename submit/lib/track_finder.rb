@@ -20,8 +20,20 @@ class Citation < ActionView::Base
 end
 
 class TrackFinder
+
+  # Configuration constants
   GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
-  @features_processed = 0
+
+  # Track finding constants
+  DEBUG = true
+  TRACKS_PER_COLUMN = 5
+  MAX_FEATURES_PER_CHR = 10000
+  CHROMOSOMES = [ 
+              '2L', '2LHet', '2R', '2RHet', '3L', '3LHet', '3R', '3RHet', '4', 'X', 'XHet', 'YHet', 'U', 'Uextra', 'M',
+              'I', 'II', 'III', 'IV', 'V', 'X', 'MtDNA'
+  ]
+
+  # GBrowse configuration
   def self.gbrowse_root
     if File.exists? "#{RAILS_ROOT}/config/gbrowse.yml" then
       gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml") { |f| YAML.load(f.read) }
@@ -33,10 +45,22 @@ class TrackFinder
   def self.gbrowse_lib
     return File.join(gbrowse_root, 'lib')
   end
+  def self.gbrowse_database
+    if File.exists? "#{RAILS_ROOT}/config/gbrowse_database.yml" then
+      db_definition = open("#{RAILS_ROOT}/config/gbrowse_database.yml") { |f| YAML.load(f.read) }
+      dbinfo = Hash.new
+      dbinfo[:adaptor] = db_definition['adaptor']
+      dbinfo[:perl_dsn] = db_definition['perl_dsn']
+      dbinfo[:ruby_dsn] = db_definition['ruby_dsn']
+      dbinfo[:user] = db_definition['user']
+      dbinfo[:password] = db_definition['password']
+      return dbinfo
+    else
+      raise Exception("You need an gbrowse_database.yml file in your config/ directory with at least an adaptor and dsn.")
+    end
+  end
 
-  DEBUG = false
-  TRACKS_PER_COLUMN = 5
-  MAX_FEATURES_PER_CHR = 10000
+  # Perl helper scripts
   GFF_TO_WIGDB_PERL = <<-EOP
   use strict;
   use lib '#{TrackFinder.gbrowse_lib}';
@@ -218,19 +242,68 @@ class TrackFinder
 
   EOP
 
+  # Chado database methods
+  def database
+    if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
+      db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read) }
+      dbinfo = Hash.new
+      dbinfo[:dsn] = db_definition['ruby_dsn']
+      dbinfo[:user] = db_definition['user']
+      dbinfo[:password] = db_definition['password']
+      return dbinfo
+    else
+      raise Exception("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Ruby DBI dsn.")
+    end
+  end
+  def search_path=(search_path)
+      dbh_safe { @dbh.do "SET search_path = #{search_path}, wiggle, pg_catalog" }
+  end
+  def get_experiments
+    schemas = dbh_safe {
+      sth_schemas = @dbh.prepare "SELECT DISTINCT schemaname FROM pg_views WHERE schemaname LIKE 'modencode_experiment_%' AND schemaname NOT LIKE 'modencode_experiment_%_data'"
+      schemas = Hash.new
+      sth_schemas.execute
+      sth_schemas.fetch do |row|
+        schemas[row[0]] = nil
+      end
+      sth_schemas.finish
+
+      schemas.keys.each do |schema|
+        sth_experiments = @dbh.prepare "SELECT DISTINCT experiment_id, uniquename FROM #{schema}.experiment"
+        sth_experiments.execute
+        schemas[schema] = sth_experiments.fetch
+        sth_experiments.finish
+      end
+      schemas.reject { |sch, exp| exp.nil? }
+    }
+  end
+  def there_are_feature_relationships?
+    dbh_safe {
+      sth_get_num_feature_relationships = @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id")
+      sth_get_num_feature_relationships.execute
+      (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
+    }
+  end
+  def dbh_safe
+    if block_given? then
+      begin
+        return yield
+      rescue DBI::DatabaseError => e
+        cmd_puts "DBI error: #{e.err} #{e.errstr}"
+        @dbh.disconnect unless @dbh.nil?
+        return false
+      end
+    end
+  end
+
+  # Utility methods
   def initialize(command_object = nil)
     dbinfo = self.database
     @command_object = command_object
     @dbh = DBI.connect(dbinfo[:dsn], dbinfo[:user], dbinfo[:password])
-  end
 
-  def search_path=(search_path)
-      dbh_safe { @dbh.do "SET search_path = #{search_path}, wiggle, pg_catalog" }
-  end
-
-  def find_tracks(experiment_id, project_id)
-    cmd_puts "Loading feature and wiggle data into GBrowse database..."
-    sth_get_data_by_applied_protocols = dbh_safe { 
+    # Track finding queries:
+    @sth_get_data_by_applied_protocols = dbh_safe {
       @dbh.prepare("SELECT 
                    d.data_id,
                    d.heading, 
@@ -248,8 +321,7 @@ class TrackFinder
                    GROUP BY d.data_id, d.heading, d.name, d.value, c.name
                    HAVING count(wig.*) > 0 OR COUNT(df.*) > 0") 
     }
-
-    sth_get_features_by_data_ids = dbh_safe { 
+    @sth_get_features_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
                    f.feature_id,
@@ -279,9 +351,9 @@ class TrackFinder
                    LEFT JOIN (analysisfeature af
                      INNER JOIN analysis a ON af.analysis_id = a.analysis_id
                    ) ON f.feature_id = af.feature_id
-                   WHERE df.data_id = ANY(?) ORDER BY fl.rank")
+                   WHERE df.data_id = ANY(?) ORDER BY f.feature_id, fl.rank")
     }
-    sth_get_parts_of_features = dbh_safe {
+    @sth_get_parts_of_features = dbh_safe {
       @dbh.prepare("SELECT
                    fr.object_id AS parent_id,
                    f.feature_id,
@@ -292,7 +364,7 @@ class TrackFinder
                    src.name AS srcfeature,
                    src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
-                   frtype.name AS relationship_type
+                   frtype.name AS relationship_type,
                    af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
                    a.program AS analysis
                    FROM feature f
@@ -310,10 +382,9 @@ class TrackFinder
                    LEFT JOIN (analysisfeature af
                      INNER JOIN analysis a ON af.analysis_id = a.analysis_id
                    ) ON f.feature_id = af.feature_id
-                   WHERE fr.object_id = ANY(?) ORDER BY fl.rank")
+                   WHERE fr.object_id = ANY(?) ORDER BY f.feature_id, fl.rank")
     }
-
-    sth_get_wiggles_by_data_ids = dbh_safe { 
+    @sth_get_wiggles_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT 
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
                    wiggle_data.name, 
@@ -329,199 +400,72 @@ class TrackFinder
                    ) ON cvt.cvterm_id = d.type_id
                    WHERE dwd.data_id = ANY(?)") 
     }
+    @sth_metadata = dbh_safe {
+      @dbh.prepare "SELECT
+      cur_output_data.value AS data_value,
+      cur_output_data_type.name AS data_type,
+      db.description AS db_type,
+      db.url AS db_url,
+      prev_apd.applied_protocol_id AS prev_applied_protocol_id,
+      attr.value AS attr_value, attr_type.name AS attr_type, attr.heading AS attr_name
 
-    cmd_puts "  Detecting tracks included in submission."
-    usable_tracks = find_usable_tracks(experiment_id, project_id)
+      FROM applied_protocol cur
+      LEFT JOIN (applied_protocol_data cur_apd 
+        INNER JOIN (data cur_output_data
+          LEFT JOIN cvterm cur_output_data_type ON cur_output_data.type_id = cur_output_data_type.cvterm_id
+          LEFT JOIN (dbxref dbx
+            INNER JOIN db ON dbx.db_id = db.db_id
+          ) ON dbx.dbxref_id = cur_output_data.dbxref_id
+          LEFT JOIN (data_attribute da
+            INNER JOIN attribute attr ON da.attribute_id = attr.attribute_id
+            INNER JOIN cvterm attr_type ON attr_type.cvterm_id = attr.type_id
+          ) ON da.data_id = cur_output_data.data_id
+        ) ON cur_apd.data_id = cur_output_data.data_id
+        LEFT JOIN applied_protocol_data prev_apd ON cur_apd.data_id = prev_apd.data_id AND prev_apd.direction = 'output'
+      ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'input'
 
-    # Protocol order
-    protocol_ids_by_column = Hash.new
-    usable_tracks.each { |col, set_of_tracks| 
-      protocol_ids_by_column[col] = set_of_tracks.first.first.protocol_id
+
+      WHERE cur.applied_protocol_id = ANY(?)"
     }
-
-    cmd_puts "  Done."
-    cmd_puts "  Finding features and wiggle files attached to tracks."
-    # Get all of the datums of all protocols
-    found_tracks = Hash.new { |hash, protocol_column| hash[protocol_column] = Hash.new }
-    dbh_safe {
-      usable_tracks.each do |col, set_of_tracks|
-        cmd_puts "    For the protocol in column #{col}:"
-        set_of_tracks.each do |applied_protocols|
-
-          # Get the data objects for the applied_protocol
-          ap_ids = applied_protocols.map { |ap| ap.applied_protocol_id }
-          sth_get_data_by_applied_protocols.execute(ap_ids)
-
-          data_ids_with_features = Array.new
-          data_ids_with_wiggles = Array.new
-
-          sth_get_data_by_applied_protocols.fetch_hash do |row|
-            if row['number_of_features'].to_i > 0 then
-              data_ids_with_features.push row["data_id"].to_i
-            elsif row['number_of_wiggles'].to_i > 0 then
-              data_ids_with_wiggles.push row["data_id"].to_i
-            end
-          end
-
-          # Get any features and wiggles associated with the each track's data objects
-          features = Hash.new { |hash, datum_name| hash[datum_name] = Hash.new }
-          wiggles = Hash.new { |hash, datum_name| hash[datum_name] = Array.new }
-          parent_feature_ids = Hash.new
-          cmd_puts "      Getting features."
-          cmd_puts "        Getting top-level features."
-          if data_ids_with_features.size > 0 then
-            sth_get_features_by_data_ids.execute data_ids_with_features.uniq
-            sth_get_features_by_data_ids.fetch_hash { |row| 
-              feature_hash = row
-              next unless feature_hash['fmin'] && feature_hash['fmax']
-
-              feature_hash["properties"] = Hash.new unless feature_hash["properties"]
-              if feature_hash["propvalue"] then
-                feature_hash["properties"][row["propname"]] = Hash.new unless feature_hash["properties"][row["propname"]]
-                feature_hash["properties"][row["propname"]][row["proprank"].to_i] = row["propvalue"]
-                feature_hash.reject! { |column, value| col == "propvalue" || col == "propname" || col == "proprank" }
-              end
-
-              feature_hash["parents"] = Array.new
-              parent_feature_ids[row["feature_id"]] = feature_hash
-
-              seen_feature = features[row["data_name"]][row["feature_id"]]
-              unless seen_feature.nil? then
-                if seen_feature['fmin'] != feature_hash['fmin'] || seen_feature['fmax'] != feature_hash['fmax'] || seen_feature['srcfeature'] != feature_hash['srcfeature'] then
-                  if feature_hash['rank'].to_i == 1 then
-                    # The feature_hash is the Target
-                    seen_feature['target'] = "#{feature_hash['srcfeature']} #{feature_hash['fmin']} #{feature_hash['fmax']}"
-                    seen_feature['gap'] = feature_hash['residue_info'] if feature_hash['residue_info']
-                  elsif feature_hash['rank'].to_i == 0 then
-                    # The seen_feature is the Target, because the current feature_hash is the match vs. the chromosome
-                    feature_hash['target'] = "#{seen_feature['srcfeature']} #{seen_feature['fmin']} #{seen_feature['fmax']}"
-                    feature_hash['gap'] = seen_feature['residue_info'] if seen_feature['residue_info']
-                    features[row["data_name"]][row['feature_id']] = feature_hash
-                  end
-                end
-              else
-                features[row["data_name"]][row["feature_id"]] = feature_hash
-              end
-            }
-          end
-          cmd_puts "        Done fetching top-level features."
-
-          sth_get_num_feature_relationships = dbh_safe { @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id") }
-          sth_get_num_feature_relationships.execute
-          there_are_feature_relationships = (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
-
-          # Get any features that are the the subject to the found features' objects
-          # e.g. child features
-          # (Don't do this if there aren't any feature_relationships, as in the case of Lai's data)
-          if there_are_feature_relationships then
-            cmd_puts "        Getting child features."
-            while parent_feature_ids.keys.size > 0
-              sth_get_parts_of_features.execute parent_feature_ids.keys
-              new_parent_feature_ids = Hash.new
-  
-              sth_get_parts_of_features.fetch_hash { |row|
-                subfeature_hash = row.reject { |column, value| column == "object_id" }
-
-                subfeature_hash["properties"] = Hash.new unless subfeature_hash["properties"]
-                if subfeature_hash["propvalue"] then
-                  subfeature_hash["properties"][row["propname"]] = Hash.new unless subfeature_hash["properties"][row["propname"]]
-                  subfeature_hash["properties"][row["propname"]][row["proprank"].to_i] = row["propvalue"]
-                  subfeature_hash.reject! { |column, value| col == "propvalue" || col == "propname" || col == "proprank" }
-                end
-
-                subfeature_hash["parents"] = Array.new
-
-                new_parent_feature_ids[row["feature_id"]] = subfeature_hash
-
-                subfeature_hash["data_name"] = parent_feature_ids[row["parent_id"]]["data_name"]
-                subfeature_hash["genus"] = parent_feature_ids[row["parent_id"]]["genus"]
-                subfeature_hash["species"] = parent_feature_ids[row["parent_id"]]["species"]
-                
-                # Add this feature to the relationships from the previous pass
-                subfeature_hash["parents"].push [row["relationship_type"], parent_feature_ids[row["parent_id"]]]
-                seen_subfeature = features[subfeature_hash["data_name"]][row["feature_id"]]
-
-                unless seen_subfeature.nil? then
-                  seen_subfeature["parents"] = subfeature_hash["parents"] if subfeature_hash["parents"].size > seen_subfeature["parents"].size
-                  if (seen_subfeature['target'].nil?) then
-                    if seen_subfeature['fmin'] != subfeature_hash['fmin'] || seen_subfeature['fmax'] != subfeature_hash['fmax'] || seen_subfeature['srcfeature'] != subfeature_hash['srcfeature'] then
-                      if subfeature_hash['rank'].to_i == 1 then
-                        # The subfeature_hash is the Target
-                        seen_subfeature['target'] = "#{subfeature_hash['srcfeature']} #{subfeature_hash['fmin']} #{subfeature_hash['fmax']}"
-                        seen_subfeature['gap'] = subfeature_hash['residue_info'] if subfeature_hash['residue_info']
-                      elsif subfeature_hash['rank'].to_i == 0 then
-                        # The seen_subfeature is the Target, because the current subfeature_hash is the match vs. the chromosome
-                        subfeature_hash['target'] = "#{seen_subfeature['srcfeature']} #{seen_subfeature['fmin']} #{seen_subfeature['fmax']}"
-                        subfeature_hash['gap'] = seen_subfeature['residue_info'] if seen_subfeature['residue_info']
-                        features[subfeature_hash["data_name"]][row['feature_id']] = subfeature_hash
-                      end
-                    end
-                  end
-                else
-                  features[subfeature_hash["data_name"]][row["feature_id"]] = subfeature_hash
-                end
-              }
-              parent_feature_ids = new_parent_feature_ids
-            end
-            cmd_puts "        Done getting child features."
-          end
-
-          cmd_puts "      Done."
-
-          cmd_puts "      Getting wiggle files."
-          if data_ids_with_wiggles.size > 0 then
-            sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
-            sth_get_wiggles_by_data_ids.fetch_hash { |row| wiggles[row["data_name"]].push row.reject { |column, value| column == "data_name" } }
-          end
-          cmd_puts "      Done."
-
-          # Remove default value from hash
-          wiggles.default = nil
-          features.default = nil
-
-          if features.size > 0  then
-            cmd_puts "      There are #{features.size} feature tracks."
-            features.each_pair do |datum_name, features|
-              found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
-              found_tracks[col][datum_name].push({
-                :experiment_id => experiment_id,
-                :project_id => project_id,
-                :type => :feature,
-                :name => datum_name,
-                :data => features,
-                :applied_protocol_ids => applied_protocols.map { |ap| ap.applied_protocol_id }
-              })
-            end
-          end
-          if wiggles.size > 0 then
-            cmd_puts "      There are #{wiggles.size} wiggle files."
-            wiggles.each_pair do |datum_name, wiggles|
-              found_tracks[col][datum_name] = Array.new unless found_tracks[col][datum_name]
-              found_tracks[col][datum_name].push({
-                :experiment_id => experiment_id,
-                :project_id => project_id,
-                :type => :wiggle,
-                :name => datum_name,
-                :data => wiggles,
-                :applied_protocol_ids => applied_protocols.map { |ap| ap.applied_protocol_id }
-              })
-            end
-          end
-          if wiggles.size <= 0 && features.size <= 0 then
-            cmd_puts "      There are no features or wiggle files."
-          end
-
-        end
+  end
+  def cmd_puts(message)
+    puts message + "\n" if DEBUG
+    return if @command_object.nil?
+    @command_object.stdout = @command_object.stdout + message + "\n";
+    @command_object.save
+  end
+  def delete_tracks(project_id, directory)
+    cmd_puts "Removing old tracks and metadata."
+    Find.find(directory) do |path|
+      Find.prune if File.directory?(path) && path != directory # Don't recurse
+      if File.basename(path) =~ /^\d+[_\.]/ then
+        File.unlink(path)
       end
-      sth_get_data_by_applied_protocols.finish
-      sth_get_features_by_data_ids.finish
-    }
-
-    cmd_puts "  Done."
-    return [ found_tracks, protocol_ids_by_column ]
+      if File.basename(path) =~ /\.sqlite(-journal)?$/ then
+        File.unlink(path)
+      end
+    end
+    TrackTag.destroy_all "project_id = #{project_id}"
+    TrackStanza.destroy_all "project_id = #{project_id}"
+    cmd_puts "Done."
+  end
+  def get_next_tracknum
+    unless Semaphore.exists?(:flag => "tracknum") then
+      # If we can't create this object, then it probably means it was created between
+      # the "unless" check above and the creation below. If that's the case, it's 
+      # effectively a StaleObjectError and should be handled the same
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "tracknum", :value => 0).save
+    end
+    s = Semaphore.find_by_flag("tracknum")
+    s.value = s.value.to_i + 1
+    s.save
+    return s.value
   end
 
+  # Track finding and output
   def find_usable_tracks(experiment_id, project_id)
+    # Find the datum objects that have attached features (via data_feature) 
+    # or wiggle data (via data_wiggle_data)
 
     usable_tracks = Hash.new { |hash, column| hash[column] = Array.new }
     cmd_puts "    Scanning protocols for inputs or outputs that could make tracks."
@@ -661,170 +605,523 @@ class TrackFinder
     cmd_puts "    Done."
     return usable_tracks
   end
-
-  def generate_output(found_tracks, directory = '.')
-
-    Dir.mkdir(directory) unless File.directory? directory
-    found_tracks.keys.each do |column|
-      cmd_puts "For protocol in column #{column}:"
-      found_tracks[column].each_pair do |datum_name, tracks|
-        tracks.each do |track_descriptor|
-          if track_descriptor[:type] == :feature then
-
-            merged_features = track_descriptor[:data]
-            cmd_puts "  There are #{merged_features.size} features for the #{track_descriptor[:name]} track"
-            has_chromosome_location = (merged_features.values.find { |f| !f["srcfeature_id"].nil? && !f["feature_id"].nil? && f["srcfeature_id"] != f["feature_id"] }) ? true : false
-
-            unless has_chromosome_location then
-              cmd_puts "    No features mapped to a chromosome, not generating track."
-              next
+  def attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+    tracknum = self.get_next_tracknum
+    history_depth = 0
+    while ap_ids.size > 0
+      prev_ap_ids = Array.new
+      dbh_safe {
+        seen = Array.new
+        @sth_metadata.execute(ap_ids)
+        @sth_metadata.fetch do |row|
+            unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
+              # Datum name
+              begin
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => row['data_value'],
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['data_value'],
+                  :cvterm => row['data_type'],
+                  :history_depth => history_depth
+                ).save
+              rescue
+              end
+              # Datum URL prefix (for wiki links)
+              begin
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => row['data_value'],
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['db_url'],
+                  :cvterm => 'data_url',
+                  :history_depth => history_depth
+                ).save unless row['db_type'] != "URL_mediawiki_expansion"
+                seen.push row['data_value']
+              rescue
+              end
+              # Datum attributes
+              begin
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => row['data_value'],
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['attr_value'],
+                  :cvterm => row['attr_name'],
+                  :history_depth => history_depth
+                ).save unless row['attr_value'].nil? || row['attr_value'].empty?
+              rescue
+              end
+              # And go through any attached previous applied protocols
+              prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
             end
+        end
+      }
+      ap_ids = prev_ap_ids.uniq
+      history_depth = history_depth + 1
+    end
 
-            too_many_features = false
-            if merged_features.size > MAX_FEATURES_PER_CHR then
-              cmd_puts "    Generating wiggle file for zoomed-out view."
-              # Figure out how many features there are per chromosome
-              count = Hash.new { |hash, srcfeature| hash[srcfeature] = 0 }
-              merged_features.values.each { |f|
-                count[f['srcfeature']] += 1 unless f['srcfeature'].nil?
-              }
-              if count.values.find { |num_feats| num_feats > MAX_FEATURES_PER_CHR } then
-                too_many_features = true
-                # Wigglefy
-                # One wiggle db file per chr and feature type
-                # One GFF per track
-                unique_types = merged_features.values.map { |feature| feature['type'] }.uniq
-                chromosomes = count.keys
+    ### Citation stuff ###
+    # Experiment properties
+    dbh_safe {
+      sth_idf_info = @dbh.prepare "SELECT ep.name, ep.value, ep.rank, c.name AS type FROM experiment_prop ep 
+                                   INNER JOIN cvterm c ON ep.type_id = c.cvterm_id 
+                                   WHERE experiment_id = ?
+                                   GROUP BY ep.name, ep.value, ep.rank, c.name"
+      sth_idf_info.execute(experiment_id)
+      sth_idf_info.fetch do |row|
+        TrackTag.new(
+          :experiment_id => experiment_id,
+          :name => row['name'],
+          :project_id => project_id,
+          :track => tracknum,
+          :value => row['value'],
+          :cvterm => row['type'],
+          :history_depth => row['rank']
+        ).save
+      end
+    }
 
-                # Make a GFF for wigglefied tracks ALSO
-                gff_file = File.new(File.join(directory, "#{track_descriptor[:tracknum]}_wiggle.gff"), "w")
-                gff_file.puts("##gff-version 3")
-                unique_types.each do |type|
+    # Protocol types and names and links
+    dbh_safe {
+      sth_protocol_type = @dbh.prepare "SELECT p.protocol_id, p.name, a.value AS type, dbx.accession AS url FROM attribute a 
+              INNER JOIN protocol_attribute pa ON a.attribute_id = pa.attribute_id 
+              INNER JOIN protocol p ON pa.protocol_id = p.protocol_id 
+              LEFT JOIN dbxref dbx ON p.dbxref_id = dbx.dbxref_id
+              WHERE a.heading = 'Protocol Type' AND p.protocol_id = ?
+              GROUP BY p.protocol_id, p.name, type, url"
 
-                  chromosomes.each do |chromosome|
-                    all_chr_features = merged_features.values.find_all { |feature| feature['type'] == type && feature['srcfeature'] == chromosome }
-                    if all_chr_features.size > 0 then
-                      cmd_puts "      Generating wiggle for features of type #{type} on chromosome #{chromosome}."
-                    else
-                      cmd_puts "      There are no features of type #{type} on chromosome #{chromosome}. Skipping."
-                      next
-                    end
+      protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_id|
+        sth_protocol_type.execute(protocol_id)
+        sth_protocol_type.fetch do |row|
+          begin
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => row['name'],
+            :project_id => project_id,
+            :track => tracknum,
+            :value => row['type'],
+            :cvterm => 'protocol_type',
+            :history_depth => col
+          ).save
+          rescue
+          end
+          begin
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => row['name'],
+            :project_id => project_id,
+            :track => tracknum,
+            :value => row['url'],
+            :cvterm => 'protocol_url',
+            :history_depth => col
+          ).save
+          rescue
+          end
+        end
+      end
+    }
 
-                    wiggle_db_file_path = File.join(directory, "#{track_descriptor[:tracknum]}_#{chromosome}_#{type}.wigdb")
+    return tracknum
+  end
+  def generate_track_files_and_tags(experiment_id, project_id, output_dir)
+    cmd_puts "Loading feature and wiggle data into GBrowse database..."
 
-                    wiggle_writer = IO.popen("perl", "w")
-                    wiggle_writer.print GFF_TO_WIGDB_PERL + "\n\n"
-                    wiggle_writer.puts wiggle_db_file_path
-                    wiggle_writer.puts chromosome
-                    min = 0
-                    max = 255
-                    wiggle_writer.puts "#{min} #{max}"
-                    fmin = nil
-                    fmax = nil
-                    all_chr_features.each do |feature|
-                      if feature['fmin'] && feature['fmax'] then
-                        wiggle_writer.puts "#{(feature['fmin'].to_i+1).to_s} #{feature['fmax']} #{max}"
-                        
-                        fmin = [ feature['fmin'].to_i, feature['fmax'].to_i, fmin.to_i ].reject { |a| a <= 0 }.min
-                        fmax = [ feature['fmin'].to_i, feature['fmax'].to_i, fmax.to_i ].reject { |a| a <= 0 }.max
-                      end
-                    end
-                    wiggle_writer.close
-                    gff_file.puts "#{chromosome}\t#{track_descriptor[:tracknum]}\t#{type}\t#{fmin}\t#{fmax}\t.\t.\t.\tName=#{track_descriptor[:name]};wigfile=#{wiggle_db_file_path}"
+    ########## Get Usable Tracks #########
+    cmd_puts "  Detecting tracks included in submission."
+
+    # Get datum objects attached to features or wiggle data
+    usable_tracks = find_usable_tracks(experiment_id, project_id)
+    # Figure out the protocol order
+    protocol_ids_by_column = Hash.new
+    usable_tracks.each { |col, set_of_tracks| 
+      # FIXME: Only supports a single protocol per column
+      protocol_ids_by_column[col] = set_of_tracks.first.first.protocol_id
+    }
+
+    tracknum_to_data_name = Hash.new
+
+    cmd_puts "  Done."
+    ######### /Get Usable Tracks #########
+    ######## Find Features/Wiggles #######
+    cmd_puts "  Finding features and wiggle files attached to tracks."
+    usable_tracks.each do |col, set_of_tracks|
+      cmd_puts "    For the protocol in column #{col}:"
+      set_of_tracks.each do |applied_protocols|
+        # Get the data objects for the applied protocol
+        ap_ids = applied_protocols.map { |ap| ap.applied_protocol_id }
+
+        data_ids_with_features = Array.new
+        data_ids_with_wiggles = Array.new
+
+        dbh_safe {
+          @sth_get_data_by_applied_protocols.execute(ap_ids)
+          @sth_get_data_by_applied_protocols.fetch_hash do |row|
+            if row['number_of_features'].to_i > 0 then
+              data_ids_with_features.push row["data_id"].to_i
+            elsif row['number_of_wiggles'].to_i > 0 then
+              data_ids_with_wiggles.push row["data_id"].to_i
+            end
+          end
+        }
+
+        # No need to continue if there isn't anything to make tracks of
+        next unless data_ids_with_features.size > 0 || data_ids_with_wiggles.size > 0
+
+        if data_ids_with_features.size > 0 then
+          # Get any features associated with this track's data objects
+          cmd_puts "      Getting features."
+          cmd_puts "        Finding metadata for features."
+          tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+          cmd_puts "          Using tracknum #{tracknum}"
+          cmd_puts "        Done."
+
+
+          analyses = Array.new
+          organisms = Array.new
+          features_processed = 0 # Track number of features to determine if we want a wiggle file
+
+          # Open GFF file for writing
+          Dir.mkdir(output_dir) unless File.directory? output_dir
+          gff_sqlite = DBI.connect("dbi:SQLite3:#{File.join(output_dir, "#{tracknum}.sqlite")}")
+          gff_sqlite.do("CREATE TABLE gff (id INTEGER PRIMARY KEY, feature_id INTEGER UNIQUE, gff_string TEXT, parents TEXT, srcfeature VARCHAR(255), type VARCHAR(255), fmin INTEGER, fmax INTEGER)")
+          sth_add_gff_parents = gff_sqlite.prepare("UPDATE gff SET parents = parents || ? WHERE feature_id = ?")
+          sth_add_gff = gff_sqlite.prepare("INSERT INTO gff (feature_id, gff_string, parents, srcfeature, type, fmin, fmax) VALUES(?, ?, ?, ?, ?, ?, ?)")
+          sth_get_gff = gff_sqlite.prepare("SELECT gff_string, parents FROM gff WHERE feature_id = ?")
+          sth_get_all_gff = gff_sqlite.prepare("SELECT srcfeature, type, fmin, fmax FROM gff")
+
+          cmd_puts "        Getting top-level features."
+          seen_feature_ids = Array.new
+          parent_feature_ids = Array.new
+          current_feature_hash = Hash.new
+          chromosome_located_features = false
+          dbh_safe {
+            parsed_features = 0
+            @sth_get_features_by_data_ids.execute data_ids_with_features.uniq
+            @sth_get_features_by_data_ids.fetch_hash { |row|
+              next if row['fmin'].nil? || row['fmax'].nil? # Skip features with no location
+
+              if current_feature_hash['feature_id'] != row['feature_id'] then
+                unless current_feature_hash['feature_id'].nil? then
+                  parsed_features += 1
+                  cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
+                  # Write out the current feature
+                  sth_add_gff.execute(
+                    current_feature_hash['feature_id'], 
+                    feature_to_gff(current_feature_hash.dup, tracknum), 
+                    '',
+                    current_feature_hash['srcfeature'],
+                    current_feature_hash['type'],
+                    current_feature_hash['fmin'],
+                    current_feature_hash['fmax']
+                  )
+                  seen_feature_ids.push(current_feature_hash['feature_id'])
+                  # Metadata
+                  chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+                  analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
+                  organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
+                  begin
+                    TrackTag.new(
+                      :experiment_id => experiment_id,
+                      :name => 'Feature',
+                      :project_id => project_id,
+                      :track => tracknum,
+                      :value => current_feature_hash['name'],
+                      :cvterm => current_feature_hash['type'],
+                      :history_depth => 0
+                    ).save
+                  rescue
                   end
                 end
-                gff_file.close
-              end
-              cmd_puts "    Done."
-            end
 
-            cmd_puts "    Generating GFF file."
-            gff_file = File.new(File.join(directory, "#{track_descriptor[:tracknum]}.gff"), "w")
-            gff_file.puts("##gff-version 3")
-            merged_features.values.each { |f| if f['srcfeature'].nil? then f['srcfeature'] = f['uniquename'] end }
-
-            @features_processed = 0
-            while merged_features.size > 0
-              if too_many_features then
-                out = self.feature_to_gff(merged_features, "#{track_descriptor[:tracknum]}_details")
+                # Reinitialize with the new row
+                current_feature_hash = row
+                current_feature_hash = current_feature_hash.reject { |column, value| col == 'propvalue' || col == 'propname' || col == 'proprank' || col == 'residue_info' }
+                current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
+                current_feature_hash['parents'] = Array.new # Top level features have no parents
+                tracknum_to_data_name[tracknum] = current_feature_hash.delete('data_name')
+                parent_feature_ids.push row['feature_id']
               else
-                out = self.feature_to_gff(merged_features, track_descriptor[:tracknum])
+                # We're still looking at rows for the same feature
+                if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
+                  if row['rank'].to_i then
+                    # The new row is the Target
+                    current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                    current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
+                  elsif row['rank'].to_i == 0 then
+                    # The previously seen row is the Target; this shouldn't happen because of
+                    # an ORDER BY clause in the query, but just to be safe, swap the location entries
+                    current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                    current_feature_hash['fmin'] = row['fmin']
+                    current_feature_hash['fmax'] = row['fmax']
+                    current_feature_hash['srcfeature'] = row['srcfeature']
+                  end
+                end
               end
-              gff_file.puts(out)
-            end
-            gff_file.close
-            cmd_puts "    Done."
-          end
 
-
-          # Input was wiggle:
-          if track_descriptor[:type] == :wiggle then
-            cmd_puts "  There are #{track_descriptor[:data].size} wiggles for the #{track_descriptor[:name]} track"
-
-            wiggle_db_file_path = File.join(directory, "#{track_descriptor[:tracknum]}_%s.wigdb")
-            gff_file_path = File.join(directory, "#{track_descriptor[:tracknum]}_wiggle.gff")
-            track_descriptor[:data].sort { |w1, w2| w1['wiggle_data_id'] <=> w2['wiggle_data_id'] }.each do |wiggle|
-              # Write out the wiggle file as a wigdb with GFF
-              cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_file_path}"
-
-              # Create temp file
-              wiggle_file = Tempfile.new('wiggle_file')
-              wiggle_file.puts wiggle['wiggle_file']
-              wiggle_file.close
-
-              # Run wiggle-db converter
-              wiggle_writer = IO.popen("perl", "w")
-              wiggle_writer.print WIGGLE_TO_WIGDB_PERL + "\n\n"
-              wiggle_writer.puts wiggle_db_file_path
-              wiggle_writer.puts gff_file_path
-              wiggle_writer.puts wiggle['term']
-              wiggle_writer.puts track_descriptor[:tracknum]
-              wiggle_writer.puts wiggle_file.path
-              wiggle_writer.close
-            end
-          end
-
-          # Write metadata tags
-          cmd_puts "  Saving metadata for #{track_descriptor[:tracknum]} to database."
-          dbh_safe {
-            track_descriptor[:tags].each { |experiment_id, name, value, type, history_depth|
-              tt = TrackTag.new(
-                :experiment_id => experiment_id,
-                :name => name,
-                :project_id => track_descriptor[:project_id],
-                :track => track_descriptor[:tracknum],
-                :value => value,
-                :cvterm => type,
-                :history_depth => history_depth
-              )
-              unless tt.save then
-                $stderr.puts "Errors: " + tt.errors.full_messages.join("\n  ")
-              end
+              # Merge all featureprops for a single feature into one object
+              current_feature_hash['properties'][row['propname']][row['proprank'].to_i] = row['propvalue'] unless row['propvalue'].nil?
             }
           }
+          cmd_puts "        Done fetching top-level features."
+
+          # Child features
+          current_feature_hash = Hash.new
+          if there_are_feature_relationships? && parent_feature_ids.size > 0 then
+            cmd_puts "        Getting child features."
+            dbh_safe {
+              @sth_get_parts_of_features.execute parent_feature_ids.uniq
+              parent_feature_ids = Array.new
+              @sth_get_parts_of_features.fetch_hash { |row|
+                if current_feature_hash['feature_id'] != row['feature_id'] then
+                  unless current_feature_hash['feature_id'].nil? then
+                    current_feature_hash['parents'].uniq!
+                    # Write out the current feature
+                    if seen_feature_ids.member?(current_feature_hash['feature_id']) then
+                      sth_add_gff_parents.execute(
+                        current_feature_hash['parents'].map { |reltype, parent| "#{reltype}/#{parent}" }.join(',') + ',',
+                        current_feature_hash['feature_id']
+                      )
+                    else
+                      seen_feature_ids.push(current_feature_hash['feature_id'])
+                      sth_add_gff.execute(
+                        current_feature_hash['feature_id'], 
+                        feature_to_gff(current_feature_hash.dup, tracknum), 
+                        current_feature_hash['parents'].map { |reltype, parent| "#{reltype}/#{parent}" }.join(',') + ',',
+                        current_feature_hash['srcfeature'],
+                        current_feature_hash['type'],
+                        current_feature_hash['fmin'],
+                        current_feature_hash['fmax']
+                      )
+                    end
+                    # Metadata
+                    chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+                    analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
+                    organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
+                    begin
+                      TrackTag.new(
+                        :experiment_id => experiment_id,
+                        :name => 'Feature',
+                        :project_id => project_id,
+                        :track => tracknum,
+                        :value => current_feature_hash['name'],
+                        :cvterm => current_feature_hash['type'],
+                        :history_depth => 0
+                      ).save
+                    rescue
+                    end
+                  end
+
+                  # Reinitialize with the new row
+                  current_feature_hash = row
+                  current_feature_hash = current_feature_hash.reject { |column, value| col == 'propvalue' || col == 'propname' || col == 'proprank' || col == 'residue_info' || col == 'object_id' }
+                  current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
+                  current_feature_hash['parents'] = Array.new # To be filled in
+                  parent_feature_ids.push row['feature_id']
+
+                  # Add parent relationship
+                  current_feature_hash['parents'].push [row['relationship_type'], row['parent_id']] if row['parent_id']
+                else
+                  # We're still looking at rows for the same feature
+                  if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
+                    if row['rank'].to_i then
+                      # The new row is the Target
+                      current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                      current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
+                    elsif row['rank'].to_i == 0 then
+                      # The previously seen row is the Target; this shouldn't happen because of
+                      # an ORDER BY clause in the query, but just to be safe, swap the location entries
+                      current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                      current_feature_hash['fmin'] = row['fmin']
+                      current_feature_hash['fmax'] = row['fmax']
+                      current_feature_hash['srcfeature'] = row['srcfeature']
+                    end
+                  end
+                  # Add any new parental relationships
+                  current_feature_hash['parents'].push [row['relationship_type'], row['parent_id']] if row['parent_id']
+                end
+
+                # Merge all featureprops for a single feature into one object
+                current_feature_hash['properties'][row['propname']][row['proprank'].to_i] = row['propvalue'] unless row['propvalue'].nil?
+              }
+            }
+            cmd_puts "        Done getting child features."
+          end
+
+          # Track the unique analyses used in this track so we can
+          # color by them in the configure_tracks page
+          analyses.uniq.each { |analysis|
+            TrackTag.new(
+              :experiment_id => experiment_id,
+              :name => 'Analysis',
+              :project_id => project_id,
+              :track => tracknum,
+              :value => analysis,
+              :cvterm => 'unique_analysis',
+              :history_depth => 0
+            ).save
+          }
+          # Track the unique organisms used in this track so we can
+          # guess which GBrowse configuration to use
+          organisms.uniq.each { |organism|
+            TrackTag.new(
+              :experiment_id => experiment_id,
+              :name => 'Organism',
+              :project_id => project_id,
+              :track => tracknum,
+              :value => organism,
+              :cvterm => 'organism',
+              :history_depth => 0
+            ).save
+          }
+          # Label this as a feature track
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => 'Track Type',
+            :project_id => project_id,
+            :track => tracknum,
+            :value => 'feature',
+            :cvterm => 'track_type',
+            :history_depth => 0
+          ).save
+
+
+          # Write out a GFF and wiggle only if they're actually going to contain anything useful
+          if chromosome_located_features then
+            gff_file = File.new(File.join(output_dir, "#{tracknum}.gff"), "w")
+            gff_file.puts "##gff-version 3"
+            cmd_puts "        Creating GFF file."
+            while seen_feature_ids.size > 0
+              recursive_output(seen_feature_ids, sth_get_gff, gff_file)
+            end
+            gff_file.close
+
+            # Generate a wiggle file
+            cmd_puts "        Generating a wiggle file for zoomed-out views."
+            sth_get_all_gff.execute
+            wiggle_writers = Hash.new { |hash, chromosome| 
+              hash[chromosome] = Hash.new { |chrhash, type|
+                wiggle_db_file_path = File.join(output_dir, "#{tracknum}_#{chromosome}_#{type}.wigdb")
+                wiggle_writer = IO.popen("perl", "w")
+                wiggle_writer.puts GFF_TO_WIGDB_PERL + "\n\n"
+                wiggle_writer.puts wiggle_db_file_path
+                wiggle_writer.puts chromosome
+                wiggle_writer.puts "0 255"
+                chrhash[type] = { :fmin => nil, :fmax => nil, :writer => wiggle_writer, :path => wiggle_db_file_path }
+              }
+            }
+            sth_get_all_gff.fetch_hash { |row|
+              if row['fmin'] && row['fmax'] && CHROMOSOMES.include?(row['srcfeature']) then
+                wiggle_writer = wiggle_writers[row['srcfeature']][row['type']]
+                wiggle_writer[:writer].puts "#{(row['fmin'].to_i+1).to_s} #{row['fmax']} 255"
+                wiggle_writer[:fmin] = [ row['fmin'].to_i, row['fmax'].to_i, wiggle_writer[:fmin].to_i ].reject { |a| a <= 0 }.min
+                wiggle_writer[:fmax] = [ row['fmax'].to_i, row['fmax'].to_i, wiggle_writer[:fmax].to_i ].reject { |a| a <= 0 }.max
+              end
+            }
+
+            # Generate GFF file that refers to wigdb files
+            gff_file = File.new(File.join(output_dir, "#{tracknum}_wiggle.gff"), "w")
+            gff_file.puts "##gff-version 3"
+            wiggle_writers.each { |chromosome, types|
+              types.each { |type, writer|
+                writer[:writer].close
+                track_name = type + " features from " +  tracknum_to_data_name[tracknum]
+                gff_file.puts "#{chromosome}\t#{tracknum}\t#{type}\t#{writer[:fmin]}\t#{writer[:fmax]}\t.\t.\t.\tName=#{track_name};wigfile=#{writer[:path]}"
+              }
+            }
+            cmd_puts "        Done."
+            cmd_puts "      Done."
+            gff_file.close
+          end
+
+          sth_get_gff.finish
+          sth_get_all_gff.finish
+          sth_add_gff_parents.finish
+          sth_add_gff.finish
+          gff_sqlite.disconnect
+          File.unlink(File.join(output_dir, "#{tracknum}.sqlite"))
+
+          cmd_puts "      Done getting features."
+        end
+        if data_ids_with_wiggles.size > 0 then
+          cmd_puts "      Getting wiggle files."
+          cmd_puts "        Finding metadata for wiggle files."
+          tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+          cmd_puts "          Using tracknum #{tracknum}"
+          cmd_puts "        Done."
+          dbh_safe {
+            @sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
+            @sth_get_wiggles_by_data_ids.fetch_hash { |row|
+              # Write out the current wiggle
+              wiggle_db_file_path = File.join(output_dir, "#{tracknum}_%s.wigdb")
+              gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
+              cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_file_path}"
+
+              # Put the wiggle in a temp file for parsing
+              wiggle_file = Tempfile.new('wiggle_file')
+              wiggle_file.puts row['wiggle_file']
+              wiggle_file.close
+
+              # Do the conversion
+              wiggle_writer = IO.popen("perl", "w")
+              wiggle_writer.puts WIGGLE_TO_WIGDB_PERL + "\n\n"
+              wiggle_writer.puts wiggle_db_file_path
+              wiggle_writer.puts gff_file_path
+              wiggle_writer.puts row['term']
+              wiggle_writer.puts tracknum
+              wiggle_writer.puts wiggle_file.path
+              wiggle_writer.close
+
+              # Remove the temporary file
+              wiggle_file.unlink
+            }
+          }
+          # Label this as a wiggle track
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => 'Track Type',
+            :project_id => project_id,
+            :track => tracknum,
+            :value => 'wiggle',
+            :cvterm => 'track_type',
+            :history_depth => 0
+          ).save
+          cmd_puts "      Done getting wiggle files."
+        end
+        if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 then
+          cmd_puts "      There are no features or wiggle files."
         end
       end
     end
-  cmd_puts "Done finding tracks."
+    cmd_puts "  Done."
+    ####### /Find Features/Wiggles #######
   end
-
-  def feature_to_gff(features, tracknum, parent_id = nil)
-    if parent_id.nil? then
-      (feature_id, feature) = features.first
-      features.delete(feature_id)
+  def recursive_output(seen_feature_ids, sth_get_gff, gff_file, parent_id = nil)
+    if !parent_id.nil? then
+      sth_get_gff.execute parent_id
     else
-      feature = features.delete(parent_id)
+      return unless seen_feature_ids.size > 0
+      sth_get_gff.execute seen_feature_ids.shift
     end
-    @features_processed += 1
-    if @features_processed % 20000 == 0 then
-      cmd_puts "      Processed #{@features_processed} features..."
-    end
-
-    # Format for GFF
+    row = sth_get_gff.fetch
+    parents = row[1].nil? ? '' : row[1].split(',').map { |parent| parent.split('/') }
+    parents.each { |reltype, parent_id|
+      if seen_feature_ids.include?(parent_id) then
+        seen_feature_ids.delete(parent_id)
+        recursive_output(seen_feature_ids, sth_get_gff, gff_file, parent_id)
+      end
+    }
+    text = row[0] + parents.map { |reltype, parent_id| ";Parent=#{parent_id};parental_relationship=#{reltype}/#{parent_id}" }.join
+    gff_file.puts text.gsub(/#/, '_')
+  end
+  def feature_to_gff(feature, tracknum)
+    # Format GFF fields for output
     feature['uniquename'] = (feature['uniquename'].gsub(/[;=\[\]\/, ]/, '_'))
     feature['name'] = (feature['name'].gsub(/[;=\[\]\/, ]/, '_')) unless feature['name'].nil?
     feature['strand'] = 0 if feature['strand'].nil?
-    feature['srcfeature'] = feature['uniquename'] if feature['srcfeature'].nil?
     case feature['strand'].to_i
     when -1 then feature['strand'] = '-'
     when 1 then feature['strand'] = '+'
@@ -835,10 +1132,12 @@ class TrackFinder
     feature['fmin'] = '.' if feature['fmin'].nil?
     feature['fmax'] = '.' if feature['fmax'].nil?
 
-    # Write out GFF
-    srcfeature = (feature['srcfeature'] == feature['uniquename']) ? feature['srcfeature'] : feature['feature_id']
+    feature['srcfeature'] = feature['feature_id'] if feature['srcfeature'].nil?
+
     score = feature['score'] ? feature['score'] : "."
-    out = "#{feature['srcfeature']}\t#{tracknum}\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t#{score}\t#{feature['strand']}\t#{feature['phase']}\tID=#{srcfeature}"
+    out = "#{feature['srcfeature']}\t#{tracknum}_details\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t#{score}\t#{feature['strand']}\t#{feature['phase']}\tID=#{feature['feature_id']}"
+
+    # Build the attributes column
     if !feature['name'].nil? && feature['name'].length > 0 then
       out = out + ";Name=#{feature['name']}"
     elsif !feature['uniquename'].nil? && feature['uniquename'].length > 0 then
@@ -851,13 +1150,11 @@ class TrackFinder
     out = out + ";significance=#{feature['significance']}" unless feature['significance'].nil?
 
     # Parental relationships
-    feature["parents"].each do |reltype, parent|
-      # Make sure the parent is written before this feature
-      out = self.feature_to_gff(features, tracknum, parent['feature_id']) + out if features[parent['feature_id']]
-      # Write the parental relationship
-      out = out + ";Parent=#{parent['feature_id']}"
-      out = out + ";parental_relationship=#{reltype}/#{parent['feature_id']}"
-    end
+#    feature["parents"].each do |reltype, parent|
+#      # Write the parental relationship
+#      out = out + ";Parent=#{parent}"
+#      out = out + ";parental_relationship=#{reltype}/#{parent}"
+#    end
 
     # Attributes
     feature["properties"].each do |propname, ranks|
@@ -865,209 +1162,7 @@ class TrackFinder
       out = out + ranks.sort { |v1, v2| v1[0] <=> v2[0] }.map { |val| val[1].gsub(/[,;]/, "_") }.join(",")
     end
 
-
-    out = out + "\n"
-
     out
-  end
-
-  def get_experiments
-    schemas = dbh_safe {
-      sth_schemas = @dbh.prepare "SELECT DISTINCT schemaname FROM pg_views WHERE schemaname LIKE 'modencode_experiment_%' AND schemaname NOT LIKE 'modencode_experiment_%_data'"
-      schemas = Hash.new
-      sth_schemas.execute
-      sth_schemas.fetch do |row|
-        schemas[row[0]] = nil
-      end
-      sth_schemas.finish
-
-      schemas.keys.each do |schema|
-        sth_experiments = @dbh.prepare "SELECT DISTINCT experiment_id, uniquename FROM #{schema}.experiment"
-        sth_experiments.execute
-        schemas[schema] = sth_experiments.fetch
-        sth_experiments.finish
-      end
-      schemas.reject { |sch, exp| exp.nil? }
-    }
-  end
-
-  def delete_tracks(project_id, directory)
-    tags = TrackTag.find_all_by_project_id(project_id)
-
-    Find.find(directory) do |path|
-      Find.prune if File.directory?(path) && path != directory # Don't recurse
-      if File.basename(path) =~ /^\d+[_\.]/ then
-        File.unlink(path)
-      end
-    end
-    TrackTag.destroy_all "project_id = #{project_id}"
-  end
-
-  def dbh_safe
-    if block_given? then
-      begin
-        return yield
-      rescue DBI::DatabaseError => e
-        cmd_puts "DBI error: #{e.err} #{e.errstr}"
-        @dbh.disconnect unless @dbh.nil?
-        return false
-      end
-    end
-  end
-  def attach_metadata(found_tracks, protocol_ids_by_column)
-    # Attach experiment # to track def
-    sth_metadata = dbh_safe {
-      @dbh.prepare "SELECT
-      --cur_output_data.heading || ' [' || CASE WHEN cur_output_data.name IS NULL THEN '' ELSE cur_output_data.name END || ']' AS data_name,
-      cur_output_data.value AS data_value,
-      cur_output_data_type.name AS data_type,
-      db.description AS db_type,
-      db.url AS db_url,
-      prev_apd.applied_protocol_id AS prev_applied_protocol_id,
-      attr.value AS attr_value, attr_type.name AS attr_type, attr.heading AS attr_name
-
-      FROM applied_protocol cur
-      LEFT JOIN (applied_protocol_data cur_apd 
-        INNER JOIN (data cur_output_data
-          LEFT JOIN cvterm cur_output_data_type ON cur_output_data.type_id = cur_output_data_type.cvterm_id
-          LEFT JOIN (dbxref dbx
-            INNER JOIN db ON dbx.db_id = db.db_id
-          ) ON dbx.dbxref_id = cur_output_data.dbxref_id
-          LEFT JOIN (data_attribute da
-            INNER JOIN attribute attr ON da.attribute_id = attr.attribute_id
-            INNER JOIN cvterm attr_type ON attr_type.cvterm_id = attr.type_id
-          ) ON da.data_id = cur_output_data.data_id
-        ) ON cur_apd.data_id = cur_output_data.data_id
-        LEFT JOIN applied_protocol_data prev_apd ON cur_apd.data_id = prev_apd.data_id AND prev_apd.direction = 'output'
-      ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'input'
-
-
-      WHERE cur.applied_protocol_id = ANY(?)"
-    }
-
-    cmd_puts "Finding metadata for tracks."
-    metadata  = Hash.new
-
-    seen_ap_sets = Hash.new
-    found_tracks.keys.each do |column|
-      found_tracks[column].each_pair do |datum_name, tracks|
-        tracks.each do |track_descriptor|
-          tracknum = self.get_next_tracknum
-          #track_descriptor = { :type => , :name => , :data => , :applied_protocol_ids => }
-          tags = seen_ap_sets[track_descriptor[:applied_protocol_ids]]
-          tags = Array.new if tags.nil?
-
-          # Get all of the metadata associated with this and other applied protocols
-          ap_ids = track_descriptor[:applied_protocol_ids]
-          history_depth = 0
-          # Iterate through previous applied protocols
-          while ap_ids.size > 0
-            prev_ap_ids = Array.new
-            dbh_safe {
-              sth_metadata.execute(ap_ids)
-              sth_metadata.fetch do |row|
-                tags.push [ track_descriptor[:experiment_id], row['data_value'], row['data_value'], row['data_type'], history_depth ] unless row['data_value'].nil? || row['data_value'].empty?
-                if (row['db_type'] == "URL_mediawiki_expansion") then
-                  tags.push [ track_descriptor[:experiment_id], row['data_value'], row['db_url'], 'data_url', history_depth ] unless row['data_value'].nil? || row['data_value'].empty?
-                end
-                # Get data attributes
-                tags.push [ track_descriptor[:experiment_id], row['data_value'], row['attr_value'], row['attr_name'], history_depth ] unless row['attr_value'].nil? || row['attr_value'].empty?
-                prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
-              end
-            }
-            ap_ids = prev_ap_ids.uniq
-            history_depth = history_depth + 1
-          end
-          if track_descriptor[:type] == :feature then
-            # Add a tag for every feature (name as value, type as type)
-            analyses = Array.new
-            track_descriptor[:data].values.each do |feature|
-              analyses.push feature['analysis']
-              tags.push [ track_descriptor[:experiment_id], 'Feature', feature['name'], feature['type'], 0 ]
-            end
-            feature = track_descriptor[:data].values.first
-            tags.push [ track_descriptor[:experiment_id], 'Organism', feature['genus'] + " " + feature['species'], 'organism', 0 ]
-
-            # Add a tag for the unique analyses for the features
-            analyses.uniq.each { |analysis|
-              tags.push [ track_descriptor[:experiment_id], 'Analysis', analysis, 'unique_analysis', 0 ]
-            }
-          end
-          tags.push [ track_descriptor[:experiment_id], 'Track Type', track_descriptor[:type].to_s, 'track_type', 0 ]
-
-          ### Citation stuff ###
-          # Experiment properties
-          dbh_safe {
-            sth_idf_info = @dbh.prepare "SELECT ep.name, ep.value, ep.rank, c.name AS type FROM experiment_prop ep INNER JOIN cvterm c ON ep.type_id = c.cvterm_id WHERE experiment_id = ?"
-            sth_idf_info.execute(track_descriptor[:experiment_id])
-            sth_idf_info.fetch do |row|
-              tags.push [ track_descriptor[:experiment_id], row['name'], row['value'], row['type'], row['rank'] ]
-            end
-          }
-
-          # Protocol types and names and links
-          dbh_safe {
-            sth_protocol_type = @dbh.prepare "SELECT p.protocol_id, p.name, a.value AS type, dbx.accession AS url FROM attribute a 
-              INNER JOIN protocol_attribute pa ON a.attribute_id = pa.attribute_id 
-              INNER JOIN protocol p ON pa.protocol_id = p.protocol_id 
-              LEFT JOIN dbxref dbx ON p.dbxref_id = dbx.dbxref_id
-              WHERE a.heading = 'Protocol Type' AND p.protocol_id = ?"
-
-            protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_id|
-              sth_protocol_type.execute(protocol_id)
-              sth_protocol_type.fetch do |row|
-                tags.push [ track_descriptor[:experiment_id], row['name'], row['type'], 'protocol_type', col ]
-                tags.push [ track_descriptor[:experiment_id], row['name'], row['url'], 'protocol_url', col ]
-              end
-            end
-          }
-
-
-          track_descriptor[:tags] = tags.uniq
-          track_descriptor[:tracknum] = tracknum
-        end
-      end
-    end
-    dbh_safe { sth_metadata.finish }
-  end
-
-  def database
-    if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
-      db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read) }
-      dbinfo = Hash.new
-      dbinfo[:dsn] = db_definition['ruby_dsn']
-      dbinfo[:user] = db_definition['user']
-      dbinfo[:password] = db_definition['password']
-      return dbinfo
-    else
-      raise Exception("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Ruby DBI dsn.")
-    end
-  end
-  def gbrowse_database
-    if File.exists? "#{RAILS_ROOT}/config/gbrowse_database.yml" then
-      db_definition = open("#{RAILS_ROOT}/config/gbrowse_database.yml") { |f| YAML.load(f.read) }
-      dbinfo = Hash.new
-      dbinfo[:adaptor] = db_definition['adaptor']
-      dbinfo[:perl_dsn] = db_definition['perl_dsn']
-      dbinfo[:ruby_dsn] = db_definition['ruby_dsn']
-      dbinfo[:user] = db_definition['user']
-      dbinfo[:password] = db_definition['password']
-      return dbinfo
-    else
-      raise Exception("You need an gbrowse_database.yml file in your config/ directory with at least an adaptor and dsn.")
-    end
-  end
-  def get_next_tracknum
-    unless Semaphore.exists?(:flag => "tracknum") then
-      # If we can't create this object, then it probably means it was created between
-      # the "unless" check above and the creation below. If that's the case, it's 
-      # effectively a StaleObjectError and should be handled the same
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "tracknum", :value => 0).save
-    end
-    s = Semaphore.find_by_flag("tracknum")
-    s.value = s.value.to_i + 1
-    s.save
-    return s.value
   end
   def load_into_gbrowse(project_id, directory)
     schemas = self.get_experiments
@@ -1083,12 +1178,13 @@ class TrackFinder
       end
     end
     schema = "modencode_experiment_#{project_id}_data"
-    dbinfo = gbrowse_database
+    dbinfo = TrackFinder.gbrowse_database
 
     schema_ddl = ''
     File.open(File.join(TrackFinder::gbrowse_root, 'ddl/data_schema_with_replaceable_names.sql')) { |ddl_file|
       schema_ddl = ddl_file.read.gsub(/\$temporary_chado_schema_name\$/, schema)
     }
+    cmd_puts "Generating new tablespace in GBrowse database."
     # Can't execute multiple statements (e.g. DDL) in Ruby DBI
     gff_schema_loader = IO.popen("perl", "w")
     gff_schema_loader.print LOAD_SCHEMA_TO_GFFDB_PERL + "\n\n"
@@ -1098,8 +1194,11 @@ class TrackFinder
     gff_schema_loader.puts "DROP SCHEMA IF EXISTS #{schema} CASCADE;"
     gff_schema_loader.puts(schema_ddl);
     gff_schema_loader.close
+    cmd_puts "Done."
 
+    cmd_puts "Loading GFF and Wiggle files into GBrowse database."
     gff_files.map { |k, v| v }.flatten.each do |gff_file|
+      cmd_puts "  Loading track #{File.basename(gff_file)}."
       # Load using adapted bp_seqfeature_load
       gff_loader = IO.popen("perl", "w")
       gff_loader.print LOAD_GFF_TO_GFFDB_PERL + "\n\n"
@@ -1111,11 +1210,14 @@ class TrackFinder
       gff_loader.puts schema
       gff_loader.close
     end
+    cmd_puts "Done."
   end
+
+  # Track configuration
   def generate_gbrowse_conf(project_id)
     project = Project.find(project_id)
 
-    dbinfo = gbrowse_database
+    dbinfo = TrackFinder.gbrowse_database
     gff_dbh = dbh_safe { DBI.connect(dbinfo[:ruby_dsn], dbinfo[:user], dbinfo[:password]) }
 
     schemas = self.get_experiments
@@ -1296,11 +1398,5 @@ class TrackFinder
     end
 
     return track_defs
-  end
-  def cmd_puts(message)
-    return if @command_object.nil?
-    puts message + "\n" if DEBUG
-    @command_object.stdout = @command_object.stdout + message + "\n";
-    @command_object.save
   end
 end
