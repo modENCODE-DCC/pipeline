@@ -61,7 +61,10 @@ unless user_id.nil? then
   all_pi_users = User.find_all_by_pi(User.find(user_id).pi)
   all_pi_users_projects = Project.find_all_by_user_id(all_pi_users)
   all_track_defs += TrackStanza.find_all_by_project_id(all_pi_users_projects)
+  # Any pages that this user has configured (mostly useful for moderators)
+  all_track_defs += TrackStanza.find_all_by_user_id(user_id)
   if User.find(user_id).is_a?(Moderator) then
+    # Released stanzas for all projects
     all_track_defs += TrackStanza.find_all_by_released(true)
   end
 end
