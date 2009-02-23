@@ -81,6 +81,14 @@ class AdministrationController < ApplicationController
     end
     redirect_to :action => :index
   end
+  def set_paused_queue
+    if params[:paused_queue].to_s == true.to_s then
+      CommandController.paused_queue = true
+    else
+      CommandController.paused_queue = false
+    end
+    redirect_to :action => :index
+  end
 
   def pause
     command = Command.find(params[:id])

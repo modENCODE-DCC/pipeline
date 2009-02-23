@@ -25,8 +25,14 @@
     <select name="running_flag"><%= options_for_select [ true, false ], CommandController.running_flag %></select>
     <%= submit_tag "Set", :confirm => confirm %>
   </form>
+  <b style="margin-left: 25px">Paused queue:</b> 
+  <%= form_tag url_for(:action => :set_paused_queue), { :id => "paused_form", :style => "display: inline" } %>
+    <select name="paused_queue"><%= options_for_select [ true, false ], CommandController.paused_queue %></select>
+    <%= submit_tag "Set" %>
+  </form>
   <script type="text/javascript">
     $('running_form').reset();
+    $('paused_form').reset();
   </script>
 
   </div>

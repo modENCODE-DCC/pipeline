@@ -67,6 +67,7 @@ class CommandController < ApplicationController
       begin
         # If we got this far, run any remaining queued commands
         while (next_command = CommandController.next_queued_command) do
+          return if CommandController.paused_queue
           logger.info "Run #{next_command.class.name}"
           begin
             retval = next_command.controller.run
@@ -135,6 +136,25 @@ class CommandController < ApplicationController
   end
   def self.running_flag
     s = Semaphore.find_by_flag("running")
+    if s && s.value == "true" then
+      true
+    else
+      false
+    end
+  end
+  def self.paused_queue=(state)
+    unless Semaphore.exists?(:flag => "paused_queue") then
+      # If we can't create this object, then it probably means it was created between
+      # the "unless" check above and the creation below. If that's the case, it's 
+      # effectively a StaleObjectError and should be handled the same
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "paused_queue").save
+    end
+    s = Semaphore.find_by_flag("paused_queue")
+    s.value = state ? "true" : "false"
+    s.save
+  end
+  def self.paused_queue
+    s = Semaphore.find_by_flag("paused_queue")
     if s && s.value == "true" then
       true
     else
