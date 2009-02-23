@@ -164,7 +164,7 @@ class PublicController < ApplicationController
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
     unless File.directory?(@root_directory) then
-      if @root.nil? || @root = "" then
+      if @root.nil? || @root == "" then
         flash[:error] = "No data for this project."
         redirect_to :action => :list
       else
