@@ -325,7 +325,7 @@ sub asynchronous_event {
     }
 
     if ( my $element = param('update') ) {
-        warn "UPDATE HAS BEEN DEPRICATED";
+        warn "UPDATE HAS BEEN DEPRECATED";
         my $html = $self->asynchronous_update_element($element);
 	return (200,'text/html',$html);
     }
@@ -776,6 +776,7 @@ sub render_body {
   my $region   = $self->region;
   my $features = $region->features;
   my $settings = $self->state;
+
 
   my $title    = $self->generate_title($features);
 
@@ -1258,9 +1259,10 @@ sub handle_gff_dump {
         -start      => param('start')      || 1,
         -end        => param('stop')       || param('end'),
         -stylesheet => param('stylesheet') || param('s'),
-        -id         => param('id'),
+        -id         => scalar param('id'),
         '-dump'     => param('d')          || '',
         -labels     => [ param('type'), param('t') ],
+        -mimetype   => scalar param('m'),
     ) or return 1;
 
     $dumper->get_segment() or return 1;
@@ -1837,7 +1839,6 @@ sub track_visible {
 sub update_state_from_cgi {
   my $self  = shift;
   my $state = $self->state;
-
   $self->update_options($state);
   if (param('revert')) {
     $self->default_tracks($state);
