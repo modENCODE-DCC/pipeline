@@ -43,7 +43,7 @@ class PipelineController < ApplicationController
     'bump density' => :integer,
     'label density' => :integer,
     'glyph' => [
-      'generic', 'segments', 'arrow', 'anchored_arrow', 'box',
+      'generic', 'segments', 'arrow', 'anchored_arrow', 'box', 'gene', 'CDS',
       'crossbox', 'dashed_line', 'diamond', 'dna', 'dot', 'dumbbell', 'ellipse' 'ex',
       'line', 'primers', 'saw_teeth', 'span', 'splice_site',
       'translation', 'triangle' 'two_bolts', 'wave', 'wiggle_density', 'wiggle_xyplot'
