@@ -175,6 +175,8 @@ memoize('_locationid');
 memoize('_attributeid');
 memoize('dump_path');
 
+my %seen_queries;
+
 ###
 # object initialization
 #
@@ -432,10 +434,12 @@ sub max_id {
 sub schema {
   my ($self, $schema) = @_;
   $self->{'schema'} = $schema if defined($schema);
-  if ($schema) {
-    $self->dbh->do("SET search_path TO " . $self->{'schema'} . ", public");
-  } else {
-    $self->dbh->do("SET search_path TO public");
+  if (defined($schema)) {
+    if ($schema) {
+      $self->dbh->do("SET search_path TO " . $self->{'schema'} . ", public");
+    } else {
+      $self->dbh->do("SET search_path TO public");
+    }
   }
   return $self->{'schema'};
 }
@@ -1573,12 +1577,17 @@ sub _sth2obj {
   $obj;
 }
 
+my %seen_queries = {};
 sub _prepare {
   my $self = shift;
   my $query = shift;
   my $dbh   = $self->dbh;
-  my $sth   = $dbh->prepare_cached($query, {}, 3) or $self->throw($dbh->errstr);
-  $sth;
+  $seen_queries{$dbh} = {} unless defined($seen_queries{$dbh});
+  if (!$seen_queries{$dbh}{$query}) {
+    my $sth   = $dbh->prepare_cached($query, {}, 3) or $self->throw($dbh->errstr);
+    $seen_queries{$query} = $sth;
+  }
+  $seen_queries{$query};
 }
 
 
