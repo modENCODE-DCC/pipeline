@@ -437,7 +437,8 @@
       <%= submit_tag "Update" %>
     </div>
   </form>
-  <%= button_to "Delete stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
+  <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
+  <%= button_to "Remove semantic zoom configuration(s) from #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_semantic_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." if semantic_configs.size > 0 %>
   <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
   <script type="text/javascript">
     $('form_<%=stanzaname%>').reset();

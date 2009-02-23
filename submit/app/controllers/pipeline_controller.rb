@@ -758,6 +758,27 @@ class PipelineController < ApplicationController
       }
     end
 
+    if params[:delete_semantic_stanza] then
+      if @project.status == Project::Status::CONFIGURED then
+        @project.status = Project::Status::FOUND
+        @project.save
+      end
+
+      # Unaccept config(s) for this project if any have been accepted
+      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
+        ts.released = false
+        ts.save
+      }
+
+      ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+      stanza = ts.stanza
+      stanza[params[:delete_semantic_stanza]][:semantic_zoom] = Array.new unless stanza[params[:delete_semantic_stanza]].nil?
+      ts.stanza = stanza
+      ts.save
+      redirect_to :action => :configure_tracks, :id => @project
+      return
+    end
+
     if params[:delete_stanza] then
       if @project.status == Project::Status::CONFIGURED then
         @project.status = Project::Status::FOUND
@@ -822,6 +843,7 @@ class PipelineController < ApplicationController
     end
 
 
+    @track_defs = Hash.new if @track_defs.nil?
     if @track_defs.values.first && @track_defs.values.first[:organism].nil? then
       @organism = "Drosophila melanogaster"
       @track_defs.each { |track, config| config[:organism] = "Drosophila melanogaster" }
