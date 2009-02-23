@@ -385,7 +385,11 @@
               <span onmousedown="showForm(this, event)">
                 <%= option %> = 
                 <span style="font-weight: bold" >
-                  <%= value %>
+                  <% if okay_values.is_a? Hash then %>
+                    <%= okay_values[value] %>
+                  <% else %>
+                    <%= value %>
+                  <% end %>
                 </span>
               </span>
               <% if okay_values.is_a? Array then %>
