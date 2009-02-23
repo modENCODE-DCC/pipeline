@@ -436,6 +436,7 @@ class TrackFinder
   end
   def delete_tracks(project_id, directory)
     cmd_puts "Removing old tracks and metadata."
+    cmd_puts "  Removing tracks."
     Find.find(directory) do |path|
       Find.prune if File.directory?(path) && path != directory # Don't recurse
       if File.basename(path) =~ /^\d+[_\.]/ then
@@ -445,8 +446,9 @@ class TrackFinder
         File.unlink(path)
       end
     end
-    TrackTag.destroy_all "project_id = #{project_id}"
-    TrackStanza.destroy_all "project_id = #{project_id}"
+    cmd_puts "  Removing metadata."
+    TrackTag.delete_all "project_id = #{project_id}"
+    TrackStanza.delete_all "project_id = #{project_id}"
     cmd_puts "Done."
   end
   def get_next_tracknum
