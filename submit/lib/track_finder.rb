@@ -1242,8 +1242,16 @@ class TrackFinder
 
     track_defs = Hash.new
 
+    sth_get_num_located_types = dbh_safe { gff_dbh.prepare("SELECT COUNT(*) FROM locationlist l INNER JOIN feature f ON l.id = f.seqid INNER JOIN typelist tl ON f.typeid = tl.id WHERE tl.tag = ? AND l.seqname = ANY(?)") }
+
     default_organism = "Drosophila melanogaster"
     types.each do |type|
+
+      # Make sure this feature type is located to a chromosome
+      sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
+      count = sth_get_num_located_types.fetch[0]
+      next unless count > 0
+
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
       track_type = matchdata[1]
       track_source = matchdata[2]
