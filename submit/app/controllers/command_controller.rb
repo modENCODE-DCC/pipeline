@@ -178,24 +178,24 @@ class CommandController < ApplicationController
   ###
 
   ## A host specific semaphore string and queue-only string.
-  HostLockString = "running_on_" + Socket.gethostname
-  QueueLockString = "running"
-  QueuePauseString = "paused_queue"
+  HOSTLOCKSTRING = "running_on_" + Socket.gethostname
+  QUEUELOCKSTRING = "running"
+  QUEUEPAUSESTRING = "paused_queue"
 
   def self.running_flag=(state)
-    unless Semaphore.exists?(:flag => HostLockString) then
+    unless Semaphore.exists?(:flag => HOSTLOCKSTRING) then
       # If we can't create this object, then it probably means it was
       # created between the "unless" check above and the creation
       # below. If that's the case, it's effectively a StaleObjectError
       # and should be handled the same
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => HostLockString).save
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => HOSTLOCKSTRING).save
     end
-    s = Semaphore.find_by_flag(HostLockString)
+    s = Semaphore.find_by_flag(HOSTLOCKSTRING)
     s.value = state ? "true" : "false"
     s.save
   end
   def self.running_flag
-    s = Semaphore.find_by_flag(HostLockString)
+    s = Semaphore.find_by_flag(HOSTLOCKSTRING)
     if s && s.value == "true" then
       true
     else
@@ -205,15 +205,15 @@ class CommandController < ApplicationController
 
   ## Same as above, except different names and different flags.
   def self.queue_flag=(state)
-    unless Semaphore.exists?(:flag => QueueLockString) then
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QueueLockString).save
+    unless Semaphore.exists?(:flag => QUEUELOCKSTRING) then
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QUEUELOCKSTRING).save
     end
-    s = Semaphore.find_by_flag(QueueLockString)
+    s = Semaphore.find_by_flag(QUEUELOCKSTRING)
     s.value = state ? "true" : "false"
     s.save
   end
   def self.queue_flag
-    s = Semaphore.find_by_flag(QueueLockString)
+    s = Semaphore.find_by_flag(QUEUELOCKSTRING)
     if s && s.value == "true" then
       true
     else
@@ -223,15 +223,15 @@ class CommandController < ApplicationController
 
   ## Same as above, except different names and different flags.
   def self.paused_queue=(state)
-    unless Semaphore.exists?(:flag => QueuePauseString) then
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QueuePauseString).save
+    unless Semaphore.exists?(:flag => QUEUEPAUSESTRING) then
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QUEUEPAUSESTRING).save
     end
-    s = Semaphore.find_by_flag(QueuePauseString)
+    s = Semaphore.find_by_flag(QUEUEPAUSESTRING)
     s.value = state ? "true" : "false"
     s.save
   end
   def self.paused_queue
-    s = Semaphore.find_by_flag(QueuePauseString)
+    s = Semaphore.find_by_flag(QUEUEPAUSESTRING)
     if s && s.value == "true" then
       true
     else
