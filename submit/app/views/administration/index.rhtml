@@ -19,15 +19,6 @@
 <div style="float: left; width: 75%">
   <h1>Active (...ing)</h1>
   <div style="padding-left: 3px">
-<!--
-  <b>Running state:</b> 
-  <% confirm = "Setting to false will background any running job and start the next command in the queue (if any). Continue?" if CommandController.running_flag %>
-  <%= form_tag url_for(:action => :set_running_flag), { :id => "running_form", :style => "display: inline" } %>
-    <select name="running_flag"><%= options_for_select [ true, false ], CommandController.running_flag %></select>
-    <%= submit_tag "Set", :confirm => confirm %>
-  </form>
-  <b style="margin-left: 25px">Paused queue:</b> 
--->
   <b>Pause queue:</b> 
   <%= form_tag url_for(:action => :set_paused_queue), { :id => "paused_form", :style => "display: inline" } %>
     <select name="paused_queue"><%= options_for_select [ true, false ], CommandController.paused_queue %></select>
@@ -37,11 +28,6 @@
     $('running_form').reset();
     $('paused_form').reset();
   </script>
-  <% if CommandController.paused_queue == true then %>
-  [currently paused]
-  <% else %>
-  [currently not paused]
-  <% end %>
 
   </div>
   <table>
