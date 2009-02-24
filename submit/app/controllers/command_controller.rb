@@ -43,8 +43,57 @@ class CommandController < ApplicationController
       CommandController.do_queued_commands
     end
   end
-  def self.next_queued_command
-    Command.find_all_by_status(Command::Status::QUEUED).sort { |a, b| a.queue_position <=> b.queue_position }.first
+
+  ## Return the next available command from the queue that has a
+  ## project id that is different from any that are currently running.
+  def self.next_available_command
+
+    ## Create and block.
+    command_to_return = nil
+    CommandController.queue_flag=true
+
+    ## Get an array of the "active" commands.
+    active_constant_strings = []
+    Project::Status.constants.each do |c|
+      const_string = Project::Status.const_get(c)
+      if Project::Status.is_active_state(const_string)
+        active_constant_strings << const_string
+      end
+    end
+    all_active_commands = Command.find_all_by_status(active_constant_strings)
+    logger.info "next_available_command: all active commands: #{all_active_commands}..."
+
+    ## Hash the project ids of the "active" commands
+    all_active_project_ids = {}
+    all_active_commands.each do |c|
+      all_active_project_ids.store(c.project_id, true)
+    end
+    logger.info "next_available_command: all active project ids: #{all_active_project_ids}..."
+
+    ## Check the ordered queued commands against the "active"
+    ## hash. Try to return one not included.
+    all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |a, b| a.queue_position <=> b.queue_position }
+    for possible_command in  all_queued_commands
+
+      logger.info "next_available_command: \tlooking at: #{possible_command} is gid #{possible_command.project_id}"
+      if not all_active_project_ids.include?(possible_command.project_id)
+        logger.info "next_available_command: \tlooks good: #{possible_command}"
+        command_to_return = possible_command
+        break
+      end
+    end
+
+    ## Removable.
+    if command_to_return
+      logger.info "next_available_command: return \"#{command_to_return.to_s}\" with project id #{command_to_return.project_id}"
+      logger.info "next_available_command: return \"#{command_to_return.to_s}\""
+    else
+      logger.info "next_available_command: return NIL"
+    end
+
+    ## Release and return.
+    CommandController.queue_flag=false
+    command_to_return
   end
 
   def self.do_queued_commands
@@ -65,8 +114,9 @@ class CommandController < ApplicationController
         return
       end
       begin
-        # If we got this far, run any remaining queued commands
-        while (next_command = CommandController.next_queued_command) do
+        # If we got this far, run any remaining available queued commands
+        while (next_command = CommandController.next_available_command and 
+               next_command.throttle == false) do
           return if CommandController.paused_queue
           logger.info "Run #{next_command.class.name}"
           begin
@@ -123,38 +173,65 @@ class CommandController < ApplicationController
     # See http://innig.net/software/ruby/closures-in-ruby.rb, examples 12 and 13
   end
 
+  ###
+  ### Semaphore handling.
+  ###
+
+  ## A host specific semaphore string and queue-only string.
+  HostLockString = "running_on_" + Socket.gethostname
+  QueueLockString = "running"
+  QueuePauseString = "paused_queue"
+
   def self.running_flag=(state)
-    unless Semaphore.exists?(:flag => "running") then
-      # If we can't create this object, then it probably means it was created between
-      # the "unless" check above and the creation below. If that's the case, it's 
-      # effectively a StaleObjectError and should be handled the same
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "running").save
+    unless Semaphore.exists?(:flag => HostLockString) then
+      # If we can't create this object, then it probably means it was
+      # created between the "unless" check above and the creation
+      # below. If that's the case, it's effectively a StaleObjectError
+      # and should be handled the same
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => HostLockString).save
     end
-    s = Semaphore.find_by_flag("running")
+    s = Semaphore.find_by_flag(HostLockString)
     s.value = state ? "true" : "false"
     s.save
   end
   def self.running_flag
-    s = Semaphore.find_by_flag("running")
+    s = Semaphore.find_by_flag(HostLockString)
     if s && s.value == "true" then
       true
     else
       false
     end
   end
-  def self.paused_queue=(state)
-    unless Semaphore.exists?(:flag => "paused_queue") then
-      # If we can't create this object, then it probably means it was created between
-      # the "unless" check above and the creation below. If that's the case, it's 
-      # effectively a StaleObjectError and should be handled the same
-      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => "paused_queue").save
+
+  ## Same as above, except different names and different flags.
+  def self.queue_flag=(state)
+    unless Semaphore.exists?(:flag => QueueLockString) then
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QueueLockString).save
     end
-    s = Semaphore.find_by_flag("paused_queue")
+    s = Semaphore.find_by_flag(QueueLockString)
+    s.value = state ? "true" : "false"
+    s.save
+  end
+  def self.queue_flag
+    s = Semaphore.find_by_flag(QueueLockString)
+    if s && s.value == "true" then
+      true
+    else
+      false
+    end
+  end
+
+  ## Same as above, except different names and different flags.
+  def self.paused_queue=(state)
+    unless Semaphore.exists?(:flag => QueuePauseString) then
+      raise ActiveRecord::StaleObjectError unless Semaphore.new(:flag => QueuePauseString).save
+    end
+    s = Semaphore.find_by_flag(QueuePauseString)
     s.value = state ? "true" : "false"
     s.save
   end
   def self.paused_queue
-    s = Semaphore.find_by_flag("paused_queue")
+    s = Semaphore.find_by_flag(QueuePauseString)
     if s && s.value == "true" then
       true
     else
