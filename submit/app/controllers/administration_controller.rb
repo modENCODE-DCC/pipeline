@@ -138,6 +138,33 @@ class AdministrationController < ApplicationController
     redirect_to :action => :index
   end
 
+  ## Handle the throttling of individual Commands
+  def throttle_command
+    command = Command.find(params[:id])
+    if command then
+      command.throttle=true
+      command.save
+    #elsif command
+    #  flash[:warning] = "Couldn't find command #{params[:id]} throttle var."
+    else
+      flash[:warning] = "Couldn't find command #{params[:id]} to throttle."
+    end
+    redirect_to :action => :index
+  end
+  def unthrottle_command
+    command = Command.find(params[:id])
+    if command then
+      command.throttle=false
+      command.save
+    #elsif command
+    #  flash[:warning] = "Couldn't find command #{params[:id]} throttle var."
+    else
+      flash[:warning] = "Couldn't find command #{params[:id]} to unthrottle."
+    end
+    redirect_to :action => :index
+  end
+
+
   def admin_required
     access_denied unless current_user.is_a? Administrator
   end

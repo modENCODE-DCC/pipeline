@@ -19,6 +19,7 @@
 <div style="float: left; width: 75%">
   <h1>Active (...ing)</h1>
   <div style="padding-left: 3px">
+<!--
   <b>Running state:</b> 
   <% confirm = "Setting to false will background any running job and start the next command in the queue (if any). Continue?" if CommandController.running_flag %>
   <%= form_tag url_for(:action => :set_running_flag), { :id => "running_form", :style => "display: inline" } %>
@@ -26,6 +27,8 @@
     <%= submit_tag "Set", :confirm => confirm %>
   </form>
   <b style="margin-left: 25px">Paused queue:</b> 
+-->
+  <b>Pause queue:</b> 
   <%= form_tag url_for(:action => :set_paused_queue), { :id => "paused_form", :style => "display: inline" } %>
     <select name="paused_queue"><%= options_for_select [ true, false ], CommandController.paused_queue %></select>
     <%= submit_tag "Set" %>
@@ -34,16 +37,35 @@
     $('running_form').reset();
     $('paused_form').reset();
   </script>
+  <% if CommandController.paused_queue == true then %>
+  [currently paused]
+  <% else %>
+  [currently not paused]
+  <% end %>
 
   </div>
   <table>
-    <tr><th colspan="2">Command</th><th>Owner</th><th>Running On</th></tr>
+    <tr>
+      <th colspan="2">Command</th>
+      <th>Owner</th>
+      <th>Running On</th>
+      <th>Control</th>
+    </tr>
     <% @active_commands.each do |command| %>
     <tr>
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
       <td><%= command.project.user.login if command.project %></td> 
       <td><%= command.host if command.host %></td>
+      <td>
+         <% if command.throttle == true then %>
+            <%= link_to "continue after completion", url_for(:action => :unthrottle_command, :id => command.id) %>
+         <% elsif command.throttle == false then %>
+            <%= link_to "end after completion", url_for(:action => :throttle_command, :id => command.id) %>
+         <% else %>
+            [undef var]
+         <% end %>
+      </td>
     </tr>
     <% end %>
   </table>
