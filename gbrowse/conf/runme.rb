@@ -46,7 +46,7 @@ unless ARGV[1].nil? then
 else
   cgi = CGI.new
   session = CGI::Session.new(cgi, 
-  'database_manager' => CGI::Session::CookieStore,
+  'database_manager' => CGI::Session::ActiveRecordStore,
   'session_key' => '_pipeline_dev_session_id',
   'secret' => "ModENCODE secret session key for tracking FastCGI sessions between users"
   )
