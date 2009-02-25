@@ -59,6 +59,14 @@ class TrackFinder
       raise Exception("You need an gbrowse_database.yml file in your config/ directory with at least an adaptor and dsn.")
     end
   end
+  def self.gbrowse_tmp
+    if File.exists? "#{RAILS_ROOT}/config/gbrowse.yml" then
+      gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml") { |f| YAML.load(f.read) }
+      return gbrowse_config['tmp_dir'];
+    else
+      raise Exception("You need a gbrowse.yml file in your config/ directory with at least a tmp_dir in it.")
+    end
+  end
 
   # Perl helper scripts
   GFF_TO_WIGDB_PERL = <<-EOP
@@ -442,9 +450,6 @@ class TrackFinder
       if File.basename(path) =~ /^\d+[_\.]/ then
         File.unlink(path)
       end
-      if File.basename(path) =~ /\.sqlite(-journal)?$/ then
-        File.unlink(path)
-      end
     end
     cmd_puts "  Removing metadata."
     TrackTag.delete_all "project_id = #{project_id}"
@@ -788,7 +793,7 @@ class TrackFinder
 
           # Open GFF file for writing
           Dir.mkdir(output_dir) unless File.directory? output_dir
-          gff_sqlite = DBI.connect("dbi:SQLite3:#{File.join(output_dir, "#{tracknum}.sqlite")}")
+          gff_sqlite = DBI.connect("dbi:SQLite3:#{File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite")}")
           gff_sqlite.do("CREATE TABLE gff (id INTEGER PRIMARY KEY, feature_id INTEGER UNIQUE, gff_string TEXT, parents TEXT, srcfeature VARCHAR(255), type VARCHAR(255), fmin INTEGER, fmax INTEGER)")
           sth_add_gff_parents = gff_sqlite.prepare("UPDATE gff SET parents = parents || ? WHERE feature_id = ?")
           sth_add_gff = gff_sqlite.prepare("INSERT INTO gff (feature_id, gff_string, parents, srcfeature, type, fmin, fmax) VALUES(?, ?, ?, ?, ?, ?, ?)")
@@ -1044,7 +1049,7 @@ class TrackFinder
           sth_add_gff_parents.finish
           sth_add_gff.finish
           gff_sqlite.disconnect
-          File.unlink(File.join(output_dir, "#{tracknum}.sqlite"))
+          File.unlink(File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
 
           cmd_puts "      Done getting features."
         end
