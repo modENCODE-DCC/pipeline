@@ -1,0 +1,12 @@
+# A list of the 
+workers:
+  ## Main
+  - {name: blinky, ip: 131.243.192.224}
+  - {name: yeti, ip: 131.243.193.107}
+  - {name: indy, ip: 131.243.192.76}
+  - {name: dumpy, ip: 131.243.193.95}
+  - {name: heartbroken, ip: 131.243.192.216}
+  ## Testing
+  #- {name: rubuntu1, ip: 192.168.122.85}
+  #- {name: rubuntu2, ip: 192.168.122.21}
+
