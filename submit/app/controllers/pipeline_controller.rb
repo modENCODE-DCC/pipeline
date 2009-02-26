@@ -204,7 +204,7 @@ class PipelineController < ApplicationController
     CommandController.running_flag = false
     CommandController.do_queued_commands
     @project.status = "(#{@project.status}) killed by Admin" 
-    flash[:error] = "Admin illed command with ID #{params[:id]}"
+    flash[:error] = "Admin killed command with ID #{params[:id]}"
     render reload
   end
 
