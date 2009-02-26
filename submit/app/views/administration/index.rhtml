@@ -9,6 +9,19 @@
   }
 </style>
 <div style="float:right; text-align: center; width: 25%">
+  <!--
+  <b>Tickle Self</b><br/>
+  <%= link_to "#{Socket.gethostname}", url_for(:action => :tickle_here) %>
+  <br />
+  -->
+  <b>Tickle Worker</b><br/>
+  <% @all_workers.each do |worker| %>
+  <!--
+  <%= link_to_remote "#{worker.name}", :url => { :action => :tickle_target, :worker_name => worker.name, :worker_address => worker.ip} %>
+  -->
+  <%= link_to "#{worker.name}", url_for(:action => :tickle_target, :worker_name => worker.name, :worker_address => worker.ip) %>
+  <% end %>
+  <br />
   <b>Free Space</b><br/>
   <% free_space_for_files(@files).each do |volume| %>
     <%= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
@@ -43,12 +56,11 @@
       <td><%= command.project.user.login if command.project %></td> 
       <td><%= command.host if command.host %></td>
       <td>
-         <% if command.throttle == true then %>
-            <%= link_to "continue after completion", url_for(:action => :unthrottle_command, :id => command.id) %>
-         <% elsif command.throttle == false then %>
-            <%= link_to "end after completion", url_for(:action => :throttle_command, :id => command.id) %>
+         <% if command.throttle == false then %>
+         <%= link_to "throttle", url_for(:action => :throttle_command, :id => command.id) %> or
+         <%= link_to "background", url_for(:action => :background_command, :id => command.id) %>
          <% else %>
-            [undef var]
+	 [throttle issued]
          <% end %>
       </td>
     </tr>

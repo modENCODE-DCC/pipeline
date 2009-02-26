@@ -1,6 +1,7 @@
 class AdministrationController < ApplicationController
-  before_filter :login_required
-  before_filter :admin_required
+  before_filter :login_required, :except => :tickle_me_here
+  before_filter :admin_required, :except => :tickle_me_here
+  before_filter :is_worker?, :only => :tickle_me_here
 
   def index
     @commands = Command.all
@@ -17,6 +18,9 @@ class AdministrationController < ApplicationController
 
     @active_commands = @commands.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @show_all = params[:show_all].nil? ? false : true
+
+    ## Get a list of all workers in workers.yml
+    @all_workers = Workers.get_workers
   end
 
   def batch_queue
@@ -144,29 +148,72 @@ class AdministrationController < ApplicationController
     if command then
       command.throttle=true
       command.save
-    #elsif command
-    #  flash[:warning] = "Couldn't find command #{params[:id]} throttle var."
     else
       flash[:warning] = "Couldn't find command #{params[:id]} to throttle."
     end
     redirect_to :action => :index
   end
-  def unthrottle_command
+
+  ## Basically, throttle (see above) command and then restart on
+  ## queue.
+  def background_command
     command = Command.find(params[:id])
     if command then
-      command.throttle=false
+      command.throttle=true
       command.save
-    #elsif command
-    #  flash[:warning] = "Couldn't find command #{params[:id]} throttle var."
+      CommandController.do_queued_commands
     else
-      flash[:warning] = "Couldn't find command #{params[:id]} to unthrottle."
+      flash[:warning] = "Couldn't find command #{params[:id]} to background."
     end
     redirect_to :action => :index
   end
 
+  ## A wake-up call for another worker--force them to check their
+  ## queue.
+  def tickle_target
+
+    worker_name = params[:worker_name]
+    worker_address = params[:worker_address]
+
+    ##
+    logger.info "tickle_target: to tickle: #{worker_name} (#{worker_address})"
+    CommandController.tickle(worker_name, worker_address)
+
+    ## If someone is actually looking at us now, let them know what's
+    ## going on.
+    flash[:notice] = "I have tickled #{worker_name} at #{worker_address}!"
+    redirect_to :action => :index
+  end
+
+  ## A wake-up call for here--force checking the queue. Probably
+  ## called externally.
+  def tickle_me_here
+      
+    ## Spin up again.
+    logger.info "tickle_me_here: been tickled, spinning up"
+    CommandController.do_queued_commands
+  
+    ## If someone is actually looking, let them know what's going on.
+    #headers["Content-Type"] = "application/javascript"
+    render :text => "Tickled."
+  end
 
   def admin_required
     access_denied unless current_user.is_a? Administrator
+  end
+
+  ## Returns true or false if the request is coming in from one of the
+  ## workers or not.
+  def is_worker?
+    ip_to_check = request.remote_ip
+    logger.info "is_worker?: ip to check: #{ip_to_check}"
+    Workers.get_workers.each do |w|
+      logger.info "is_worker?: \tchecking: #{w.ip}"
+      if ip_to_check.eql? w.ip
+        return true
+      end
+    end
+    access_denied
   end
 
   def list

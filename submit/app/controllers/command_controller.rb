@@ -1,6 +1,10 @@
 include Spawn
 include Open5
+include ActionController::UrlWriter
 require 'socket'
+require 'net/http'
+require 'uri'
+
 class CommandController < ApplicationController
   def status
     self.command_object.status
@@ -33,14 +37,60 @@ class CommandController < ApplicationController
     command_object.timeout
   end
 
+  ## Hee hee! GET a special page on a remote server
+  def self.tickle (worker_name, worker_address)
 
+    ## Construct the location of the worker that we want to contact.
+    url = url_for(:controller => 'administration',
+                  :action => 'tickle_me_here',
+                  :host => worker_address,
+                  :worker_name => name,
+                  :worker_address => worker_address)
+    logger.info "tickle: try to contact: #{url}"
+
+    ## Try to connect...
+    begin
+      response = Net::HTTP.get_response URI.parse(url)
+      ## TODO:
+      response.value
+      if response and response.body.length > 0
+        ## Got something back...don't want to bother parsing at this
+        ## point...
+        logger.info "tickle: \tOK"
+        true
+      else
+        ## Didn't get anything back.
+        logger.info "tickle: \tnothing"
+        false
+      end
+    rescue
+      ## Apparently, unable to contact worker at location.
+      logger.info "tickle: \terror"
+      false
+    end
+  end
+
+  ## When queueing a command, since this machine may be busy (due to
+  ## balancer), tickle the other workers.
   def queue(options = {})
+
     # This should queue and save this class
     command_object.status = Command::Status::QUEUED
     command_object.save
 
+    ## We'll try and do it ourselves.
     unless (options[:defer] && options[:defer] == true) then
       CommandController.do_queued_commands
+    end
+
+    ## And just to be safe, we'll tickle the others as well (but to
+    ## try avoid ickling ourself).
+    me = worker.eql? Socket.gethostname
+    Workers.get_workers.each do |worker| 
+      logger.info "queue: tickling: #{worker.name}"
+      if (not me.eql? worker.name) and (not me.eql? worker.ip)
+        self.tickle(worker.name, worker.ip)
+      end
     end
   end
 
@@ -97,6 +147,7 @@ class CommandController < ApplicationController
   end
 
   def self.do_queued_commands
+    logger.info "do_queued_commands: starting..."
     spawn do
       # Is a process already handling queued commands?
       # If so, return and let it do its thing
@@ -104,19 +155,29 @@ class CommandController < ApplicationController
         return
       end
 
+      ## If we fall to rescue, either exists and tried to create or
+      ## lock_version was incremented by another process, and the copy
+      ## we've got is stale. Retry one time (after a small nap), if we
+      ## still can't get it, bail.
+      try_to_retry = true
       begin
         logger.info "Set semaphore true"
         CommandController.running_flag=true
       rescue ActiveRecord::StaleObjectError
         logger.error "Failed set semaphore"
-        # Either exists and tried to create or lock_version was incremented 
-        # by another process, and the copy we've got is stale
+        if try_to_retry
+          try_to_retry = false
+          sleep_time = Workers.get_workers.size + 1
+          logger.error "Try to get again after #{sleep_time} seconds"
+          sleep sleep_time
+          retry
+        end
         return
       end
+
+      ## If we got this far, run any remaining available queued commands
       begin
-        # If we got this far, run any remaining available queued commands
-        while (next_command = CommandController.next_available_command and 
-               next_command.throttle == false) do
+        while (next_command = CommandController.next_available_command) do
           return if CommandController.paused_queue
           logger.info "Run #{next_command.class.name}"
           begin
@@ -141,6 +202,10 @@ class CommandController < ApplicationController
             logger.error "Command failed! #{$!}"
             CommandController.disable_related_commands(next_command)
           end
+
+          ## If we're being throttled, don't do the next command--get
+          ## out of here.
+          break if next_command.throttle == true
         end
       ensure
         logger.info "Resetting running flag #{$!}"
