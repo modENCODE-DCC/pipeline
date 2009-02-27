@@ -89,7 +89,7 @@ class CommandController < ApplicationController
     Workers.get_workers.each do |worker| 
       logger.info "queue: tickling: #{worker.name}"
       if (not me.eql? worker.name) and (not me.eql? worker.ip)
-        self.tickle(worker.name, worker.ip)
+        CommandController.tickle(worker.name, worker.ip)
       end
     end
   end
