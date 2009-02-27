@@ -25,11 +25,13 @@ class Project < ActiveRecord::Base
     include Unload::Status
     include FindTracks::Status
     include Release::Status
+    include Publish::Status
     include Delete::Status
     # Status constants
     NEW = "new"
     CONFIGURING = "configuring tracks"
     CONFIGURED = "tracks configured"
+
 
     DELETED = "deleted" #i don't know if this is necessary
     FLAGGED = "flagged" #this could be useful for signaling between DCC and groups
@@ -116,7 +118,7 @@ class Project < ActiveRecord::Base
       when DCC_RELEASED
         ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
       when RELEASED
-        ok = [ ]
+        ok = [ PUBLISHING ]
       when RELEASE_REJECTED
         ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
       when FAILED

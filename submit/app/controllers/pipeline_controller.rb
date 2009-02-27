@@ -1075,7 +1075,6 @@ class PipelineController < ApplicationController
     end
   end
 
-
   def release
     begin
       @project = Project.find(params[:id])
@@ -1135,7 +1134,7 @@ class PipelineController < ApplicationController
       # Worm/Flybase?
     ]
 
-    @project_needs_release = (Project::Status::ok_next_states(@project).include?(Release::Status::AWAITING_RELEASE))
+    @project_needs_release = Project::Status::ok_next_states(@project).include?(Release::Status::AWAITING_RELEASE)
 
     # Handle form click
     if params[:commit] == "Release" then
@@ -1179,6 +1178,57 @@ class PipelineController < ApplicationController
       redirect_to :action => :release, :id => @project
     end
 
+  end
+
+  def publish
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    unless current_user.is_a?(Moderator) then
+      flash[:error] = "Only moderators can update publication dates."
+      redirect_to :action => "list"
+      return
+    end
+    
+    @publish_types = {
+      "modMine" => { :class => PublishToModMine },
+      "GBrowse" => { :class => PublishToGbrowse },
+      "GEO"     => { :class => PublishToGEO }
+    }
+    @publish_types.each { |name, command|
+      command[:command] = command[:class].find(:last, :conditions => { :project_id => @project.id })
+    }
+
+    if params[:publish_type] then
+      publish_class = @publish_types.find { |name, command| command[:class].name.to_s == params[:publish_type] }
+      unless publish_class then
+        flash[:warning] = "Invalid publish type: #{params[:publish_type]}";
+        redirect_to :action => :publish
+        return
+      end
+      if publish_class[1][:command] then
+        # Update date
+        pub = publish_class[1][:command]
+        pub.updated_at = Time.now
+        pub.end_time = pub.updated_at
+        pub.save
+      else
+        # Make a new one
+        pub = publish_class[1][:class].new(:project => @project)
+        pub.save
+        pub.updated_at = pub.created_at
+        pub.start_time = pub.created_at
+        pub.end_time = pub.created_at
+        pub.save
+      end
+      redirect_to :action => :publish
+      return
+    end
   end
 
   def do_user_release(project, options = {})

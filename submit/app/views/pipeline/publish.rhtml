@@ -1,0 +1,41 @@
+<style type="text/css">
+  TABLE.status TD {
+    vertical-align: middle;
+    height: 35px;
+    padding: 5px;
+  }
+  TABLE.status TH {
+    vertical-align: middle;
+    padding: 5px;
+  }
+  TD.green {
+    background-color: #d0ffd0;
+  }
+</style>
+
+<h1 align="center">Data Publish Dates</h1>
+<h2 align="center" style="margin-bottom: 2px;">Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
+<br />
+<p>
+Once a submission has been approved for release, it gets pushed out to the production sites and published in GBrowse, modMine, and GEO. This page should be 
+used by moderators to record when a given submission has been published to any of the sites.
+</p>
+<hr/>
+  <center>
+    Click the button next to the site that the submission has been released on. If you want to update the date of publication, you can change the text field; the default is now.
+    <br/><br/>
+    <table>
+      <tr>
+        <th align="center">Site</th>
+        <th align="center">Date of publication</th>
+        <th align="center">Action</th>
+      </tr>
+      <% @publish_types.each do |name, command| %>
+        <tr>
+          <td><%= name %></td>
+          <td><%= command[:command] ? command[:command].end_time.strftime("%a, %b %d, %Y (%H:%M)") : "<i>never published</i>" %></td>
+          <td><%= link_to "Publish to #{name}", { :action => :publish, :id => @project.id, :publish_type => command[:class].name.to_s } %></td>
+        </tr>
+      <% end %>
+    </table>
+  </center>

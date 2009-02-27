@@ -172,6 +172,16 @@
         "(Requires that tracks have been configured.)"
       ]
     ]
+    if current_user.is_a?(Moderator) then
+      command_definitions.push [
+        :publish,
+        Project::Status::PUBLISHING,
+        "Record publish date",
+        "Track when this submission was available in the public GBrowse/modMine/GEO.",
+        "(Requires that project has been released.)"
+      ]
+      @user_can_write = true
+    end
     is_running = !command_definitions.find { |cd| cd[1] == @project.status }.nil?
     command_definitions.each do |definition|
       pos += 1
@@ -198,7 +208,7 @@
       <div class="action">
         <%= 
         link_to_if(
-          @user_can_write && Project::Status::ok_next_states(@project).include?(state), 
+          @user_can_write && Project::Status::ok_next_states(@project).include?(state),
           link, { :action => action, :id => @project }
         ) 
         %>
