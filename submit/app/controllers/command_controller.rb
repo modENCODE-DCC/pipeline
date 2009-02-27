@@ -85,7 +85,7 @@ class CommandController < ApplicationController
 
     ## And just to be safe, we'll tickle the others as well (but to
     ## try avoid ickling ourself).
-    me = worker.eql? Socket.gethostname
+    me = Socket.gethostname
     Workers.get_workers.each do |worker| 
       logger.info "queue: tickling: #{worker.name}"
       if (not me.eql? worker.name) and (not me.eql? worker.ip)
