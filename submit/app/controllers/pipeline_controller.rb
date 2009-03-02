@@ -1457,14 +1457,14 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
+    unless project.user_id == current_user.id || project.user.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
       flash[:error] = "This project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => 'show', :id => project unless options[:skip_redirect] == true 
       return false
     end
     if project.user_id != current_user.id then
-      flash[:warning] = "Note: This project (#{project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
       flash.discard(:warning)
+      flash[:warning] = "Note: This project (#{project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
     end
     if project.status == Project::Status::RELEASED then
       flash[:notice] = "This project has been released and cannot be modified."
@@ -1501,7 +1501,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
+    unless project.user_id == current_user.id || project.user.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => "list" unless options[:skip_redirect] == true 
       return false

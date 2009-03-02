@@ -106,7 +106,7 @@
         <span id="list">
           <span><%= link_to_unless_current 'all', :controller => 'pipeline', :action => 'list' %></span>
           |
-          <span><%= link_to_unless_current 'my group', :controller => 'pipeline', :action => 'show_group' %></span>
+          <span><%= link_to_unless request.request_uri =~ /show_group$/, "my group", :controller => 'pipeline', :action => 'show_group', :pi => current_user.pi %></span>
           |
           <span><%= link_to_unless_current 'my', :controller => 'pipeline', :action => 'show_user' %></span>
         </span>
