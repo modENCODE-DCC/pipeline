@@ -573,7 +573,7 @@ sub _finish_bulk_update {
     }
     $dbh->pg_endcopy() or $self->throw($dbh->errstr);
     close FH;
-    #unlink $path;
+    unlink $path;
   }
   delete $self->{bulk_update_in_progress};
   delete $self->{filehandles};
