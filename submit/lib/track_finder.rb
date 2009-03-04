@@ -805,8 +805,8 @@ class TrackFinder
           parent_feature_ids = Array.new
           current_feature_hash = Hash.new
           chromosome_located_features = false
+          parsed_features = 0
           dbh_safe {
-            parsed_features = 0
             @sth_get_features_by_data_ids.execute data_ids_with_features.uniq
             @sth_get_features_by_data_ids.fetch_hash { |row|
               next if row['fmin'].nil? || row['fmax'].nil? # Skip features with no location
