@@ -74,7 +74,7 @@ unique_project_ids = all_track_defs.map { |td| td.project_id }.uniq
 unique_project_ids.each { |project_id|
   project_tds = all_track_defs.find_all { |td| td.project_id == project_id }
   use_this = project_tds.find { |td| td.released == true } # Released stanza
-  use_this = project_tds.find { |td| td.user_id = user_id } unless use_this # This user's stanza
+  use_this = project_tds.find { |td| td.user_id == user_id } unless use_this # This user's stanza
   use_this = project_tds.first unless use_this # A stanza from this user's group
 
   all_track_defs.delete_if { |td| td.project_id == project_id && td != use_this }
