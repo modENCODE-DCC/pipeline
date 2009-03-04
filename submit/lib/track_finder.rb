@@ -893,6 +893,8 @@ class TrackFinder
                         current_feature_hash['feature_id']
                       )
                     else
+                      parsed_features += 1
+                      cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
                       seen_feature_ids.push(current_feature_hash['feature_id'])
                       sth_add_gff.execute(
                         current_feature_hash['feature_id'], 
