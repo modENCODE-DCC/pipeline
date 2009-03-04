@@ -108,7 +108,7 @@ track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do 
   config_text << "[#{database}:database]\n"
   config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
   config_text << "db_args       = -adaptor DBI::Pg\n"
-  config_text << "                -dsn     dbname=modencode_gffdb;host=localhost\n"
+  config_text << "                -dsn     dbname=modencode_gffdb;host=heartbroken.lbl.gov\n"
   config_text << "                -user    'db_public'\n"
   config_text << "                -pass    'ir84#4nm'\n"
   config_text << "                -schema  modencode_experiment_#{num}_data\n"
