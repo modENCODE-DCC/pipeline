@@ -86,8 +86,8 @@ class LoadIdf2chadoxmlController < LoadController
       }
 
       # Errors?
-      if (exitvalue != 0) then
-        command_object.stderr = command_object.stderr + "\n#{exitvalue}:#{errormessage}"
+      if (!exitvalue.nil? && exitvalue != 0) then
+        command_object.stderr = command_object.stderr + "\nError message: #{exitvalue}:#{errormessage}"
         command_object.status = Load::Status::LOAD_FAILED
         command_object.save
       end
