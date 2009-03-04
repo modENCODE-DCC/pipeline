@@ -877,6 +877,7 @@ class TrackFinder
 
           # Child features
           current_feature_hash = Hash.new
+          parsed_features = 0
           if there_are_feature_relationships? && parent_feature_ids.size > 0 then
             cmd_puts "        Getting child features."
             dbh_safe {
