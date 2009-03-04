@@ -868,6 +868,17 @@ class PipelineController < ApplicationController
 
     update_errors = Array.new
 
+    # Copy current accepted config over to this user's config if they want 
+    # that to happen
+    if params[:copy_accepted] && params[:copy_accepted] == "true" then
+      accepted_config = TrackStanza.find_by_project_id_and_released(@project.id, true)
+      unless accepted_config.nil? then
+        user_config = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+        user_config.stanza = accepted_config.stanza
+        user_config.save
+      end
+    end
+
     # Unaccept config(s) for this project if any have been accepted
     TrackStanza.find_all_by_project_id(@project.id).each { |ts|
       ts.released = false

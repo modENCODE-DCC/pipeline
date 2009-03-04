@@ -275,10 +275,11 @@
 
 <% @track_defs.sort.each do |stanzaname, definition| %>
   <% if @released then %>
-    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :confirm => "This configuration has been approved; are you sure you want to reconfigure it?", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :html => { :id => "form_#{stanzaname}", :action => "#", :onsubmit => "if (!confirm('This configuration has been approved; are you sure you want to reconfigure it?')) { return false; } else { $(this).getInputs('hidden', 'copy_accepted').first().value = (confirm('Revert to your old (pre-acceptance) configuration? (Otherwise will overwrite with current accepted configuration.)') ? 'false' : 'true'); }" } %>
   <% else %>
     <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :complete => "show_response()", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
   <% end %>
+    <input type="hidden" name="copy_accepted" value="false"/>
     <input type="hidden" name="stanzaname" value="<%=stanzaname%>"/>
     <b>[<%= stanzaname %>]</b><br/>
     <% 
