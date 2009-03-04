@@ -1318,7 +1318,6 @@ class TrackFinder
         label = ''
       when "gene" then
         glyph = "gene"
-        #zoomlevels = [ nil, 101, 10001, 100001 ]
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
@@ -1330,7 +1329,7 @@ class TrackFinder
           # ...but there is a details track for this feature type, then the
           # current track is the wiggle view for features that are 
           # a GFF file when zoomed in
-          zoomlevels = [ nil, 100002 ]
+          zoomlevels = [ 100002 ]
           glyph = "wiggle_density"
         end
       end
