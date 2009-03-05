@@ -28,8 +28,8 @@
     <% refresh_action_name = :list -%>
     <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
     <th class="name"><%= link_to "Submission Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
-    <th class="status">Status</th>
-    <th>PI:&nbsp;<% form_tag url_for(:action => :list), :method => :get, :style => "display:inline" do %>
+    <th><%= link_to "Status", :action => refresh_action_name, :sort => { 'released?' => @new_sort_direction['released?'] } %></th>
+    <th><%= link_to "PI:", :action => refresh_action_name, :sort => { 'pi' => @new_sort_direction['pi'] } %>&nbsp;<% form_tag url_for(:action => :list), :method => :get, :style => "display:inline" do %>
       <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
     <% end %>
     
@@ -50,7 +50,7 @@
     <tr style="background-color: <%= color %>">
       <td style="text-align: left"><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
       <td class="name"> <%= link_to project.name, {:action => 'show', :id => project.id, :controller => 'pipeline' } %></td>
-      <td class="status"><%= project.status == Project::Status::RELEASED ? "vetted and released" : "unvetted" %></td>
+      <td class="status"><%= project.released? ? "vetted and released" : "unvetted" %></td>
       <td style="text-align: left"><%= project.user.pi.split(",")[0] %></td>
       <td class="actions">
         <% if Project::Status::ok_next_states(project).include?(Project::Status::VALIDATING) || project.status == Project::Status::RELEASED then %>
