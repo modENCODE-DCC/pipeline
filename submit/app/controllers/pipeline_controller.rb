@@ -4,7 +4,9 @@ class PipelineController < ApplicationController
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
   STANZA_OPTIONS = {
     'fgcolor' => TrackFinder::GD_COLORS,
-    'bgcolor' => TrackFinder::GD_COLORS,
+    'bgcolor' => Hash[TrackFinder::GD_COLORS.map { |i| [i, i] }].merge({ 
+        'sub { my $strand = shift->strand; if ($strand < 0) { return "indianred"; } elsif ($strand == 0) { return "lightsalmon"; } else { "gold" } }' => '[Color by strand]'
+      }), 
     'group_on' => {
       '' => " [No grouping]", 
       'sub { return shift->name }' => "[Feature Name]",
@@ -921,7 +923,6 @@ class PipelineController < ApplicationController
         value = params[option]
 
         if stanzas[stanzaname][:unique_analyses] && option == "bgcolor" then
-          values = Hash[values.map { |i| [i, i] }]
           n = 0
           color_mappings = Hash[ stanzas[stanzaname][:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
           default_color = "lightgrey"
