@@ -13,3 +13,13 @@ class ApplicationController < ActionController::Base
   end
 
 end
+class FalseClass
+  def <=>(other)
+    other == false ? 0 : -1
+  end
+end
+class TrueClass
+  def <=>(other)
+    other == true ? 0 : 1
+  end
+end
