@@ -663,8 +663,8 @@ class TrackFinder
               rescue
               end
               # And go through any attached previous applied protocols
-              prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
             end
+            prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
         end
       }
       ap_ids = prev_ap_ids.uniq
