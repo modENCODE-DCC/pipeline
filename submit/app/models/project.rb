@@ -15,6 +15,9 @@ class Project < ActiveRecord::Base
   validates_presence_of :user_id
   validates_uniqueness_of   :name
 
+  def released?
+    self.status == Project::Status::RELEASED
+  end
 
   module Status
     include Command::Status
