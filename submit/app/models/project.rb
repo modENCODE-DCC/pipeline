@@ -18,6 +18,9 @@ class Project < ActiveRecord::Base
   def released?
     self.status == Project::Status::RELEASED
   end
+  def pi
+    self.user.pi unless self.user.nil?
+  end
 
   module Status
     include Command::Status
