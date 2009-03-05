@@ -662,8 +662,8 @@ class TrackFinder
                 ).save unless row['attr_value'].nil? || row['attr_value'].empty?
               rescue
               end
-              # And go through any attached previous applied protocols
             end
+            # And go through any attached previous applied protocols
             prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
         end
       }
@@ -680,15 +680,18 @@ class TrackFinder
                                    GROUP BY ep.name, ep.value, ep.rank, c.name"
       sth_idf_info.execute(experiment_id)
       sth_idf_info.fetch do |row|
-        TrackTag.new(
-          :experiment_id => experiment_id,
-          :name => row['name'],
-          :project_id => project_id,
-          :track => tracknum,
-          :value => row['value'],
-          :cvterm => row['type'],
-          :history_depth => row['rank']
-        ).save
+        begin
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => row['name'],
+            :project_id => project_id,
+            :track => tracknum,
+            :value => row['value'],
+            :cvterm => row['type'],
+            :history_depth => row['rank']
+          ).save
+        rescue
+        end
       end
     }
 
