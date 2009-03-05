@@ -36,6 +36,7 @@ class FindTracksController < CommandController
       experiment_id = schemas[schema][0]
 
       tracks_dir = File.join(ExpandController.path_to_project_dir(command_object.project), "tracks")
+      Dir.mkdir(tracks_dir,0775) unless File.exists?(tracks_dir)
       track_finder.delete_tracks(command_object.project.id, tracks_dir)
 
       track_finder.generate_track_files_and_tags(experiment_id, command_object.project.id, tracks_dir)
