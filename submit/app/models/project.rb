@@ -41,6 +41,28 @@ class Project < ActiveRecord::Base
 
     DELETED = "deleted" #i don't know if this is necessary
     FLAGGED = "flagged" #this could be useful for signaling between DCC and groups
+
+    def self.states_in_order
+      {
+        0 => [
+          PAUSED, QUEUED, FLAGGED, CANCELING, CANCELED, 
+          FAILED, DELETING, DELETED, DELETE_FAILED
+        ],
+        1 => [NEW, UPLOADING, UPLOAD_FAILED],
+        2 => [UPLOADED, EXPANDING, EXPAND_FAILED],
+        3 => [EXPANDED, VALIDATING, VALIDATION_FAILED],
+        4 => [VALIDATED, LOADING, LOAD_FAILED, UNLOADING, UNLOADED, UNLOAD_FAILED],
+        5 => [LOADED, FINDING, FINDING_FAILED],
+        6 => [FOUND, CONFIGURING],
+        7 => [CONFIGURED, AWAITING_RELEASE, RELEASE_REJECTED, DCC_RELEASED, USER_RELEASED],
+        8 => [RELEASED, PUBLISHING],
+        9 => [PUBLISHED]
+      }
+    end
+
+    def self.status_number(state)
+      states_in_order.find { |n, states| states.include?(state) }[0]
+    end
     
     def self.is_active_state(state)
       active_states = [
@@ -59,11 +81,13 @@ class Project < ActiveRecord::Base
     def self.is_failed_state(state)
       failed_states = [
         Upload::Status::UPLOAD_FAILED,
-        Delete::Status::DELETE_FAILED,
-        Load::Status::LOAD_FAILED,
         Expand::Status::EXPAND_FAILED,
-        Unload::Status::UNLOAD_FAILED,
         Validate::Status::VALIDATION_FAILED,
+        Load::Status::LOAD_FAILED,
+        FindTracks::Status::FINDING_FAILED,
+        Release::Status::RELEASE_REJECTED,
+        Delete::Status::DELETE_FAILED,
+        Unload::Status::UNLOAD_FAILED,
       ]
       return failed_states.include?(state)
     end
