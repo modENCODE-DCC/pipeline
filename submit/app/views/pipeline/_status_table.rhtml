@@ -1,3 +1,26 @@
+<style type="text/css">
+  DIV.progress_div {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+    height: 13px;
+    width: 75px;
+    border: thin solid black;
+  }
+  DIV.progress_img {
+    background: url(/submit/images/progress.png);
+    opacity: .8;
+    height: 13px;
+  }
+  DIV.progress_txt {
+    height: 13px;
+    width: 74px; /* One less to fake a margin when clipping occurs */
+    overflow: hidden;
+    font-size: 9px;
+    position: relative;
+    top: -12px;
+  }
+</style>
 <% if @projects.blank? %>
   <p>There are no <%= @show_status %> projects currently.</p>
 <% else %>
@@ -105,27 +128,18 @@
         <td class="name"<%= ' style="text-decoration: line-through"' if deleted_project %>>
           <%= link_to p.name, {:action => 'show', :id => p.id, :controller => 'pipeline' } %>
         </td>
-        <td>
+        <td style="vertical-align:middle">
         <% 
-          step = 0
-          step = case p.status
-            when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
-            when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
-            when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
-            when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
-            when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
-            when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
-            when (Project::Status::RELEASE_REJECTED ) : 7
-            when (Project::Status::USER_RELEASED ) : 8
-            when (Project::Status::DCC_RELEASED) : 9
-            when (Project::Status::RELEASED) : 10   #released to the public
-            when 'Published' : 11
-          else 1
-          end
-
+          percent_complete = Project::Status::status_number(p.status).to_f / (Project::Status::states_in_order.keys.size-1).to_f
+          progress_width = (percent_complete * 75).to_i;
         %>
         <% if (!Project::Status::is_active_state(p.status)) %>
-          <img src="/submit/images/progress/checkout_<%= step %>_small_75x13.png" alt="<%= p.status %>" title="<%= p.status %>" />
+          <div class="progress_div"<%= ' style="border-color: red;"' if Project::Status::is_failed_state(p.status) %>>
+            <div class="progress_img" style="width: <%= progress_width %>px;">&nbsp;</div>
+            <div class="progress_txt"<%= ' style="color: #AA0707"' if Project::Status::is_failed_state(p.status) %>>
+              <%= p.status %>
+            </div>
+          </div>
         <% else %>
           <%= p.status %>...
         <% end %>    
