@@ -1732,43 +1732,11 @@ private
 
     @active_status = @status[0..6]
 
-    @all_projects_by_status = Hash.new {|status,count| status = count }
-    @my_projects_by_status = Hash.new {|status,count| status = count }
-    @my_groups_projects_by_status = Hash.new {|status,count| status = count }
     @my_active_projects_by_status = Hash.new {|status,count| status = count }
     #@pis = Array.new
 
-    @status.each {|s| @my_projects_by_status[s] = 0 }
-    @status.each {|s| @my_groups_projects_by_status[s] = 0 }
-    @status.each {|s| @all_projects_by_status[s] = 0 }
     @active_status.each {|s| @my_active_projects_by_status[s] = 0 }
     
-    @projects.each do |p|
-      step = 1
-      #identify what step its at
-      step = case p.status
-        when (Project::Status::NEW || Project::Status::UPLOAD_FAILED || Project::Status::UPLOADING) : 1
-        when (Project::Status::UPLOADED || Project::Status::VALIDATION_FAILED || Project::Status::VALIDATING || Proejct::Status::EXPAND_FAILED) : 2
-        when (Project::Status::VALIDATED || Project::Status::LOAD_FAILED || Project::Status::LOADING || Project::Status::UNLOADING) : 3
-        when (Project::Status::LOADED || Project::Status::FINDING_FAILED || Project::Status::FINDING ) : 4
-        when (Project::Status::FOUND || Project::Status::CONFIGURING)  : 5
-        when (Project::Status::CONFIGURED || Project::Status::AWAITING_RELEASE) : 6
-        when (Project::Status::RELEASE_REJECTED ) : 7
-        when (Project::Status::USER_RELEASED ) : 8
-        when (Project::Status::DCC_RELEASED) : 9
-        when (Project::Status::RELEASED) : 10   #released to the public
-        when 'Published' : 11
-      else 1
-      end
-      #@pis.push p.user.pi
-      @my_projects_by_status[@status[step-1]] += 1 unless p.user_id != user_to_view.id
-      @my_groups_projects_by_status[@status[step-1]] += 1 unless !same_group_users.index(p.user_id).nil?
-      @all_projects_by_status[@status[step-1]]+= 1  unless @pis.index(p.user.pi.split(",")[0]).nil?
-      if (step < @active_status.length)
-        @my_active_projects_by_status[@active_status[step-1]] += 1
-      end
-    end
-
     @pis.uniq!
 
     @all_my_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0 }
