@@ -876,6 +876,9 @@ class PipelineController < ApplicationController
       accepted_config = TrackStanza.find_by_project_id_and_released(@project.id, true)
       unless accepted_config.nil? then
         user_config = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
+        if user_config.nil? then
+          user_config = TrackStanza.new :user_id => current_user.id, :project_id => @project.id
+        end
         user_config.stanza = accepted_config.stanza
         user_config.save
       end
