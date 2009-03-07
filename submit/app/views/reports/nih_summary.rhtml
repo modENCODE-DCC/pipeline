@@ -55,7 +55,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       i += 1
       all_cvterms = organism_cv + stage_cv + strain_cv + genotype_cv + line_cv + sex_cv + tissue_cv + animals_cv + antibodies_cv + files_cv
       all_tags = TrackTag.find_all_by_project_id_and_cvterm(p.id, all_cvterms.uniq)
-      organism_reagents = all_tags.find_all { |t| organism_cv.include?(t.cvterm) }
+      organism_reagents = all_tags.find_all { |t| organism_cv.include?(t.cvterm) && t.name == "Organism" }
       stage_reagents = all_tags.find_all { |t| stage_cv.include?(t.cvterm) }
       strain_reagents = all_tags.find_all { |t| strain_cv.include?(t.cvterm) }
       sex_reagents = all_tags.find_all { |t| sex_cv.include?(t.cvterm) }
@@ -90,6 +90,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       assay = "-" if assay.length==0
       #features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
       features = all_types_by_project.find_all { |tt| tt.project_id == p.id }.map { |tt| tt.cvterm }.reject { |cvterm| cvterm =~ /match/ }.join(",<br/>")
+      title = TrackTag.find_by_project_id_and_name(p.id, 'Investigation Title').value
   %>
     <tr style="background-color: <%=colors[i%2]%>">
       <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
@@ -98,7 +99,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       <td><%=subgroup%></td>
       <td><%=features%></td>
       <td><%=assay%></td>
-      <td style='text-align: left;'><%=TrackTag.find_all_by_project_id_and_name(p.id, 'Investigation Title').map{|t| t.value}.uniq%></td>
+      <td style='text-align: left;'><%=title%></td>
       <td><%=organism%></td>
       <td><%=sex%></td>
       <td><%=strain%></td>
