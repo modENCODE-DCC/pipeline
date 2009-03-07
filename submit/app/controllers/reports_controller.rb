@@ -51,6 +51,10 @@
 class ReportsController < ApplicationController
   before_filter :login_required
 
+  def nih_summary
+    index
+  end
+
   def index_table
     index
   end

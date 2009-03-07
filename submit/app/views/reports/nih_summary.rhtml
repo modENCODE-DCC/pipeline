@@ -1,0 +1,118 @@
+<div id="testing">
+<center>
+<h1>Submission Statistics for NIH</h1>
+<p>
+This page provides an overview of the status' of the modENCODE submissions.</p>
+</center>
+<br />
+<div id="released_submissions">
+<%
+    colors = [ '#eeeeee', '#ffffff' ]
+    i = 0
+    organism_cv = ["organism", "Organism"]
+    stage_cv = ["developmental_stage", "stage", "developmental stage", "Dev Stage"]
+    strain_cv = ["strain", "whole_organism"]
+    genotype_cv = ["genotype"]
+    sex_cv = ["sex","Sex"]
+    line_cv = ["cell_line","strain_or_line", "cell line culture"]
+    tissue_cv = ["organism_part", "tissue", "Cell Type cv"]
+    animals_cv = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
+    antibodies_cv = ["antibody"]
+    #samples_cv = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "nuclear_RNA", "genomic_DNA", "total_RNA", "EST", "read", "transcript_region", "transfrag" ]
+    files_cv = ["GFF3", "WIG", "BED"]
+    feature_types = ["EST","transfrag", "mRNA", "miRNA", "peaks", "TF_binding_site", "insulator", "binding_site", "intron", "gene", "read", "transcript_region", "overlapping_EST_set"] 
+    chip_assay = ["chromatin_immunoprecipitation"]
+    expression_assay = ["microarray_scanning_protocol", "hybridization"]
+    sequencing_assay = ["sequencing_protocol", "sequence analysis"]
+    analysis_assay = ["data_analysis_protocol"]
+    rtpcr_assay = ["PCR","reverse_transcription","PCR_amplification"]
+%>
+
+<% { "Released Data Sets" => true, "Unreleased Data Sets" => false }.each_pair { |name, releasedness| %>
+  <center><h2><%= name %></h2></center>
+  <table class="summary_stats">
+  <tr class="header">
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 50px;'>Released?</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 150px;'>Release Date</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 75px;'>PI</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 75px;'>Lab</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 200px;'>feature type</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 100px;'>Assay</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 300px;'>Submission Title</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 100px;'>Organism</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 30px;'>Sex</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Strain/CellLine</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Stage</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Tissue</th>
+    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 100px'>Antibody</th>
+    <th class="header" style='padding-left: 2px; padding-right: 2px;'>More Info</th>
+  </tr>
+  <%
+    Project.all.find_all{|p| p.released? == releasedness }.sort{|p1,p2| p1.pi <=> p2.pi}.each do |p|
+      i += 1
+      organism_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, organism_cv])
+      stage_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, stage_cv])
+      strain_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, strain_cv])
+      line_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, line_cv])
+      sex_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, sex_cv])
+      tissue_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, tissue_cv])
+      animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, animals_cv])
+      antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, antibodies_cv])
+      file_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, files_cv])
+
+      organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(',')}" : "-"
+      organism = organism=="Caenorhabditis elegans" ? "C. elegans" : organism
+      organism = organism=="Drosophila melanogaster" ? "D. mel" : organism
+      strain = strain_reagents.length > 0 ? "#{strain_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1]}}" : ""
+      line = line_reagents.length > 0 ? "#{line_reagents.map{|t| t.value}.uniq.map{|c| c.split(":")[1] if c.split(":").length>1}}" : ""
+      strain = line if strain.length==0
+      strain = "-" if strain.length==0
+      stage = stage_reagents.length>0 ? "#{stage_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1]}.compact.join(",<br />")}" : "-" 
+      sex = sex_reagents.length>0 ? "#{sex_reagents.map{|t| t.value}.uniq.compact.join(",")}" : "-"
+
+      tissue = tissue_reagents.length>0 ? "#{tissue_reagents.map{|t| t.value}.uniq.map{|q| b = q.split(':'); b[b.length>1 ? 1 : 0]}.join(',<br />')}" : "-"
+      antibody = antibody_reagents.length > 0 ? "#{antibody_reagents.map{|t| t.value}.uniq.map{|a| a.split("&oldid")[0]}.map{|a| a.split(":").length>1? a.split(":")[1] : a}.join(", ") }" : "-"
+      pi = "#{User.find(p.user_id).pi.split(",")[0]}"
+      subgroup = TrackTag.find_by_project_id_and_name(p.id, "Lab"); 
+      subgroup = subgroup ? subgroup.value : ""
+
+      type_tags = TrackTag.find_all_by_project_id_and_cvterm(p.id, 'protocol_type')
+      assay = ""
+      assay = "ChIP-chip" if (type_tags.find_all{|tag| chip_assay.include?(tag.value)}.length>0 && type_tags.find_all{|tag| expression_assay.include?(tag.value)}.length>0)
+      assay = type_tags.find_all { |tag| expression_assay.include?(tag.value) }.length>0 ? "array" : "" if assay.length==0
+      assay += type_tags.find_all { |tag| rtpcr_assay.include?(tag.value) }.length>0 ? "RTPCR" : "" if assay.length==0
+      assay = type_tags.find { |tag| sequencing_assay.include?(tag.value) }.nil? ? "" : "RNA-Seq" if assay.length == 0
+      assay = "-" if assay.length==0
+      features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "DISTINCT(cvterm)").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
+  %>
+    <tr style="background-color: <%=colors[i%2]%>">
+      <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
+      <td><%=p.status==Project::Status::RELEASED ? Command.find_all_by_project_id_and_type(p.id, "Release").last.updated_at.strftime("%b %d '%y") : "&nbsp;"%></td>
+      <td><%=pi%> </td>
+      <td><%=subgroup%></td>
+      <td><%=features%></td>
+      <td><%=assay%></td>
+      <td style='text-align: left;'><%=TrackTag.find_all_by_project_id_and_name(p.id, 'Investigation Title').map{|t| t.value}.uniq%></td>
+      <td><%=organism%></td>
+      <td><%=sex%></td>
+      <td><%=strain%></td>
+      <td style='text-align: left;'><%=stage%></td>
+      <td style='text-align: left;'><%=tissue%></td>
+      <td><%=antibody%></td>
+      <td>
+        <%= link_to("citation", :controller => :public, :action => :citation, :id => p.id) + "<br/>" if p.released? %>
+        <%= link_to("show&nbsp;project", :controller => :pipeline, :action => :show, :id => p.id) %>
+      </td>
+    </tr>
+  <% end %>
+  </table>
+  <br />
+  <br />
+  <br />
+<% } %>
+
+
+</center>
+</div>
+
+</div>
