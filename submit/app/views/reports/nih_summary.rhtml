@@ -87,7 +87,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
   %>
     <tr style="background-color: <%=colors[i%2]%>">
       <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
-      <td><%=(p.status==Project::Status::RELEASED && Command.find_all_by_project_id_and_type(p.id, "Release")) ? Command.find_all_by_project_id_and_type(p.id, "Release").last.updated_at.strftime("%b %d '%y") : "&nbsp;"%></td>
+      <td><%=(p.status==Project::Status::RELEASED && Command.find_all_by_project_id_and_type(p.id, "Release").size > 0) ? Command.find_all_by_project_id_and_type(p.id, "Release").last.updated_at.strftime("%b %d '%y") : "&nbsp;"%></td>
       <td><%=pi%> </td>
       <td><%=subgroup%></td>
       <td><%=features%></td>
