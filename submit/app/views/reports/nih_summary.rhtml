@@ -50,15 +50,17 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
   <%
     Project.all.find_all{|p| p.released? == releasedness }.sort{|p1,p2| p1.pi <=> p2.pi}.each do |p|
       i += 1
-      organism_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, organism_cv])
-      stage_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, stage_cv])
-      strain_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, strain_cv])
-      line_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, line_cv])
-      sex_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, sex_cv])
-      tissue_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, tissue_cv])
-      animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, animals_cv])
-      antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, antibodies_cv])
-      file_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", p.id, files_cv])
+      all_cvterms = organism_cv + stage_cv + strain_cv + genotype_cv + line_cv + sex_cv + tissue_cv + animals_cv + antibodies_cv + files_cv
+      all_tags = TrackTag.find_all_by_project_id_and_cvterm(p.id, all_cvterms.uniq)
+      organism_reagents = all_tags.find_all { |t| organism_cv.include?(t.cvterm) }
+      stage_reagents = all_tags.find_all { |t| stage_cv.include?(t.cvterm) }
+      strain_reagents = all_tags.find_all { |t| strain_cv.include?(t.cvterm) }
+      sex_reagents = all_tags.find_all { |t| sex_cv.include?(t.cvterm) }
+      line_reagents = all_tags.find_all { |t| line_cv.include?(t.cvterm) }
+      tissue_reagents = all_tags.find_all { |t| tissue_cv.include?(t.cvterm) }
+      animal_reagents = all_tags.find_all { |t| animals_cv.include?(t.cvterm) }
+      antibody_reagents = all_tags.find_all { |t| antibodies_cv.include?(t.cvterm) }
+      file_reagents = all_tags.find_all { |t| files_cv.include?(t.cvterm) }
 
       organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(',')}" : "-"
       organism = organism=="Caenorhabditis elegans" ? "C. elegans" : organism
