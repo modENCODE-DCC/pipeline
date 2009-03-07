@@ -55,7 +55,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       i += 1
       all_cvterms = organism_cv + stage_cv + strain_cv + genotype_cv + line_cv + sex_cv + tissue_cv + animals_cv + antibodies_cv + files_cv
       all_tags = TrackTag.find_all_by_project_id_and_cvterm(p.id, all_cvterms.uniq)
-      organism_reagents = all_tags.find_all { |t| organism_cv.include?(t.cvterm) && t.name == "Organism" }
+      organism_reagents = all_tags.find_all { |t| organism_cv.include?(t.cvterm) }
       stage_reagents = all_tags.find_all { |t| stage_cv.include?(t.cvterm) }
       strain_reagents = all_tags.find_all { |t| strain_cv.include?(t.cvterm) }
       sex_reagents = all_tags.find_all { |t| sex_cv.include?(t.cvterm) }
@@ -65,7 +65,11 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       antibody_reagents = all_tags.find_all { |t| antibodies_cv.include?(t.cvterm) }
       file_reagents = all_tags.find_all { |t| files_cv.include?(t.cvterm) }
 
-      organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(',')}" : "-"
+      if organism_reagents.size > 1 && !organism_reagents.find { |o| o.name == "Organism" }.nil? then
+        organism_reagents = [ organism_reagents.find { |o| o.name == "Organism" } ]
+      end
+
+      organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(', ')}" : "-"
       organism = organism=="Caenorhabditis elegans" ? "C. elegans" : organism
       organism = organism=="Drosophila melanogaster" ? "D. mel" : organism
       strain = strain_reagents.length > 0 ? "#{strain_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1]}}" : ""
