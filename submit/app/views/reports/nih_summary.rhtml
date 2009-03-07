@@ -94,7 +94,8 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       assay = "-" if assay.length==0
       #features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
       features = all_types_by_project.find_all { |tt| tt.project_id == p.id }.map { |tt| tt.cvterm }.reject { |cvterm| cvterm =~ /match/ }.join(",<br/>")
-      title = TrackTag.find_by_project_id_and_name(p.id, 'Investigation Title').value
+      title = TrackTag.find_by_project_id_and_name(p.id, 'Investigation Title')
+      title = title.nil? ? p.name : title.value
   %>
     <tr style="background-color: <%=colors[i%2]%>">
       <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
