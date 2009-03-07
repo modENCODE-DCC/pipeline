@@ -120,6 +120,8 @@ class CommandController < ApplicationController
     end
     logger.info "next_available_command: all active project ids: #{all_active_project_ids}..."
 
+    me = Socket.gethostname
+    disallowed_pis = Workers.get_workers.find { |worker| worker.name == me }.disallowed_pis
     ## Check the ordered queued commands against the "active"
     ## hash. Try to return one not included.
     all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |a, b| a.queue_position <=> b.queue_position }
@@ -127,9 +129,12 @@ class CommandController < ApplicationController
 
       logger.info "next_available_command: \tlooking at: #{possible_command} is gid #{possible_command.project_id}"
       if not all_active_project_ids.include?(possible_command.project_id)
-        logger.info "next_available_command: \tlooks good: #{possible_command}"
-        command_to_return = possible_command
-        break
+        logger.info "next_available_command: \tnot attached to an active project: #{possible_command}"
+        if not disallowed_pis.include?(possible_command.project.user.pi) then
+          logger.info "next_available_command: \tnot disallowed from running on this machine: #{possible_command}"
+          command_to_return = possible_command
+          break
+        end
       end
     end
 
@@ -198,7 +203,7 @@ class CommandController < ApplicationController
               CommandController.disable_related_commands(next_command)
             end
           rescue CommandRunException
-            # TODO: Failure handling
+            # Failure handling:
             logger.error "Command failed! #{$!}"
             CommandController.disable_related_commands(next_command)
           end
@@ -223,7 +228,7 @@ class CommandController < ApplicationController
     command.project.save
   end
   def run
-    # Quick 'n dirty distribution: command_object.command = "grid submit " + command_object.command
+    # Run the command attached to this controller
     command_object.start_time = Time.now
     command_object.host = Socket.gethostname
     command_object.save
