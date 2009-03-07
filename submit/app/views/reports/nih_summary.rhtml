@@ -85,7 +85,7 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       assay += type_tags.find_all { |tag| rtpcr_assay.include?(tag.value) }.length>0 ? "RTPCR" : "" if assay.length==0
       assay = type_tags.find { |tag| sequencing_assay.include?(tag.value) }.nil? ? "" : "RNA-Seq" if assay.length == 0
       assay = "-" if assay.length==0
-      features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "DISTINCT(cvterm)").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
+      features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
   %>
     <tr style="background-color: <%=colors[i%2]%>">
       <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
