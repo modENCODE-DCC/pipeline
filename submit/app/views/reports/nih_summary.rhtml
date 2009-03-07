@@ -28,6 +28,9 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
     rtpcr_assay = ["PCR","reverse_transcription","PCR_amplification"]
 %>
 
+<%
+  all_types_by_project = TrackTag.find(:all, :conditions => { :name => "Feature" }, :select => "cvterm, project_id", :group => "cvterm, project_id")
+%>
 <% { "Released Data Sets" => true, "Unreleased Data Sets" => false }.each_pair { |name, releasedness| %>
   <center><h2><%= name %></h2></center>
   <table class="summary_stats">
@@ -85,7 +88,8 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
       assay += type_tags.find_all { |tag| rtpcr_assay.include?(tag.value) }.length>0 ? "RTPCR" : "" if assay.length==0
       assay = type_tags.find { |tag| sequencing_assay.include?(tag.value) }.nil? ? "" : "RNA-Seq" if assay.length == 0
       assay = "-" if assay.length==0
-      features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
+      #features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
+      features = all_types_by_project.find_all { |tt| tt.project_id == p.id }.map { |tt| tt.cvterm }.reject { |cvterm| cvterm =~ /match/ }.join(",<br/>")
   %>
     <tr style="background-color: <%=colors[i%2]%>">
       <td><%=p.status==Project::Status::RELEASED ? "Y" : "N"%> </td>
