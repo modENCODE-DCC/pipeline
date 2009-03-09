@@ -138,7 +138,7 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_released_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.find_all{|p| p.status==Project::Status::RELEASED}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.updated_at.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 unless Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.length==0}
+    Project.all.find_all{|p| p.released?}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.end_time.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.end_time.to_date >= v["start"]}[0]][p.user.pi.split(",")[0]] += 1 unless Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.length==0}
 
 
     @all_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0} 
