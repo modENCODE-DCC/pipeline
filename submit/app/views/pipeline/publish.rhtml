@@ -11,6 +11,9 @@
   TD.green {
     background-color: #d0ffd0;
   }
+  INPUT.empty {
+    color: #777777;
+  }
 </style>
 
 <h1 align="center">Data Publish Dates</h1>
@@ -24,18 +27,36 @@ used by moderators to record when a given submission has been published to any o
   <center>
     Click the button next to the site that the submission has been released on. If you want to update the date of publication, you can change the text field; the default is now.
     <br/><br/>
-    <table>
-      <tr>
-        <th align="center">Site</th>
-        <th align="center">Date of publication</th>
-        <th align="center">Action</th>
-      </tr>
-      <% @publish_types.each do |name, command| %>
+    <% form_tag({ :action => :publish }, { :id => 'publish_form' }) do %>
+      <input type="hidden" name="id" value="<%= @project.id %>"/>
+      <input type="hidden" name="publish_type" value=""/>
+      <table>
         <tr>
-          <td><%= name %></td>
-          <td><%= command[:command] ? command[:command].end_time.strftime("%a, %b %d, %Y (%H:%M)") : "<i>never published</i>" %></td>
-          <td><%= link_to "Publish to #{name}", { :action => :publish, :id => @project.id, :publish_type => command[:class].name.to_s } %></td>
+          <th align="center">Site</th>
+          <th align="center">Date of publication</th>
+          <th align="center">Action</th>
         </tr>
-      <% end %>
-    </table>
+        <% @publish_types.each do |name, command| %>
+          <tr>
+            <td><%= name %></td>
+            <td>
+              <%= text_field_tag (
+                    "#{command[:class].name.to_s}_date", 
+                    (command[:command] ? command[:command].end_time.strftime(@time_format) : "never published"),
+                    :onclick => "if ($(this).value == 'never published') { $(this).value = '#{Time.now.strftime("%Y-%m-%d %H:%M")}'; $(this).removeClassName('empty'); $(this).select(); }",
+                    :class => (command[:command] ? "" : "empty")) %>
+            </td>
+            <td>
+              <%= button_to_function "Publish to #{name}", "$(this).form.getInputs('hidden', 'publish_type').first().value = '#{command[:class].name.to_s}'; $(this).form.submit();", :style => "width: 12em" %>
+              <%= button_to_function "Unpublish from #{name}", "$(this).form.getInputs('hidden', 'publish_type').first().value = '#{command[:class].name.to_s}_unpublish'; $(this).form.submit();", :style => "width: 14em" %>
+            </td>
+          </tr>
+        <% end %>
+        <tr>
+          <td>&nbsp;</td>
+          <td style="vertical-align: top; text-align: center; font-size: 80%; color: #777777">Enter date as YYYY-MM-DD HH:MM</td>
+          <td>&nbsp;</td>
+      </table>
+    <% end %>
   </center>
+  <script type="text/javascript">$('publish_form').reset();</script>

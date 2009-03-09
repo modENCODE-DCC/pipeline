@@ -79,7 +79,8 @@ class PipelineController < ApplicationController
           :command_status,
           :command_panel,
           :expand,
-          :get_gbrowse_config
+          :get_gbrowse_config,
+          :publish
         ]
 
   before_filter :check_user_can_view, :except => 
@@ -1210,6 +1211,7 @@ class PipelineController < ApplicationController
       return
     end
     
+    @time_format = "%a, %b %d, %Y (%H:%M)"
     @publish_types = {
       "modMine" => { :class => PublishToModMine },
       "GBrowse" => { :class => PublishToGbrowse },
@@ -1220,29 +1222,59 @@ class PipelineController < ApplicationController
     }
 
     if params[:publish_type] then
+      unpublish = false
+      if params[:publish_type] =~ /_unpublish$/ then
+        unpublish = true
+        params[:publish_type] = params[:publish_type].sub(/_unpublish$/, '')
+      end
+
       publish_class = @publish_types.find { |name, command| command[:class].name.to_s == params[:publish_type] }
       unless publish_class then
         flash[:warning] = "Invalid publish type: #{params[:publish_type]}";
         redirect_to :action => :publish
         return
       end
+      
+      if unpublish then
+        if publish_class[1][:command] then
+          publish_class[1][:command].destroy
+        else
+          flash[:warning] = "Not unpublishing from #{publish_class[0]}; not published to begin with."
+        end
+        redirect_to :action => :publish
+        return
+      end
+
+
+      date_field = publish_class[1][:class].name + "_date"
+      new_date = Time.now
+      if !params[date_field].empty? && params[date_field] != "never published" then
+        # A date was given
+        date = params[date_field]
+        if (date !~ /\d\d\d\d-\d\d-\d\d \d\d:\d\d/) then
+          if Time.parse(date).strftime(@time_format) != date then
+            flash[:warning] = "Nonstandard time format. To avoid this message use YYYY-MM-DD HH:MM."
+          end
+        end
+        new_date = Time.parse(date)
+      end
+
+
       if publish_class[1][:command] then
         # Update date
         pub = publish_class[1][:command]
-        pub.updated_at = Time.now
-        pub.end_time = pub.updated_at
+        pub.start_time = new_date
+        pub.end_time = new_date
         pub.save
       else
         # Make a new one
         pub = publish_class[1][:class].new(:project => @project)
         pub.save
-        pub.updated_at = pub.created_at
-        pub.start_time = pub.created_at
-        pub.end_time = pub.created_at
+        pub.start_time = new_date
+        pub.end_time = new_date
         pub.save
       end
       redirect_to :action => :publish
-      return
     end
   end
 
