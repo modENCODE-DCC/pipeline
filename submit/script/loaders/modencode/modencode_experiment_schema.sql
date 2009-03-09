@@ -4301,40 +4301,40 @@ CREATE TABLE wiggle_data (
     CONSTRAINT wiggle_data_visibility_check CHECK ((((visibility = 'full'::bpchar) OR (visibility = 'dense'::bpchar)) OR (visibility = 'hide'::bpchar))),
     CONSTRAINT wiggle_data_windowingfunction_check CHECK ((((windowingfunction = 'maximum'::bpchar) OR (windowingfunction = 'mean'::bpchar)) OR (windowingfunction = 'minimum'::bpchar)))
 );
-CREATE TRIGGER wiggle_data_data_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_data_trigger_func();
-CREATE TRIGGER wiggle_data_smoothingwindow_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_smoothingwindow_trigger_func();
-CREATE TRIGGER wiggle_data_windowingfunction_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_windowingfunction_trigger_func();
-CREATE TRIGGER wiggle_data_ylineonoff_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_ylineonoff_trigger_func();
-CREATE TRIGGER wiggle_data_ylinemark_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_ylinemark_trigger_func();
-CREATE TRIGGER wiggle_data_viewlimits_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_viewlimits_trigger_func();
-CREATE TRIGGER wiggle_data_graphtype_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_graphtype_trigger_func();
-CREATE TRIGGER wiggle_data_maxheightpixels_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_maxheightpixels_trigger_func();
-CREATE TRIGGER wiggle_data_griddefault_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_griddefault_trigger_func();
-CREATE TRIGGER wiggle_data_autoscale_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_autoscale_trigger_func();
-CREATE TRIGGER wiggle_data_priority_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_priority_trigger_func();
-CREATE TRIGGER wiggle_data_altcolor_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_altcolor_trigger_func();
-CREATE TRIGGER wiggle_data_color_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_color_trigger_func();
-CREATE TRIGGER wiggle_data_visibility_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_visibility_trigger_func();
-CREATE TRIGGER wiggle_data_description_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_description_trigger_func();
-CREATE TRIGGER wiggle_data_name_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_name_trigger_func();
-CREATE TRIGGER wiggle_data_type_trigger BEFORE INSERT OR UPDATE ON wiggle_data
-  FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_type_trigger_func();
+-- CREATE TRIGGER wiggle_data_data_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_data_trigger_func();
+-- CREATE TRIGGER wiggle_data_smoothingwindow_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_smoothingwindow_trigger_func();
+-- CREATE TRIGGER wiggle_data_windowingfunction_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_windowingfunction_trigger_func();
+-- CREATE TRIGGER wiggle_data_ylineonoff_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_ylineonoff_trigger_func();
+-- CREATE TRIGGER wiggle_data_ylinemark_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_ylinemark_trigger_func();
+-- CREATE TRIGGER wiggle_data_viewlimits_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_viewlimits_trigger_func();
+-- CREATE TRIGGER wiggle_data_graphtype_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_graphtype_trigger_func();
+-- CREATE TRIGGER wiggle_data_maxheightpixels_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_maxheightpixels_trigger_func();
+-- CREATE TRIGGER wiggle_data_griddefault_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_griddefault_trigger_func();
+-- CREATE TRIGGER wiggle_data_autoscale_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_autoscale_trigger_func();
+-- CREATE TRIGGER wiggle_data_priority_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_priority_trigger_func();
+-- CREATE TRIGGER wiggle_data_altcolor_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_altcolor_trigger_func();
+-- CREATE TRIGGER wiggle_data_color_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_color_trigger_func();
+-- CREATE TRIGGER wiggle_data_visibility_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_visibility_trigger_func();
+-- CREATE TRIGGER wiggle_data_description_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_description_trigger_func();
+-- CREATE TRIGGER wiggle_data_name_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_name_trigger_func();
+-- CREATE TRIGGER wiggle_data_type_trigger BEFORE INSERT OR UPDATE ON wiggle_data
+--   FOR EACH ROW EXECUTE PROCEDURE meta_chado.wiggle_data_type_trigger_func();
 
 --
 -- Name: acquisition_id; Type: DEFAULT; Schema: $temporary_chado_schema_name$; Owner: -
