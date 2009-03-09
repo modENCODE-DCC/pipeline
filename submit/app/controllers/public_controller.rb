@@ -240,6 +240,16 @@ class PublicController < ApplicationController
       return
     end
 
+    last_modified = File.mtime(file)
+    headers['Last-Modified'] = last_modified.httpdate
+    if request.env.include?('HTTP_IF_MODIFIED_SINCE') then
+      since = Time.parse(request.env['HTTP_IF_MODIFIED_SINCE'])
+      if since >= last_modified then
+        render :nothing => true, :status => 304
+        return
+      end
+    end
+
     send_file file, { :disposition => 'attachment', :filename => File.basename(file) }
   end
 
