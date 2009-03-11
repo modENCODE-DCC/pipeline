@@ -15,7 +15,20 @@
   </span>
 <% end %>
 
-<h2><%= @current_directory %></h2>
+<h2 style="margin-bottom: 1px;"><%= @current_directory %></h2>
+<div style="font-size: 85%; margin-bottom: 1em;">
+  You can download the contents of this folder and subfolders as either a 
+  <%
+    unless @listing.find { |item| item[1] =~ /.chadoxml$/ }.nil? then
+      onclick = '$(this).href = $(this).href.sub("&include_chadoxml=true", ""); if (confirm("Include ChadoXML file?")) { $(this).href += "&include_chadoxml=true" }return true; '
+    end
+  %>
+
+  <%= link_to "structured", { :action => :download_tarball, :id => @project, :root => params[:root], :path => @path, :structured => "true" }, :onclick => onclick %>
+  (preserving subfolders) or
+  <%= link_to "unstructured", { :action => :download_tarball, :id => @project, :root => params[:root], :path => @path, :structured => "false" }, :onclick => onclick %>
+  (flattened) tarball (.tar.gz).
+</div>
 
 <% if @parent then %>
   <div class="entry folder"><%= link_to image_tag(up_img, :alt => "Up") + "Up", { :action => :download, :id => @project, :path => @parent } %></div>

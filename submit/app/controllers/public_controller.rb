@@ -1,3 +1,4 @@
+require 'open3'
 require 'find'
 class PublicController < ApplicationController
 #  before_filter :download_check_user_can_view, :only => 
@@ -149,6 +150,83 @@ class PublicController < ApplicationController
     }
   end
 
+  def download_tarball
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    download_dir = ""
+    download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
+    @root = download_dir
+    @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
+
+    unless File.directory?(@root_directory) then
+      if @root.nil? || @root == "" then
+        flash[:error] = "No data for this project."
+        redirect_to :action => :list
+      else
+        flash[:warning] = "Data has not been extracted. Showing initial submission package."
+        redirect_to :action => :download, :id => @project
+      end
+      return
+    end
+
+    @path = params[:path]
+    @current_directory = @path ? File.expand_path(File.join(@root_directory, @path)) : @root_directory
+
+    unless File.directory?(@current_directory) then
+      flash[:warning] = "No data found in: #{@current_directory}"
+      @current_directory = @root_directory
+      redirect_to :action => :list
+    end
+    unless @current_directory.index(@root_directory) == 0 then
+      flash[:error] = "Invalid path"
+      redirect_to :action => :download
+    end
+
+    escape_quote = "'\\''"
+
+    exclude = params[:include_chadoxml] == "true" ? '' : '--exclude \'*.chadoxml\''
+    files = "'#{File.basename(@current_directory).gsub(/'/, escape_quote)}'"
+    flatten = ''
+    if params[:structured] != "true" then
+      flatten = '--transform \'s/^\.\///g\'  --transform \'s/\//_/g\''
+      files = "--files-from <( cd #{File.dirname(@current_directory).gsub(/'/, escape_quote)}; find . -type f )"
+    end
+    command = "tar #{exclude} #{flatten} -czv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
+
+    headers['Content-Type'] = 'application/x-tar-gz'
+    headers['Content-Disposition'] = "attachment; filename=#{File.basename(@current_directory)}.tgz"
+    headers['Content-Transfer-Encoding'] = 'binary'
+
+    render :status => 200, :text => Proc.new { |response, output|
+      max_size = 4096
+      Open3.popen3('bash', '-c', command) { |stdin, stdout, stderr|
+        stderr_is_eof = false
+        stdout_is_eof = false
+        while !stderr_is_eof || !stdout_is_eof do
+          begin
+            string = stderr.read_nonblock(max_size)
+          rescue EOFError
+            stderr_is_eof = true
+          rescue Errno::EAGAIN
+          end
+          buf = ""
+          begin
+            buf = stdout.read_nonblock(max_size)
+          rescue EOFError
+            stdout_is_eof = true
+          rescue Errno::EAGAIN
+          end
+          output.write(buf) if buf.length > 0
+        end
+        output.flush
+      }
+    }
+  end
   def download
     begin
       @project = Project.find(params[:id])
@@ -173,7 +251,8 @@ class PublicController < ApplicationController
       return
     end
 
-    @current_directory = params[:path] ? File.expand_path(File.join(@root_directory, params[:path])) : @root_directory
+    @path = params[:path]
+    @current_directory = @path ? File.expand_path(File.join(@root_directory, @path)) : @root_directory
 
     unless File.directory?(@current_directory) then
       flash[:warning] = "No data found in: #{@current_directory}"
@@ -250,7 +329,7 @@ class PublicController < ApplicationController
       end
     end
 
-    send_file file, { :disposition => 'attachment', :filename => File.basename(file) }
+    send_file file, { :disposition => 'attachment', :filename => File.basename(file), :x_sendfile => true }
   end
 
   private
