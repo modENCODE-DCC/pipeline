@@ -132,7 +132,7 @@ sub new_native_with_schema {
   my ($proto, $schemaname, $dbh) = (shift, shift, _dbh(@_));
 
   $proto->new(
-    map { new_native DBIx::DBSchema::Table ( $dbh, $_ ) } _tables_from_dbh($dbh, $schemaname)
+    map { new_native DBIx::DBSchema::Table ( $dbh, $_, $schemaname ) } _tables_from_dbh($dbh, $schemaname)
   );
 }
 
@@ -494,8 +494,8 @@ sub _tables_from_dbh {
     or die $dbh->errstr;
   #map { $_->{TABLE_NAME} } grep { $_->{TABLE_TYPE} eq 'TABLE' }
   #  @{ $sth->fetchall_arrayref({ TABLE_NAME=>1, TABLE_TYPE=>1}) };
-  map { $_->[0] } grep { $_->[1] =~ /^TABLE$/i }
-    @{ $sth->fetchall_arrayref([2,3]) };
+  map { $_->[1] } grep { $_->[2] =~ /^TABLE$/i && $_->[0] eq $schemaname }
+    @{ $sth->fetchall_arrayref([1, 2,3]) };
 }
 
 =back

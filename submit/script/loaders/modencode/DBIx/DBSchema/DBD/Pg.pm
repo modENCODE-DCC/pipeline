@@ -39,13 +39,15 @@ This module implements a PostgreSQL-native driver for DBIx::DBSchema.
 sub default_db_schema  { 'public'; }
 
 sub columns {
-  my($proto, $dbh, $table) = @_;
+  my($proto, $dbh, $table, $namespace) = @_;
+  $namespace ||= default_db_schema();
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
     SELECT a.attname, t.typname, a.attlen, a.atttypmod, a.attnotnull,
            a.atthasdef, a.attnum
-    FROM pg_class c, pg_attribute a, pg_type t
-    WHERE c.relname = '$table'
+    FROM pg_class c, pg_attribute a, pg_type t, pg_namespace n
+    WHERE c.relname = '$table' AND n.nspname = '$namespace'
       AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid
+      AND c.relnamespace = n.oid
     ORDER BY a.attnum
 END
   $sth->execute or die $sth->errstr;
@@ -56,8 +58,9 @@ END
     if ( $_->{atthasdef} ) {
       my $attnum = $_->{attnum};
       my $d_sth = $dbh->prepare(<<END) or die $dbh->errstr;
-        SELECT substring(d.adsrc for 128) FROM pg_attrdef d, pg_class c
-        WHERE c.relname = '$table' AND c.oid = d.adrelid AND d.adnum = $attnum
+        SELECT substring(d.adsrc for 128) FROM pg_attrdef d, pg_class c, pg_namespace n
+        WHERE c.relname = '$table' AND n.nspname = '$namespace' AND c.oid = d.adrelid AND d.adnum = $attnum
+        AND c.relnamespace = n.oid
 END
       $d_sth->execute or die $d_sth->errstr;
 
@@ -89,12 +92,14 @@ END
 }
 
 sub primary_key {
-  my($proto, $dbh, $table) = @_;
+  my($proto, $dbh, $table, $namespace) = @_;
+  $namespace ||= default_db_schema();
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
     SELECT a.attname, a.attnum
-    FROM pg_class c, pg_attribute a, pg_type t
+    FROM pg_class c, pg_attribute a, pg_type t, pg_namespace n
     WHERE c.relname = '${table}_pkey'
-      AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid
+      AND n.nspname = '$namespace' AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid
+      AND c.relnamespace = n.oid
 END
   $sth->execute or die $sth->errstr;
   my $row = $sth->fetchrow_hashref or return '';
@@ -102,27 +107,29 @@ END
 }
 
 sub unique {
-  my($proto, $dbh, $table) = @_;
-  my $gratuitous = { map { $_ => [ $proto->_index_fields($dbh, $_ ) ] }
-      grep { $proto->_is_unique($dbh, $_ ) }
-        $proto->_all_indices($dbh, $table)
+  my($proto, $dbh, $table, $namespace) = @_;
+  my $gratuitous = { map { $_ => [ $proto->_index_fields($dbh, $_, $namespace ) ] }
+      grep { $proto->_is_unique($dbh, $_, $namespace ) }
+        $proto->_all_indices($dbh, $table, $namespace)
   };
 }
 
 sub index {
-  my($proto, $dbh, $table) = @_;
-  my $gratuitous = { map { $_ => [ $proto->_index_fields($dbh, $_ ) ] }
-      grep { ! $proto->_is_unique($dbh, $_ ) }
-        $proto->_all_indices($dbh, $table)
+  my($proto, $dbh, $table, $namespace) = @_;
+  my $gratuitous = { map { $_ => [ $proto->_index_fields($dbh, $_, $namespace ) ] }
+      grep { ! $proto->_is_unique($dbh, $_, $namespace ) }
+        $proto->_all_indices($dbh, $table, $namespace)
   };
 }
 
 sub _all_indices {
-  my($proto, $dbh, $table) = @_;
+  my($proto, $dbh, $table, $namespace) = @_;
+  $namespace ||= default_db_schema();
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
     SELECT c2.relname
-    FROM pg_class c, pg_class c2, pg_index i
-    WHERE c.relname = '$table' AND c.oid = i.indrelid AND i.indexrelid = c2.oid
+    FROM pg_class c, pg_class c2, pg_index i, pg_namespace n
+    WHERE n.nspname = '$namespace' AND c.relname = '$table' AND c.oid = i.indrelid AND i.indexrelid = c2.oid
+    AND c.relnamespace = n.oid
 END
   $sth->execute or die $sth->errstr;
   map { $_->{'relname'} }
@@ -131,12 +138,14 @@ END
 }
 
 sub _index_fields {
-  my($proto, $dbh, $index) = @_;
+  my($proto, $dbh, $index, $namespace) = @_;
+  $namespace ||= default_db_schema();
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
     SELECT a.attname, a.attnum
-    FROM pg_class c, pg_attribute a, pg_type t
+    FROM pg_class c, pg_attribute a, pg_type t, pg_namespace n
     WHERE c.relname = '$index'
-      AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid
+      AND n.nspname = '$namespace' AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid
+      AND c.relnamespace = n.oid
     ORDER BY a.attnum
 END
   $sth->execute or die $sth->errstr;
@@ -144,11 +153,13 @@ END
 }
 
 sub _is_unique {
-  my($proto, $dbh, $index) = @_;
+  my($proto, $dbh, $index, $namespace) = @_;
+  $namespace ||= default_db_schema();
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
     SELECT i.indisunique
-    FROM pg_index i, pg_class c, pg_am a
-    WHERE i.indexrelid = c.oid AND c.relname = '$index' AND c.relam = a.oid
+    FROM pg_index i, pg_class c, pg_am a, pg_namespace n
+    WHERE i.indexrelid = c.oid AND c.relname = '$index' AND c.relam = a.oid AND n.nspname = '$namespace' 
+    AND c.relnamespace = n.oid
 END
   $sth->execute or die $sth->errstr;
   my $row = $sth->fetchrow_hashref or die 'guru meditation #420';

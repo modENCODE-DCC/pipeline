@@ -269,22 +269,22 @@ engine (currently, MySQL and PostgreSQL).
 =cut
 
 sub new_native {
-  my( $proto, $dbh, $name) = @_;
+  my( $proto, $dbh, $name, $namespace) = @_;
   my $driver = _load_driver($dbh);
 
   my $indices_hr =
   ( $driver
-      ? eval "DBIx::DBSchema::DBD::$driver->indices(\$dbh, \$name)"
+      ? eval "DBIx::DBSchema::DBD::$driver->indices(\$dbh, \$name, \$namespace)"
       : {}
   );
 
   $proto->new({
     'name'        => $name,
-    'primary_key' => scalar(eval "DBIx::DBSchema::DBD::$driver->primary_key(\$dbh, \$name)"),
+    'primary_key' => scalar(eval "DBIx::DBSchema::DBD::$driver->primary_key(\$dbh, \$name, \$namespace)"),
     'columns'     => [
     
       map DBIx::DBSchema::Column->new( @{$_} ),
-          eval "DBIx::DBSchema::DBD::$driver->columns(\$dbh, \$name)"
+          eval "DBIx::DBSchema::DBD::$driver->columns(\$dbh, \$name, \$namespace)"
     ],
 
     #old-style indices
