@@ -329,7 +329,24 @@ class PublicController < ApplicationController
       end
     end
 
-    send_file file, { :disposition => 'attachment', :filename => File.basename(file), :x_sendfile => true }
+    type = case File.extname(file).sub(/^\./, '')
+           when "gff"
+             type = "text/plain"
+           when "gff3"
+             type = "text/plain"
+           when "txt"
+             type = "text/plain"
+           when "idf"
+             type = "text/plain"
+           when "sdrf"
+             type = "text/plain"
+           when "chadoxml"
+             type = "text/xml"
+           else
+             type = "application/octect-stream"
+           end
+
+    send_file file, { :disposition => 'attachment', :type => type, :filename => File.basename(file), :stream => true, :x_sendfile => true }
   end
 
   private
