@@ -14704,10 +14704,10 @@ CREATE INDEX treatment_idx3 ON treatment USING btree (protocol_id);
 -- Name: viewlimitstrigger; Type: TRIGGER; Schema: $temporary_chado_schema_name$; Owner: -
 --
 
-CREATE TRIGGER viewlimitstrigger
-    BEFORE INSERT ON wiggle_data
-    FOR EACH ROW
-    EXECUTE PROCEDURE wiggle.viewlimitstrigger();
+--CREATE TRIGGER viewlimitstrigger
+--    BEFORE INSERT ON wiggle_data
+--    FOR EACH ROW
+--    EXECUTE PROCEDURE wiggle.viewlimitstrigger();
 
 
 --
