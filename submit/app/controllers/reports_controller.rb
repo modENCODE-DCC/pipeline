@@ -52,7 +52,13 @@ class ReportsController < ApplicationController
   before_filter :login_required
 
   def nih_summary
-    index
+    unless params[:filter] then
+      redirect_to :action => :nih_summary, :filter => "released"
+      return
+    end
+
+    @filter = params[:filter] == "released" ? { "Released Data Sets" => true } : { "Unreleased Data Sets" => false }
+    @all_types_by_project = TrackTag.find(:all, :conditions => { :name => "Feature" }, :select => "cvterm, project_id", :group => "cvterm, project_id")
   end
 
   def index_table
