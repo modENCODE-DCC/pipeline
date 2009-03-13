@@ -1,13 +1,4 @@
-<div id="testing">
-<center>
-<h1>Submission Statistics for NIH</h1>
-<p>
-This page provides an overview of the status' of the modENCODE submissions.</p>
-</center>
-<br />
-<div id="released_submissions">
 <%
-require 'pp'
     colors = [ '#eeeeee', '#ffffff' ]
     i = 0
     organism_cv = ["organism", "Organism"]
@@ -27,31 +18,9 @@ require 'pp'
     sequencing_assay = ["sequencing_protocol", "sequence analysis"]
     analysis_assay = ["data_analysis_protocol"]
     rtpcr_assay = ["PCR","reverse_transcription","PCR_amplification"]
-%>
-
-<%= link_to_unless_current "Released Projects", :action => :nih_summary, :filter => "released" %> |
-<%= link_to_unless_current "Unreleased Projects", :action => :nih_summary, :filter => "unreleased" %>
-
-<% @filter.each { |name, releasedness| %>
-  <center><h2><%= name %></h2></center>
-  <table class="summary_stats">
-  <tr class="header">
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 50px;'>Released?</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 150px;'>Release Date</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 75px;'>PI</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 75px;'>Lab</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 200px;'>feature type</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px; width: 100px;'>Assay</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 300px;'>Submission Title</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 100px;'>Organism</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 30px;'>Sex</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Strain/CellLine</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Stage</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 200px;'>Tissue/Cell Type</th>
-    <th class="header" style='padding-left: 5px; padding-right: 5px; width: 100px'>Antibody</th>
-    <th class="header" style='padding-left: 2px; padding-right: 2px;'>More Info</th>
-  </tr>
-  <%
+-%>
+<%= [ "Release Date", "PI", "Lab", "Feature Type", "Assay", "Submission Title", "Organism", "Sex", "Strain/CellLine", "Stage", "Tissue/Cell Type", "Antibody", "Notes" ].join("\t") %>
+<% @filter.each { |name, releasedness|
   all_projects = Project.all
   if params[:projects] then
     only_projects = params[:projects].split(",").map { |pid| pid.to_i }
@@ -77,7 +46,7 @@ require 'pp'
         organism_reagents = [ organism_reagents.find { |o| o.name == "Organism" } ]
       end
 
-      organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(', ')}" : "-"
+      organism = organism_reagents.length>0? "#{organism_reagents.map{|o| o.value}.uniq.compact.join(', ')}" : ""
       organism = "C. elegans" if organism=="Caenorhabditis elegans"
       organism = "D. mel" if organism=="Drosophila melanogaster"
       strain = strain_reagents.length > 0 ? strain_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1] ? s.split(":")[1] : s}.uniq.compact : []
@@ -92,14 +61,14 @@ require 'pp'
 	}
 	strain = new_strain if new_strain.size > 0
       end
-      strain = strain.join(",<br/>")
-      strain = "-" if strain.length==0
+      strain = strain.join(", ")
+      strain = "" if strain.length==0
       strain.sub!(/&oldid=\d*/, '');
-      stage = stage_reagents.length>0 ? "#{stage_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1] ? s.split(":")[1] : s }.compact.join(",<br />")}" : "-" 
-      sex = sex_reagents.length>0 ? "#{sex_reagents.map{|t| t.value}.uniq.compact.join(",")}" : "-"
+      stage = stage_reagents.length>0 ? "#{stage_reagents.map{|t| t.value}.uniq.map{|s| s.split(":")[1] ? s.split(":")[1] : s }.compact.join(", ")}" : "" 
+      sex = sex_reagents.length>0 ? "#{sex_reagents.map{|t| t.value}.uniq.compact.join(",")}" : ""
 
-      tissue = tissue_reagents.length>0 ? "#{tissue_reagents.map{|t| t.value}.uniq.map{|q| b = q.split(':'); b[b.length>1 ? 1 : 0]}.join(',<br />')}" : "-"
-      antibody = antibody_reagents.length > 0 ? "#{antibody_reagents.map{|t| t.value}.uniq.map{|a| a.split("&oldid")[0]}.map{|a| a.split(":").length>1? a.split(":")[1] : a}.join(", ") }" : "-"
+      tissue = tissue_reagents.length>0 ? "#{tissue_reagents.map{|t| t.value}.uniq.map{|q| b = q.split(':'); b[b.length>1 ? 1 : 0]}.join(', ')}" : ""
+      antibody = antibody_reagents.length > 0 ? "#{antibody_reagents.map{|t| t.value}.uniq.map{|a| a.split("&oldid")[0]}.map{|a| a.split(":").length>1? a.split(":")[1] : a}.join(", ") }" : ""
       pi = "#{User.find(p.user_id).pi.split(",")[0]}"
       subgroup = TrackTag.find_by_project_id_and_name(p.id, "Lab"); 
       subgroup = subgroup ? subgroup.value : ""
@@ -114,14 +83,16 @@ require 'pp'
         tag = TrackTag.find(:first, :conditions => { :cvterm => "protocol_type", :project_id => p.id }, :select => "name, history_depth", :group => "name, history_depth", :order => "history_depth DESC", :limit => 1)
         assay = "\"#{tag.name}\"" unless tag.nil?
       end
-      assay = "-" if assay.length==0
-      #features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(",<br />")
-      features = @all_types_by_project.find_all { |tt| tt.project_id == p.id }.map { |tt| tt.cvterm }.reject { |cvterm| cvterm =~ /match/ }.join(",<br/>")
+      assay = "" if assay.length==0
+      #features = TrackTag.find(:all, :conditions => [ "project_id = ? AND name = ?", p.id, "Feature"], :select => "cvterm", :group => "cvterm").map{|c| c.cvterm if !(c.cvterm=~/match/)}.compact.join(", ")
+      features = @all_types_by_project.find_all { |tt| tt.project_id == p.id }.map { |tt| tt.cvterm }.reject { |cvterm| cvterm =~ /match/ }.join(", ")
       title = TrackTag.find_by_project_id_and_name(p.id, 'Investigation Title')
       title = title.nil? ? p.name : title.value
       is_released = p.status==Project::Status::RELEASED ? "Y" : "N"
       if is_released == "Y" && TrackTag.find_by_project_id(p.id).nil? then
-        is_released = "Y (retrofitting)"
+        is_released = "retrofitting"
+      else
+	is_released = ''
       end
       release_date = ""
       if p.status==Project::Status::RELEASED && Command.find_all_by_project_id_and_type(p.id, "Release").size > 0 then
@@ -130,36 +101,9 @@ require 'pp'
       if p.status == Project::Status::RELEASED && release_date.length == 0 then
 	release_date = p.updated_at.strftime("%b %d '%y")
       end
-      release_date = "&nbsp;" unless release_date.length > 0
-  %>
-    <tr style="background-color: <%=colors[i%2]%>">
-      <td><%=is_released %> </td>
-      <td><%=release_date%></td>
-      <td><%=pi%> </td>
-      <td><%=subgroup%></td>
-      <td style="text-align: left;"><%=features%></td>
-      <td><%=controller.unescape assay%></td>
-      <td style="text-align: left;"><%=title%></td>
-      <td><%=organism%></td>
-      <td><%=sex%></td>
-      <td><%=controller.unescape strain%></td>
-      <td style="text-align: left;"><%=controller.unescape stage%></td>
-      <td style="text-align: left;"><%=controller.unescape tissue%></td>
-      <td><%=controller.unescape antibody%></td>
-      <td>
-        <%= link_to("citation", :controller => :public, :action => :citation, :id => p.id) + "<br/>" if p.released? %>
-        <%= link_to("show&nbsp;project", :controller => :pipeline, :action => :show, :id => p.id) %>
-      </td>
-    </tr>
-  <% end %>
-  </table>
-  <br />
-  <br />
-  <br />
-<% } %>
-
-
-</center>
-</div>
-
-</div>
+  -%>
+  <%= [release_date, pi, subgroup, features, controller.unescape(assay), title, organism, sex, controller.unescape(strain), controller.unescape(stage), controller.unescape(tissue), controller.unescape(antibody), is_released].join("\t") %>
+<% 
+    end
+  }
+-%>

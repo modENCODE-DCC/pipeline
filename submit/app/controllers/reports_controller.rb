@@ -51,6 +51,12 @@
 class ReportsController < ApplicationController
   before_filter :login_required
 
+  def unescape(str)
+    str.gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
+      [$1.delete('%')].pack('H*')
+    end
+  end
+
   def nih_summary
     unless params[:filter] then
       redirect_to :action => :nih_summary, :filter => "released"
@@ -59,6 +65,12 @@ class ReportsController < ApplicationController
 
     @filter = params[:filter] == "released" ? { "Released Data Sets" => true } : { "Unreleased Data Sets" => false }
     @all_types_by_project = TrackTag.find(:all, :conditions => { :name => "Feature" }, :select => "cvterm, project_id", :group => "cvterm, project_id")
+
+    if params[:mode] == "tsv" then
+      @tsv = true
+      headers['Content-Type'] = "text/csv"
+      render :action => :nih_summary_tsv, :layout => false
+    end
   end
 
   def index_table
