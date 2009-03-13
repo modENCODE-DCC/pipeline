@@ -1,7 +1,5 @@
 <%
-if MAX_ENTRIES.nil? then
   MAX_ENTRIES = 15
-end
 %>
 <h1>
   <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Investigation Title"); tag ? tag.value : Project.find(@project_id).name %> 
