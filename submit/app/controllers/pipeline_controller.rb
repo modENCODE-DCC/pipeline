@@ -311,7 +311,7 @@ class PipelineController < ApplicationController
   end
 
   def download_chadoxml
-    @autoRefresh = true
+    @autoRefresh = false
     begin
       @project = Project.find(params[:id])
     rescue
@@ -1696,7 +1696,6 @@ private
     return newts.save
   end
   def status
-
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
 
     @viewing_user = user_to_view if user_to_view != current_user
@@ -1752,6 +1751,21 @@ private
     else
       @projects = @projects.sort { |p1, p2| p1.name <=> p2.name }
     end
+
+    page_size = 20
+    page_offset = 0
+    if params[:page] then
+      page_offset = [(params[:page].to_i-1), 0].max * page_size
+    end
+    page_end = (page_offset + page_size)
+    @cur_page = (page_offset / 20) + 1
+    @num_pages = @projects.size / 20
+    @num_pages += 1 if @projects.size % 20 != 0
+    @has_next_page = @cur_page != @num_pages
+    @has_prev_page = @cur_page != 1
+    @projects = @projects[page_offset...page_end]
+
+
 
    @quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)},
                "Y1Q4" => {"year" => "Y1", "quarter"=> "Q4", "start" => Date.civil(2008,2,1), "end" => Date.civil(2008,4,30)},

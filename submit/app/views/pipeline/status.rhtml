@@ -48,7 +48,7 @@
     <%= render :partial => 'status_table', :user => @show_user  %>
   </div>
 
-  <%= periodically_call_remote :url => { :action => "status_table", :user => @show_user }, :frequency => 15,
+  <%#= periodically_call_remote :url => { :action => "status_table", :user => @show_user }, :frequency => 15,
   :before => "showSpinner('status_table')", :complete => "hideSpinner('status_table')", :update => "status_table" %>
 
 
