@@ -23,6 +23,7 @@ class PipelineController < ApplicationController
       'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for individual features)]",
       'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'         => "[Track Type]",
       'sub { return eval { shift->{"attributes"}->{"load_id"}->[0]; } }'         => "[GFF ID]", 
+      'sub { return eval { shift->{"attributes"}->{"Note"}->[0]; } }'            => "[GFF Note]", 
       'sub { return shift->source; }'                                            => "[Submission #]",
     },
     'sort_order' => {
