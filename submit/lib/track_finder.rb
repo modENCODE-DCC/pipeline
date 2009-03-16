@@ -168,6 +168,7 @@ class TrackFinder
   1;
 
   package main;
+  use File::Basename;
   use strict;
 
   my $wig_db_file_template = <>;
@@ -183,7 +184,11 @@ class TrackFinder
 
   # Write out the GFF
   open GFF, ">$gff_file_path";
-  print GFF $loader->featurefile('gff3', $gff_type, $source);
+  my $line = $loader->featurefile('gff3', $gff_type, $source);
+  my $tmppath = dirname($wig_db_file_template);
+  my $realpath = dirname($gff_file_path);
+  $line =~ s/\\Q$tmppath\\E/$realpath/g;
+  print GFF $line;
   close GFF;
 
   EOP
@@ -397,7 +402,7 @@ class TrackFinder
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
                    wiggle_data.name, 
                    wiggle_data.wiggle_data_id,
-                   wiggle.aswiggletext(wiggle_data.wiggle_data_id) AS wiggle_file,
+                   wiggle_data.data AS wiggle_file,
                    cv.name AS cvname,
                    cvt.name AS term
                    FROM wiggle_data
@@ -757,6 +762,9 @@ class TrackFinder
     cmd_puts "  Done."
     ######### /Get Usable Tracks #########
     ######## Find Features/Wiggles #######
+
+    seen_wiggles = Array.new
+
     cmd_puts "  Finding features and wiggle files attached to tracks."
     usable_tracks.each do |col, set_of_tracks|
       cmd_puts "    For the protocol in column #{col}:"
@@ -1061,48 +1069,95 @@ class TrackFinder
         end
         if data_ids_with_wiggles.size > 0 then
           cmd_puts "      Getting wiggle files."
-          cmd_puts "        Finding metadata for wiggle files."
-          tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
-          cmd_puts "          Using tracknum #{tracknum}"
-          cmd_puts "        Done."
+          gff_files = Array.new
           dbh_safe {
             @sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
             @sth_get_wiggles_by_data_ids.fetch_hash { |row|
+              next if seen_wiggles.include?(row["wiggle_data_id"])
+              seen_wiggles.push row["wiggle_data_id"]
+              cmd_puts "        Finding metadata for wiggle files."
+              tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+              cmd_puts "          Using tracknum #{tracknum}"
+              cmd_puts "        Done."
               # Write out the current wiggle
               wiggle_db_file_path = File.join(output_dir, "#{tracknum}_%s.wigdb")
+              wiggle_db_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_%s.wigdb")
               gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
-              cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_file_path}"
+              gff_files.push(gff_file_path)
+              cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_tmp_file_path}"
 
               # Put the wiggle in a temp file for parsing
-              wiggle_file = Tempfile.new('wiggle_file')
+              wiggle_file = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
               wiggle_file.puts row['wiggle_file']
               wiggle_file.close
 
+              # TODO: Write the wiggle file locally, then move it to tracks dir
               # Do the conversion
               wiggle_writer = IO.popen("perl", "w")
               wiggle_writer.puts WIGGLE_TO_WIGDB_PERL + "\n\n"
-              wiggle_writer.puts wiggle_db_file_path
+              wiggle_writer.puts wiggle_db_tmp_file_path
               wiggle_writer.puts gff_file_path
               wiggle_writer.puts row['term']
               wiggle_writer.puts tracknum
               wiggle_writer.puts wiggle_file.path
               wiggle_writer.close
 
-              # Remove the temporary file
+
+              # Remove the temporary source file
               wiggle_file.unlink
+              # Move the output file to the output_dir
+              wildcard_tmp = sprintf(wiggle_db_tmp_file_path, "*")
+              cmd_puts "        Moving #{wildcard_tmp} to #{output_dir}."
+              Dir.glob(wildcard_tmp).each { |filename|
+                File.dirname(wildcard_tmp)
+                cmd_puts "          Moving file #{filename} to #{File.join(output_dir, filename)}"
+                FileUtils.mv(filename, output_dir)
+              }
+              cmd_puts "        Done."
+              # Label this as a wiggle track
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'Track Type',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => 'wiggle',
+                :cvterm => 'track_type',
+                :history_depth => 0
+              ).save
             }
           }
-          # Label this as a wiggle track
-          TrackTag.new(
-            :experiment_id => experiment_id,
-            :name => 'Track Type',
-            :project_id => project_id,
-            :track => tracknum,
-            :value => 'wiggle',
-            :cvterm => 'track_type',
-            :history_depth => 0
-          ).save
           cmd_puts "      Done getting wiggle files."
+
+          # TODO: Merge any wiggle tracks that are just one-per-chromosome
+          new_gffs = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = Array.new } }
+          gff_files.each { |gff_file|
+            f = File.new(gff_file);
+            lines = f.readlines
+            f.close
+            if lines.size == 3 then
+              tracknum = gff_file.match(/\/(\d+)_wiggle\.gff/)[1]
+              name = lines.last.match(/\tName=([^;]+)/)[1]
+              new_gffs[name]["tracknums"].push tracknum
+              new_gffs[name]["lines"].push lines.last
+              new_gffs[name]["files"].push gff_file
+              File.unlink(gff_file)
+            end
+          }
+          new_gffs.each_pair { |name, info|
+            # Delete all but one metadata
+            cmd_puts "Merging all chromosomes from tracks #{info["tracknums"].join(", ")} for #{name} into a single track: #{info["tracknums"].first}."
+            first_track_num = info["tracknums"].shift
+            info["tracknums"].each { |tracknum|
+              TrackTag.delete_all "project_id = #{project_id} AND track = #{tracknum}"
+            }
+            # Generate the new GFF
+            tracknum = first_track_num
+            gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
+            f = File.new(gff_file_path, "w")
+            f.puts "#gff-version 3"
+            f.puts ""
+            info["lines"].each { |line| f.puts line }
+          }
         end
         if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 then
           cmd_puts "      There are no features or wiggle files."
