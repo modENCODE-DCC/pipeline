@@ -348,7 +348,9 @@ class PipelineController < ApplicationController
 
     # ---------EXPAND ALL--------------
     # Delete everything in the extracted dir since it's no longer up-to-date
-    ExpandController.remove_extracted_folder(@project.project_archives.first)
+    unless @project.project_archives.first.nil? then
+      ExpandController.remove_extracted_folder(@project.project_archives.first)
+    end
 
     # Rexpand any active archives from oldest to newest
     current_project_archive = @project.project_archives.first
@@ -433,6 +435,9 @@ class PipelineController < ApplicationController
     project_archive.project.status = Expand::Status::EXPANDING
     project_archive.project.save
 
+    # Also need to delete everything in the extracted dir since it's no longer up-to-date
+    ExpandController.remove_extracted_folder(project_archive) unless project_archive.nil?
+
     # Clean up any expanded archives
     @project.project_archives.each do |pa| 
       pa.status = ProjectArchive::Status::NOT_EXPANDED
@@ -441,9 +446,6 @@ class PipelineController < ApplicationController
         pf.destroy
       end
     end
-
-    # Also need to delete everything in the extracted dir since it's no longer up-to-date
-    ExpandController.remove_extracted_folder(project_archive)
 
     # Rexpand any active archives prior to this one
     do_expand(project_archive)
