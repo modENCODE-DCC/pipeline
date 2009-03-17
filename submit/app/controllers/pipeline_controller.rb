@@ -1647,7 +1647,8 @@ class PipelineController < ApplicationController
 private
 
   def copy_stanza(user_id, old_project_id, new_project_id)
-    oldts = TrackStanza.find_by_project_id_and_user_id(old_project_id, user_id)
+    oldts = TrackStanza.find_by_project_id_and_released(old_project_id, true)
+    oldts = TrackStanza.find_by_project_id_and_user_id(old_project_id, user_id) unless oldts
     newts = TrackStanza.find_by_project_id_and_user_id(new_project_id, user_id)
 
     return "Cannot find both old and new track stanzas" unless oldts && newts
