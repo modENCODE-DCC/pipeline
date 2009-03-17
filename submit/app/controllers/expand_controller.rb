@@ -50,10 +50,10 @@ class ExpandController < CommandController
         end
       rescue Errno::EACCES, Errno::EEXIST
         # Any file exception here means the entire unarchiving process has failed
+        # Delete extracted files directory if it exists
+        ExpandController.remove_extracted_folder(project_archive) unless project_archive.nil?
         # Delete the project archive (dependents will auto-destroy)
         project_archive.destroy
-        # Delete extracted files directory if it exists
-        ExpandController.remove_extracted_folder(project_archive)
         # Set the expansion status
         command_object.status = Expand::Status::EXPAND_FAILED
         retval = false
@@ -138,7 +138,7 @@ class ExpandController < CommandController
       if (command_object.timeout && command_object.timeout > 0) then
         Timeout::timeout(command_object.timeout) { result = `#{cmd}` }
       else
-        result = `#{cmd}`
+        result = `#{cmd} 2>&1`
       end
     rescue Timeout::Error
       command_object.stderr = "Error extracting uploaded file:<br/>\n#{result}"
