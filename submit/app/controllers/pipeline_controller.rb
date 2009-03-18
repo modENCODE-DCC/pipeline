@@ -1224,60 +1224,86 @@ class PipelineController < ApplicationController
       command[:command] = command[:class].find(:last, :conditions => { :project_id => @project.id })
     }
 
-    if params[:publish_type] then
-      unpublish = false
-      if params[:publish_type] =~ /_unpublish$/ then
-        unpublish = true
-        params[:publish_type] = params[:publish_type].sub(/_unpublish$/, '')
-      end
-
-      publish_class = @publish_types.find { |name, command| command[:class].name.to_s == params[:publish_type] }
-      unless publish_class then
-        flash[:warning] = "Invalid publish type: #{params[:publish_type]}";
-        redirect_to :action => :publish
-        return
-      end
-      
-      if unpublish then
-        if publish_class[1][:command] then
-          publish_class[1][:command].destroy
+    if params[:publish_type] && params[:publish_type].length > 0 then
+      if params[:publish_type] == "deprecate" then
+        flash.clear ; flash.discard
+        if params[:deprecated_by] && params[:deprecated_by].length > 0 && params[:deprecated_by] != "no new project" then
+          begin
+            deprecated_by = Project.find(params[:deprecated_by].to_i)
+            @project.deprecated_by_project = deprecated_by
+            @project.save
+          rescue ActiveRecord::RecordNotFound => e
+            flash[:error] = "Couldn't find the submission that this submission was deprecated by: #{e.message}"
+            return
+          end
         else
-          flash[:warning] = "Not unpublishing from #{publish_class[0]}; not published to begin with."
+          @project.deprecated_project_id = 0
+          @project.save
+          flash[:warning] = "Did not set a submission that this submission was deprecated by. Please fill one in if it exists."
         end
-        redirect_to :action => :publish
-        return
-      end
-
-
-      date_field = publish_class[1][:class].name + "_date"
-      new_date = Time.now
-      if !params[date_field].empty? && params[date_field] != "never published" then
-        # A date was given
-        date = params[date_field]
-        if (date !~ /\d\d\d\d-\d\d-\d\d \d\d:\d\d/) then
-          if Time.parse(date).strftime(@time_format) != date then
-            flash[:warning] = "Nonstandard time format. To avoid this message use YYYY-MM-DD HH:MM."
+        if params[:deprecate_remove_published] == "true" then
+          @publish_types.each do |name, command|
+            unless command[:command].nil? then
+              command[:command].destroy
+            end
           end
         end
-        new_date = Time.parse(date)
-      end
-
-
-      if publish_class[1][:command] then
-        # Update date
-        pub = publish_class[1][:command]
-        pub.start_time = new_date
-        pub.end_time = new_date
-        pub.save
+        redirect_to :action => :publish
       else
-        # Make a new one
-        pub = publish_class[1][:class].new(:project => @project)
-        pub.save
-        pub.start_time = new_date
-        pub.end_time = new_date
-        pub.save
+        unpublish = false
+        if params[:publish_type] =~ /_unpublish$/ then
+          unpublish = true
+          params[:publish_type] = params[:publish_type].sub(/_unpublish$/, '')
+        end
+
+        publish_class = @publish_types.find { |name, command| command[:class].name.to_s == params[:publish_type] }
+        unless publish_class then
+          flash[:warning] = "Invalid publish type: #{params[:publish_type]}";
+          redirect_to :action => :publish
+          return
+        end
+        
+        if unpublish then
+          if publish_class[1][:command] then
+            publish_class[1][:command].destroy
+          else
+            flash[:warning] = "Not unpublishing from #{publish_class[0]}; not published to begin with."
+          end
+          redirect_to :action => :publish
+          return
+        end
+
+
+        date_field = publish_class[1][:class].name + "_date"
+        new_date = Time.now
+        if !params[date_field].empty? && params[date_field] != "never published" then
+          # A date was given
+          date = params[date_field]
+          if (date !~ /\d\d\d\d-\d\d-\d\d \d\d:\d\d/) then
+            if Time.parse(date).strftime(@time_format) != date then
+              flash[:warning] = "Nonstandard time format. To avoid this message use YYYY-MM-DD HH:MM."
+            end
+          end
+          new_date = Time.parse(date)
+        end
+
+
+        if publish_class[1][:command] then
+          # Update date
+          pub = publish_class[1][:command]
+          pub.start_time = new_date
+          pub.end_time = new_date
+          pub.save
+        else
+          # Make a new one
+          pub = publish_class[1][:class].new(:project => @project)
+          pub.save
+          pub.start_time = new_date
+          pub.end_time = new_date
+          pub.save
+        end
+        redirect_to :action => :publish
       end
-      redirect_to :action => :publish
     end
   end
 

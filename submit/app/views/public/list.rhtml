@@ -64,7 +64,7 @@
           <span style="text-decoration: line-through">
             <%= project.released? ? "vetted and released" : "unvetted" %>
           </span><br/>
-          deprecated
+          deprecated <%= "by #" + project.deprecated_project_id.to_s unless project.deprecated_by_project.nil? %>
         <% else %>
           <%= project.released? ? "vetted and released" : "unvetted" %>
         <% end %>

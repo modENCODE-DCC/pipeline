@@ -17,7 +17,7 @@
 </style>
 
 <h1 align="center">Data Publish Dates</h1>
-<h2 align="center" style="margin-bottom: 2px;">Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
+<h2 align="center" style="margin-bottom: 2px;"><%= "Deprecated " if @project.deprecated? %>Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
 <br />
 <p>
 Once a submission has been approved for release, it gets pushed out to the production sites and published in GBrowse, modMine, and GEO. This page should be 
@@ -56,6 +56,30 @@ used by moderators to record when a given submission has been published to any o
           <td>&nbsp;</td>
           <td style="vertical-align: top; text-align: center; font-size: 80%; color: #777777">Enter date as YYYY-MM-DD HH:MM</td>
           <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td>Deprecate</td>
+          <% 
+            deprecated_by = params[:deprecated_by] if params[:deprecated_by]
+            deprecated_by = @project.deprecated_by_project.id if @project.deprecated? && !deprecated_by && @project.deprecated_by_project
+            deprecated_by = "no new project" unless deprecated_by
+          %>
+          <td><%= text_field_tag (
+                    "deprecated_by", 
+                    deprecated_by,
+                    :onclick => "if ($(this).hasClassName('empty')) { $(this).value = ''; $(this).removeClassName('empty'); $(this).select(); }",
+                    :class => (params[:deprecated_by] && params[:deprecated_by] != "no new project" ? "" : "empty")) %>
+            </td>
+          <td>
+            <input type="hidden" name="deprecate_remove_published" value=""/>
+            <%= button_to_function (@project.deprecated? ? "Re-" : "") + "Deprecate Project", "var remove_published = (confirm('Remove records of publication?') ? 'true' : 'false'); $(this).form.getInputs('hidden', 'deprecate_remove_published').first().value = remove_published; $(this).form.getInputs('hidden', 'publish_type').first().value = 'deprecate'; $(this).form.submit();", :style => "width: 12em" %>
+          </td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td style="vertical-align: top; text-align: center; font-size: 80%; color: #777777">Deprecated by project #?</td>
+          <td>&nbsp;</td>
+        </tr>
       </table>
     <% end %>
   </center>

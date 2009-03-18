@@ -17,7 +17,7 @@ class Project < ActiveRecord::Base
   validates_uniqueness_of   :name
 
   def deprecated?
-    !self.deprecated_by_project.nil?
+    !self.deprecated_project_id.nil?
   end
   def released?
     self.status == Project::Status::RELEASED
