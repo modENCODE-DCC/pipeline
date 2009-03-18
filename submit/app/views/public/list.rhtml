@@ -23,6 +23,16 @@
 <% end %>
 
 <table class="archive_list2" style="width: 70%">
+  <tr><td colspan="5" style="text-align: left">
+      <% form_tag ({ :action => :set_show_deprecated }, :id => "show_deprecated_form") do |f| %>
+        <% show_deprecated = session[:show_deprecated] || false %>
+        <%= check_box_tag "show_deprecated", (!show_deprecated).to_s, show_deprecated, :onchange => "$(this).form.submit()" %>
+        <%= label_tag "show_deprecated", "Show deprecated submissions." %>
+      <% end %>
+      <script type="text/javascript">
+        $('show_deprecated_form').reset();
+      </script>
+  </td></tr>
   <tr><th colspan="5" class="tophr">&nbsp;</td></tr>
   <tr>
     <% refresh_action_name = :list -%>
@@ -31,26 +41,34 @@
     <th><%= link_to "Status", :action => refresh_action_name, :sort => { 'released?' => @new_sort_direction['released?'] } %></th>
     <th><%= link_to "PI:", :action => refresh_action_name, :sort => { 'pi' => @new_sort_direction['pi'] } %>&nbsp;<% form_tag url_for(:action => :list), :method => :get, :style => "display:inline" do %>
       <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
-    <% end %>
-    
-    </th>
+    <% end %></th>
     <th>Actions</th>
   </tr>
-  <tr><th colspan="5" class="tophr">&nbsp;</td></tr>
+  <tr><th colspan="5" class="tophr">&nbsp;</th></tr>
     
   <% 
-    colors = [ '#eeeeee', '#f2f2ff' ]
+    colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
     i = 0
   %>
   <% @projects.each do |project| %>
     <%
       color = colors[i%2]
       i += 1
+      color = colors[2] if project.deprecated?
     %>
     <tr style="background-color: <%= color %>">
       <td style="text-align: left"><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
       <td class="name"> <%= link_to project.name, {:action => 'show', :id => project.id, :controller => 'pipeline' } %></td>
-      <td class="status"><%= project.released? ? "vetted and released" : "unvetted" %></td>
+      <td class="status">
+        <% if project.deprecated? then %>
+          <span style="text-decoration: line-through">
+            <%= project.released? ? "vetted and released" : "unvetted" %>
+          </span><br/>
+          deprecated
+        <% else %>
+          <%= project.released? ? "vetted and released" : "unvetted" %>
+        <% end %>
+      </td>
       <td style="text-align: left"><%= project.user.pi.split(",")[0] %></td>
       <td class="actions">
         <% if Project::Status::ok_next_states(project).include?(Project::Status::VALIDATING) || project.status == Project::Status::RELEASED then %>

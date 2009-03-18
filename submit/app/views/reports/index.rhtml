@@ -262,10 +262,6 @@ Numbers in parentheses indicate the total active submissions for that particular
    load_times = load_scatter.sort.map{|a| a[1].round}
    load_sum = load_times.sum
 
-   #released_projects = Project.find_all_by_status(Project::Status::RELEASED)
-   #project_duration = Array.new
-   #released_projects.each{|p| project_duration.push [p.id, [(((Command.find_all_by_project_id(p.id)).find_all{|cmd| cmd.type==(Release.name)}).find{|cmd| cmd.status=="released"})].map{|c| (c.end_time-p.created_at) unless c.nil?}.first]}
-
 %>
 	<br />
    <table class="summary_stats">

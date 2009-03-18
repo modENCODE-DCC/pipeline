@@ -14,16 +14,14 @@ class PublicController < ApplicationController
     redirect_to :action => :list
   end
 
+  def set_show_deprecated
+    session[:show_deprecated] = params[:show_deprecated] == "true" ? true : false
+    redirect_to :action => :list
+  end
+
   def list
     @projects = Project.all
-#    # Anyone can view released projects or those in their group
-#    if current_user.is_a?(Moderator) then
-#      @projects = Project.all
-#    else
-#      @projects = Project.all.find_all { |p|
-#        p.status == Project::Status::RELEASED || (current_user.is_a?(User) && p.user.pi == current_user.pi)
-#      }
-#    end
+    @projects.delete_if { |p| p.deprecated? } unless session[:show_deprecated]
 
     @pis = User.all.map { |u| u.pi }.uniq
     @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil

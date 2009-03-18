@@ -1713,6 +1713,7 @@ private
     else  
       @projects = Project.all
     end
+    @projects.delete_if { |p| p.deprecated? }
 
     session[:status_display_type] = params[:display_type] unless params[:display_type].nil?
     session[:status_display_date] = params[:display_date] unless params[:display_date].nil?

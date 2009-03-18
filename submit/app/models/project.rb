@@ -8,6 +8,7 @@ class Project < ActiveRecord::Base
   has_many :track_tags, :dependent => :destroy
   has_many :track_stanzas, :dependent => :destroy
   has_many :comments, :dependent => :destroy, :order => :created_at
+  belongs_to :deprecated_by_project, :class_name => Project.name, :foreign_key => :deprecated_project_id
 
   validates_presence_of :name
   validates_presence_of :project_type_id
@@ -15,6 +16,9 @@ class Project < ActiveRecord::Base
   validates_presence_of :user_id
   validates_uniqueness_of   :name
 
+  def deprecated?
+    !self.deprecated_by_project.nil?
+  end
   def released?
     self.status == Project::Status::RELEASED
   end

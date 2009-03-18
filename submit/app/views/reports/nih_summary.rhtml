@@ -52,7 +52,7 @@ require 'pp'
     <th class="header" style='padding-left: 2px; padding-right: 2px;'>More Info</th>
   </tr>
   <%
-  all_projects = Project.all
+  all_projects = Project.all.reject { |p| p.deprecated? }
   if params[:projects] then
     only_projects = params[:projects].split(",").map { |pid| pid.to_i }
     all_projects = all_projects.find_all { |p| only_projects.include?(p.id) }
