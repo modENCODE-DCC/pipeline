@@ -14,7 +14,7 @@ class Project < ActiveRecord::Base
   validates_presence_of :project_type_id
   validates_presence_of :status
   validates_presence_of :user_id
-  validates_uniqueness_of   :name
+  validates_uniqueness_of   :name, :unless => :deprecated?, :scope => :deprecated_project_id
 
   def deprecated?
     !self.deprecated_project_id.nil?
