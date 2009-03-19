@@ -26,5 +26,8 @@ class Release < Command
       "#{self.stdout}"
     end
   end
+  def fail
+    self.status = Release::Status::RELEASE_REJECTED
+  end
   
 end

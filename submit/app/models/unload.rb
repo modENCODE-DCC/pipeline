@@ -7,4 +7,7 @@ class Unload < Command
 
   #def formatted_status
   #end
+  def fail
+    self.status = Unload::Status::UNLOAD_FAILED
+  end
 end

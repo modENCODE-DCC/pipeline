@@ -94,4 +94,7 @@ class Command < ActiveRecord::Base
   def name
     self.type
   end
+  def fail
+    self.status = Command::Status::FAILED
+  end
 end

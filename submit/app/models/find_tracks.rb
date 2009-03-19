@@ -31,5 +31,7 @@ class FindTracks < Command
     @controller = FindTracksController.new(:command => self) unless @controller
     @controller
   end
+  def fail
+    self.status = FindTracks::Status::FINDING_FAILED
+  end
 end
-

@@ -27,4 +27,7 @@ class Delete < Command
   def short_formatted_status
     formatted_status
   end
+  def fail
+    self.status = Delete::Status::DELETE_FAILED
+  end
 end

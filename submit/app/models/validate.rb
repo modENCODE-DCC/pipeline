@@ -8,4 +8,7 @@ class Validate < Command
   #def formatted_status
   #end
   #
+  def fail
+    self.status = Validate::Status::VALIDATION_FAILED
+  end
 end

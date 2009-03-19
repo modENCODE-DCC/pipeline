@@ -7,4 +7,7 @@ class Load < Command
 
   #def formatted_status
   #end
+  def fail
+    self.status = Load::Status::LOAD_FAILED
+  end
 end

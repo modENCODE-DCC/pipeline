@@ -33,6 +33,9 @@ class Expand < Command
       self.project.save
     end
   end
+  def fail
+    self.status = Expand::Status::EXPAND_FAILED
+  end
 
 end
 

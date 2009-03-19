@@ -72,4 +72,7 @@ class Upload < Command
       end
     end
   end
+  def fail
+    self.status = Upload::Status::UPLOAD_FAILED
+  end
 end
