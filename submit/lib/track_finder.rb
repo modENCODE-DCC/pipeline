@@ -1388,7 +1388,7 @@ class TrackFinder
           # ...but there is a details track for this feature type, then the
           # current track is the wiggle view for features that are 
           # a GFF file when zoomed in
-          zoomlevels = [ 100002 ]
+          zoomlevels = [ nil, 100002 ]
           glyph = "wiggle_density"
         end
       end
