@@ -883,6 +883,42 @@ class TrackFinder
               # Merge all featureprops for a single feature into one object
               current_feature_hash['properties'][row['propname']][row['proprank'].to_i] = row['propvalue'] unless row['propvalue'].nil?
             }
+
+            # Make sure we actually wrote out the last feature
+            unless seen_feature_ids.include?(current_feature_hash['feature_id']) then
+              # We haven't yet written out current_feature_hash['feature_id']
+              unless current_feature_hash['feature_id'].nil? then
+                parsed_features += 1
+                cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
+                # Write out the current feature
+                sth_add_gff.execute(
+                  current_feature_hash['feature_id'], 
+                  feature_to_gff(current_feature_hash.dup, tracknum), 
+                  '',
+                  current_feature_hash['srcfeature'],
+                  current_feature_hash['type'],
+                  current_feature_hash['fmin'],
+                  current_feature_hash['fmax']
+                )
+                seen_feature_ids.push(current_feature_hash['feature_id'])
+                # Metadata
+                chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+                analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
+                organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
+                begin
+                  TrackTag.new(
+                    :experiment_id => experiment_id,
+                    :name => 'Feature',
+                    :project_id => project_id,
+                    :track => tracknum,
+                    :value => current_feature_hash['name'],
+                    :cvterm => current_feature_hash['type'],
+                    :history_depth => 0
+                  ).save
+                rescue
+                end
+              end
+            end
           }
           cmd_puts "        Done fetching top-level features."
 
@@ -1388,7 +1424,7 @@ class TrackFinder
           # ...but there is a details track for this feature type, then the
           # current track is the wiggle view for features that are 
           # a GFF file when zoomed in
-          zoomlevels = [ nil, 100002 ]
+          zoomlevels = [ 100002 ]
           glyph = "wiggle_density"
         end
       end
