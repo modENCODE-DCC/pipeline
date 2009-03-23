@@ -10,6 +10,7 @@
   <script type="text/javascript">
     // AJAX refresh. So fancy. Spinner GIF courtesy ajaxload.info
     var spinner;
+    var spinner_updater = false;
     var spinnersForElements = new Hash();
     function showSpinner(element) {
       if (!spinnersForElements.get($(element).identify())) {

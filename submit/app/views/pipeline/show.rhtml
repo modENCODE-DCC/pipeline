@@ -28,8 +28,16 @@
 </div>
 
 <div style="float:left">
-  <%= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 5,
+  <%#= periodically_call_remote :url => { :action => "command_panel", :id => @project }, :frequency => 5,
     :before => "showSpinner('command_panel')", :complete => "hideSpinner('command_panel')", :update => "command_panel" %>
+  <script type="text/javascript">
+    //<![CDATA[
+    if (!spinner_updater) {
+      spinner_updater = new PeriodicalExecuter(function() {showSpinner('command_panel'); new Ajax.Updater('command_panel', '/submit/pipeline/command_panel/142', {asynchronous:true, evalScripts:true, onComplete:function(request){hideSpinner('command_panel')}})}, 5)
+    }
+    //]]>
+  </script>
+
   <h2>Submission Details: <hr align="left"/></h2>
   <table border="0" style="margin-left: 0px; margin-bottom: 5px; margin-top: 0px;" class="status">
     <tr>
