@@ -33,7 +33,7 @@
   <script type="text/javascript">
     //<![CDATA[
     if (!spinner_updater) {
-      spinner_updater = new PeriodicalExecuter(function() {showSpinner('command_panel'); new Ajax.Updater('command_panel', '/submit/pipeline/command_panel/142', {asynchronous:true, evalScripts:true, onComplete:function(request){hideSpinner('command_panel')}})}, 5)
+      spinner_updater = new PeriodicalExecuter(function() {showSpinner('command_panel'); new Ajax.Updater('command_panel', '<%= url_for(:action => "command_panel", :id => @project) %>', {asynchronous:true, evalScripts:true, onComplete:function(request){hideSpinner('command_panel')}})}, 5)
     }
     //]]>
   </script>
