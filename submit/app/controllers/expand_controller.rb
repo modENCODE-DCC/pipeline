@@ -81,7 +81,11 @@ class ExpandController < CommandController
 
   def do_after(options = {})
     retval = true
-    project_archive = options[:archive]
+    project_archie = nil
+    begin
+    project_archive = ProjectArchive.find(options[:archive].id)
+    rescue
+    end
     return unless project_archive
     if self.status == Expand::Status::EXPAND_FAILED then
       project_archive.status = ProjectArchive::Status::EXPAND_FAILED
@@ -136,7 +140,7 @@ class ExpandController < CommandController
     result = ""
     begin
       if (command_object.timeout && command_object.timeout > 0) then
-        Timeout::timeout(command_object.timeout) { result = `#{cmd}` }
+        Timeout::timeout(command_object.timeout) { result = `#{cmd} 2>&1` }
       else
         result = `#{cmd} 2>&1`
       end
@@ -171,7 +175,7 @@ class ExpandController < CommandController
       if ["gz", "GZ", "tgz", "TGZ"].any? {|ext| filename.ends_with?("." + ext) }
         cmd = "tar -xzvf #{path_to_file} -C #{upload_dir}"  # .gz .tgz gzip 
       else  
-        cmd = "tar -xjvf #{path_to_file(filename)} -C #{upload_dir}"  # .bz2 bzip2
+        cmd = "tar -xjvf #{path_to_file} -C #{upload_dir}"  # .bz2 bzip2
       end
     end
   end
