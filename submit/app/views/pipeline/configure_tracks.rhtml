@@ -294,7 +294,6 @@
       <% if okay_values = @stanza_options[option] then %>
         <% 
           if definition[:unique_analyses] && option == "bgcolor" then
-            okay_values = Hash[okay_values.map { |i| [i, i] }]
             n = 0
             color_mappings = Hash[ definition[:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
             default_color = "lightgrey"
