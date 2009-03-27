@@ -185,7 +185,7 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && total_uploads > 0 then %>
+          <% if p_commands > 0 && !total_uploads.nil? then %>
             <%#= ((p_commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")" %>
 	    <%= total_uploads.to_s  %>
           <% elsif p_commands > 0 then %>
@@ -205,7 +205,7 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && total_validations > 0 then %>
+          <% if p_commands > 0 && !total_validations.nil? then %>
             <%#= ((p_commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")" %>
 	    <%= total_validations.to_s  %>
           <% elsif p_commands > 0 then %>
@@ -225,7 +225,7 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && total_dbloads > 0 then %>
+          <% if p_commands > 0 && !total_dbloads.nil? then %>
             <%#= ((p_commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")" %>
 	    <%= total_dbloads.to_s %>
           <% elsif p_commands > 0 then %>
@@ -307,6 +307,7 @@ Select page:
    <br />
     <% title = ""
        header = ""
+       data_hash = Array.new
        if (session[:show_filter] == :user)
          title += current_user.login+"'s"
 	 header = "My"
@@ -320,15 +321,17 @@ Select page:
 	 header = title
 	 data_hash = @all_projects_by_status
        end
-         temp = []
-         for i in 0..data_hash.length-1
-           temp += [data_hash.find{|k,v| k==@status[i] }] unless nil
-         end
-         data_hash = temp
-         title1= "Distribution of " + title + " active and released submissions"
-         title2 = title + " new submissions per quarter"
-	 title3 = title + " released submissions per quarter"
-    %>   
+       temp = Array.new
+       @status.each { |s|
+         temp << [s, data_hash[s]] unless data_hash[s] == 0
+       }
+       data_hash = temp
+
+       title1= "Distribution of " + title + " active and released submissions"
+       title2 = title + " new submissions per quarter"
+       title3 = title + " released submissions per quarter"
+     %>
+</pre>
 
 <center>
     <% if (@show_status != "released") %>       	

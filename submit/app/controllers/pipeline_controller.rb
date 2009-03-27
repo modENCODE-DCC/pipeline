@@ -1804,15 +1804,40 @@ private
                "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
                "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
-    @status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both"]
+    @status_names = {
+      Project::Status::NEW => "New",
+      Project::Status::UPLOADED => "Uploaded",
+      Project::Status::VALIDATED => "Validated",
+      Project::Status::LOADED => "DBLoad",
+      Project::Status::FOUND => "Trk found",
+      Project::Status::CONFIGURED => "Configured",
+      Project::Status::AWAITING_RELEASE => "Needs attn",
+      Project::Status::USER_RELEASED => "Aprvl-PI",
+      Project::Status::DCC_RELEASED => "Aprvl-DCC",
+      Project::Status::RELEASED => "Aprvl-BOTH",
+    }
+    @status = [
+      "New", "Uploaded", "Validated", "DBLoad", "Trk found", "Configured", "Needs attn", "Aprvl-PI", "Aprvl-DCC", "Aprvl-BOTH",
+    ]
+
     @pis = User.all.map { |u| u.pi }.uniq
 
     @active_status = @status[0..6]
 
-    @my_active_projects_by_status = Hash.new {|status,count| status = count }
-    #@pis = Array.new
+    @all_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
+    @my_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
+    @my_groups_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
+    @my_active_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
+    @projects.each { |p|
+      @all_projects_by_status[@status_names[p.status]] += 1 unless @pis.index(p.user.pi.split(",")[0]).nil?
+      @my_projects_by_status[@status_names[p.status]] += 1 if p.user_id == user_to_view.id
+      @my_groups_projects_by_status[@status_names[p.status]] += 1 if same_group_users.index(p.user_id).nil?
+      @my_active_projects_by_status[@status_names[p.status]] += 1 if p.user_id == user_to_view.id && @status_names.keys[0..6].include?(p.status)
+    }
 
-    @active_status.each {|s| @my_active_projects_by_status[s] = 0 }
+    #@pis = Array.new
+    @projects.each
+
     
     @pis.uniq!
 
