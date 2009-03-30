@@ -1,5 +1,5 @@
 <%
-  MAX_ENTRIES = 15
+  @max_entries = 15 unless defined?(@max_entries)
 %>
 <h1>
   <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Investigation Title"); tag ? tag.value : Project.find(@project_id).name %> 
@@ -101,7 +101,7 @@
       <b>Animals:</b>
       <%= 
         counter = 0 
-        animal_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...MAX_ENTRIES].map { |tag| 
+        animal_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
           counter += 1
           name = tag.value 
           url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
@@ -119,13 +119,13 @@
           end
         }.uniq.join(", ") 
       %>
-      <%= ", and #{animal_reagents.size - MAX_ENTRIES} more." if animal_reagents.size > MAX_ENTRIES %>
+      <%= ", and #{animal_reagents.size - @max_entries} more." if animal_reagents.size > @max_entries %>
     </li>
   <% end %>
   <% if antibody_reagents.size > 0 then %>
     <li>
       <b>Antibodies:</b>
-      <%= antibody_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...MAX_ENTRIES].map { |tag| 
+      <%= antibody_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
@@ -141,13 +141,13 @@
           short_name
         end
       }.uniq.join(", ") %>
-      <%= ", and #{antibody_reagents.size - MAX_ENTRIES} more." if antibody_reagents.size > MAX_ENTRIES %>
+      <%= ", and #{antibody_reagents.size - @max_entries} more." if antibody_reagents.size > @max_entries %>
     </li>
   <% end %>
   <% if array_reagents.size > 0 then %>
     <li>
       <b>Arrays:</b>
-      <%= array_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...MAX_ENTRIES].map { |tag| 
+      <%= array_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
@@ -163,13 +163,13 @@
           short_name
         end
       }.uniq.join(", ") %>
-      <%= ", and #{array_reagents.size - MAX_ENTRIES} more." if array_reagents.size > MAX_ENTRIES %>
+      <%= ", and #{array_reagents.size - @max_entries} more." if array_reagents.size > @max_entries %>
     </li>
   <% end %>
   <% if sample_reagents.size > 0 then %>
     <li>
       <b>Samples:</b>
-      <%= sample_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...MAX_ENTRIES].map { |tag| 
+      <%= sample_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
@@ -185,7 +185,7 @@
           short_name
         end
       }.uniq.join(", ") %>
-      <%= ", and #{sample_reagents.size - MAX_ENTRIES} more." if sample_reagents.size > MAX_ENTRIES %>
+      <%= ", and #{sample_reagents.size - @max_entries} more." if sample_reagents.size > @max_entries %>
     </li>
   <% end %>
 </ol>
