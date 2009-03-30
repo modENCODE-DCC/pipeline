@@ -1374,6 +1374,7 @@ class TrackFinder
       bgcolor = "lightgrey"
       glyph = "generic"
       label = "sub { return shift->name; }"
+      label_transcripts = ""
       connector = "solid"
       connector_color = "solid"
       group_on = nil
@@ -1467,6 +1468,7 @@ class TrackFinder
           track_defs[stanzaname]['bgcolor'] = bgcolor
           track_defs[stanzaname]['stranded'] = 0
           track_defs[stanzaname]['group_on'] = group_on
+          track_defs[stanzaname]['label_transcripts'] = label_transcripts
           track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
           track_defs[stanzaname]['key'] = key
           track_defs[stanzaname]['citation'] = citation_text

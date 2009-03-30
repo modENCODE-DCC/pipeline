@@ -15,6 +15,10 @@ class PipelineController < ApplicationController
     'stranded' => [ "0", "1" ],
     'key' => :text,
     'citation' => :citation_text,
+    'label_transcripts' => {
+      '' => " [No transcript label]",
+      'sub { my $tag = shift->primary_tag; return ($tag eq "mRNA" || $tag eq "transcript") }'  => "[Show transcript label]",
+    },
     'label' => {
       '' => " [No label]",
       'sub { return shift->name; }'                                              => "[Feature Name (for individual features)]", 
