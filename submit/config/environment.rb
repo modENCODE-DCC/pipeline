@@ -82,4 +82,3 @@ ActionMailer::Base.smtp_settings = {
 
 
 ActiveRecord::Base.store_full_sti_class = true
-ActiveRecord::Base.logger.level = Logger::ERROR
