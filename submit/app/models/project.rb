@@ -96,6 +96,20 @@ class Project < ActiveRecord::Base
       return failed_states.include?(state)
     end
 
+    def self.is_succeeded_state(state)
+      failed_states = [
+        Upload::Status::UPLOADED,
+        Expand::Status::EXPANDED,
+        Validate::Status::VALIDATED,
+        Load::Status::LOADED,
+        FindTracks::Status::FOUND,
+        Release::Status::RELEASED,
+        Delete::Status::DELETED,
+        Unload::Status::UNLOADED,
+      ]
+      return failed_states.include?(state)
+    end
+
     def Status.state_position(project)
       state = project.is_a?(Project) ? project.status : project
       ordered_status = [
