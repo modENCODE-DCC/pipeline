@@ -4,6 +4,7 @@ class Command < ActiveRecord::Base
   belongs_to :project
   acts_as_list :scope => :project_id
   acts_as_queue # Just a clone of acts_as_list with new method names
+  has_many :email_messages, :dependent => :destroy
 
   module Status
     # Status constants
@@ -92,9 +93,19 @@ class Command < ActiveRecord::Base
   end
 
   def name
-    self.type
+    self.class.name
   end
   def fail
     self.status = Command::Status::FAILED
   end
+  def failed?
+    Project::Status::is_failed_state(self.status)
+  end
+  def succeeded?
+    Project::Status::is_succeeded_state(self.status)
+  end
+  def active?
+    Project::Status::is_active_state(self.status)
+  end
+
 end

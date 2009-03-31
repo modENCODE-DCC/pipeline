@@ -1,14 +1,16 @@
 <%= error_messages_for :user %>
 
 <table><tr>
-<td> <%= link_to 'Change Password', {:controller => 'account', :action => 'change_password'} %></td>
+<td> <%= link_to_unless_current 'Edit Profile', { :action => :change_profile} %></td>
 <td> | </td>
-<td> <%= link_to 'Change Email', {:controller => 'account', :action => 'change_email'} %></td>
+<td> <%= link_to_unless_current 'Change Password', { :action => :change_password} %></td>
+<td> | </td>
+<td> <%= link_to_unless_current 'Email Preferences', { :action => :change_email} %></td>
 </tr></table>
 
 <% form_for :user do |f| %>
 <p><label for="login">Login</label><br/>
-<%= f.text_field :login -%></p>
+<%= f.text_field :login, :disabled => true, :style => "background-color: white; color: black;" -%></p>
 
 <p><label for="email">Email</label><br/>
 <%= f.text_field :email, {:disabled => (current_user.is_a?(Administrator) ? false : true)} -%></p>

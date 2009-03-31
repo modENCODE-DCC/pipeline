@@ -1,0 +1,28 @@
+nlw:
+  [
+    "Celniker, Susan",
+    "Piano, Fabio",
+    "Waterston, Robert",
+    "Gingeras, Thomas" # => Celniker
+  ]
+
+mperry:
+  [
+    "Ahringer, Julie", # => Lieb
+    "Henikoff, Steven",
+    "Karpen, Gary",
+    "Lieb, Jason",
+    "Snyder, Michael",
+    "White, Kevin"
+  ]
+
+pruzanov:
+  [
+    "Lai, Eric",
+    "MacAlpine, David"
+  ]
+
+#yostinso:
+#  [ "Stein, Lincoln" ]
+#nlw:
+#  [ "Lewis, Suzi" ]

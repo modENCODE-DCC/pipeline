@@ -6,6 +6,37 @@ class User < ActiveRecord::Base
   has_many :projects
   has_many :track_stanzas, :dependent => :destroy
   has_many :comments, :dependent => :destroy
+  has_many :user_preferences, :dependent => :destroy
+  has_many :email_messages, :foreign_key => :to_user_id, :dependent => :destroy
+
+  # Getting preferences:
+  # user.preferences["foo"] = "bar" -- set and save preference
+  # puts user.preferences["foo"] -- print preference value
+  # user.preferences("foo") -- return UserPreference object
+  # user.preferences -- return all UserPreference objects
+  def preferences(key = nil)
+    if key then
+      UserPreference.find_by_user_id_and_key(self.id, key)
+    else
+      # Convert preferences to a fancy-pants hash thing
+      prefs = UserPreference.all
+      prefs.instance_variable_set(:@prefs_user, self)
+      def prefs.[](key)
+        pref = UserPreference.find_by_user_id_and_key(@prefs_user.id, key)
+        pref.nil? ? nil : pref.value
+      end
+      def prefs.[]=(key, value)
+        pref = UserPreference.find_by_user_id_and_key(@prefs_user.id, key)
+        if pref.nil? then
+          pref = UserPreference.new(:user_id => @prefs_user.id, :key => key)
+        end
+        pref.value = value
+        pref.save
+      end
+      prefs
+    end
+  end
+
 
   # Virtual attribute for the unencrypted password
   attr_accessor :password

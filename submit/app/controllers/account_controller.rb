@@ -43,24 +43,50 @@ class AccountController < ApplicationController
       @user = self.current_user
     end
     @pis = get_pis
-#    @project_pis = get_project_pis
+    @pis.push @user.pi unless @pis.include?(@user.pi)
 
     return unless request.post?
+    params[:user].delete_if { |k,v| !(['email', 'name', 'pi', 'institution', 'commit'].include?(k.to_s)) }
     unless params[:commit] == "Cancel"
+      email_addr = params[:user].delete(:email)
       @user.update_attributes(params[:user])
+      unless email_addr.blank? || email_addr == @user.email then
+        begin
+          @user.change_email_address(email_addr)
+        rescue
+          flash[:error] = "Invalid email address." 
+          @changed = false
+          return
+        end
+      end
       @user.save!
       flash[:notice] = "Profile has been successfully changed."
-      redirect_to(:controller => '/pipeline', :action => 'show_user')
+      redirect_to :action => :change_profile
+      return
     else
-      redirect_to(:controller => '/pipeline', :action => 'show_user')
+      redirect_to(:controller => :pipeline, :action => :show_user)
+      return
     end
   rescue ActiveRecord::RecordInvalid
-    render :action => 'change_profile'
+    return
+  end
+
+  def change_email
+    @user = current_user
+
+    if params[:commit] == "Save" then
+      @user.preferences["batch"] = params["batch"]["value"]
+      @user.preferences["no_email"] = params["no_email"]["value"]
+      @user.preferences["all_notifications"] = params["all_notifications"]["value"]
+    end
+
+    @batch = @user.preferences("batch")
+    @no_email = @user.preferences("no_email")
+    @all_notifications = @user.preferences("all_notifications")
   end
 
   def signup
     @pis = get_pis
-#    @project_pis = get_project_pis
     @user = User.new(params[:user])
     @user.host = request.host
     @user.port = request.port
@@ -164,31 +190,6 @@ class AccountController < ApplicationController
     end
   rescue ActiveRecord::RecordInvalid
     render :action => 'change_password'
-  end
-
-  # change email section
-  def change_email
-    @user = self.current_user
-    return unless request.post?
-    unless params[:commit] == "Cancel"
-      unless params[:user][:email].blank?
-        @user.host = request.host
-        @user.port = request.port
-        @user.change_email_address(params[:user][:email])
-        if @user.save
-          @changed = true
-          flash.clear  
-        end
-      else # email blank
-        #flash[:warning] = "Please enter an email address." 
-      end
-    else # cancel
-      redirect_to(:controller => '/pipeline', :action => 'show_user')
-    end
-  rescue Net::SMTPFatalError
-    flash[:error] = "Invalid email address." 
-    @changed = false
-    render :action => 'change_email'
   end
 
   def activate_new_email

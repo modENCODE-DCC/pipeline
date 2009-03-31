@@ -1,28 +1,35 @@
 <%= error_messages_for :user %>
 
-<% unless @changed  %>
+<table><tr>
+<td> <%= link_to_unless_current 'Edit Profile', { :action => :change_profile} %></td>
+<td> | </td>
+<td> <%= link_to_unless_current 'Change Password', { :action => :change_password} %></td>
+<td> | </td>
+<td> <%= link_to_unless_current 'Email Preferences', { :action => :change_email} %></td>
+</tr></table>
 
-  <% form_for :user do |f| %>
-    <p>
-      <label for="user_email">Current Email</label> <br/>
-      <%= f.text_field :email, {:disabled => true} -%> <br/>
-      </p>
-      <p>
-      <label for="user_email">New Email</label> <br/>
-      <%= f.text_field :email, { :value => ""} -%> <br/>
-      <p>
-      <table><tr>
-      <td><%= submit_tag "Update Email" -%> </td>
-      <td><%= submit_tag "Cancel" -%> </td>
-      </tr></table>
-  <% end %>
-<% else %>
-  <p>  
-    An email has been sent to:
-    <%= self.current_user.new_email -%>.
-  </p>
-  <p>
-    Please follow the instructions contained in the 
-    email to complete this process.
-  </p> 
+<style type="text/css">
+  TABLE#email_prefs_table { margin-top: 15px; margin-bottom: 15px }
+  TABLE#email_prefs_table TD { padding: 5px }
+</style>
+
+<% form_for :user do |f| %>
+  <table border="0" id="email_prefs_table">
+    <tr style="background-color: rgb(238, 238, 238)">
+      <td><%= label_tag "batch", "Batch emails" %></td>
+      <td><%= check_box "batch", "value", {}, "true", "false" %></td>
+      <td style="font-size:80%">Combine all notifications for the day into an email that will be sent at 8AM PST.</td>
+    </tr>
+    <tr style="background-color: rgb(242, 242, 255)">
+      <td><%= label_tag "all_notifications", "Short-Run Notifications" %></td>
+      <td><%= check_box "all_notifications", "value", {}, "true", "false" %></td>
+      <td style="font-size:80%">Send notifications even for tasks that take less than <%= CommandNotifier::MIN_RUNTIME_NOTIFY / 60 %> minutes.</td>
+    </tr>
+    <tr style="background-color: rgb(238, 238, 238)">
+      <td><%= label_tag "no_email", "No emails" %></td>
+      <td><%= check_box "no_email", "value", {}, "true", "false" %></td>
+      <td style="font-size:80%">Don't send me any notification emails.</td>
+    </tr>
+  </table>
+  <%= submit_tag "Save" %>
 <% end %>

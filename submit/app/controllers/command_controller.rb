@@ -208,6 +208,7 @@ class CommandController < ApplicationController
             CommandController.disable_related_commands(next_command)
           end
 
+
           ## If we're being throttled, don't do the next command--get
           ## out of here.
           break if next_command.throttle == true
@@ -221,13 +222,13 @@ class CommandController < ApplicationController
 
   def self.disable_related_commands(command)
     command.project.commands.find_all_by_status(Command::Status::QUEUED).each do |cmd|
-      cmd.status = Command::Status::FAILED
+      cmd.fail
       cmd.save
     end
     command.project.status = command.status
     command.project.save
   end
-  def run
+  def run(options = {})
     # Run the command attached to this controller
     command_object.start_time = Time.now
     command_object.host = Socket.gethostname
@@ -238,6 +239,9 @@ class CommandController < ApplicationController
     ensure
       command_object.end_time = Time.now
       command_object.save
+
+      # Pass off to CommandNotifier to handle this command
+      CommandNotifier.notify_of_completion(command_object)
     end
     # You can't do anything here! A return in the block_given will return right through run here
     # See http://innig.net/software/ruby/closures-in-ruby.rb, examples 12 and 13

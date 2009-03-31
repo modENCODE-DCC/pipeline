@@ -1,0 +1,44 @@
+Hello <%= @name %>,
+<%
+  prefs_url = url_for(:host => "submit.modencode.org", :controller => :account, :action => :change_profile)
+  commands_by_project = Hash.new { |h, k| h[k] = Array.new }
+  @commands.each { |cmd| commands_by_project[cmd.project_id].push(cmd) }
+  commands_by_project.sort { |p1, p2| p1[0] <=> p2[0] }.each do |project, commands|
+    project_id = commands.first.project.nil? ? "0" : commands.first.project.id
+    project_name = commands.first.project.nil? ? "-deleted-" : commands.first.project.name
+    project_url = commands.first.project.nil? ? "-deleted-" : url_for(:host => "submit.modencode.org", :controller => :pipeline, :action => :show, :id => commands.first.project.id)
+    user_name = commands.first.project.nil? ? "-unknown user-" : commands.first.project.user.name
+    user_login = commands.first.project.nil? ? "-" : commands.first.project.user.login
+    user_email = commands.first.project.nil? ? "-unknown email-" : commands.first.project.user.email
+  %>
+--------Project #<%= project %> - <%= project_name %>--------
+  For more information about project #<%= project_id %>, see <%= project_url %>.
+  This project is owned by <%= user_name %> (<%= user_login %>), <%= user_email %>.
+  <%
+    commands.sort { |m1, m2|
+      a = m1.nil? ? 0 : [ m1.project_id, m1.start_time, m1.id ]
+      b = m2.nil? ? 0 : [ m2.project_id, m2.start_time, m2.id ]
+      a <=> b
+    }.each do |command|
+      command_name = command.name
+      command_id = command.id
+      status = command.status
+      command_start = command.start_time.nil? ? "-unknown-" : command.start_time.strftime("%b %d at %H:%M")
+      command_end = command.end_time.nil? ? "-unknown-" : command.end_time.strftime("%b %d at %H:%M")
+      runtime = (command.end_time.nil? || command.start_time.nil?) ? 0 : (command.end_time - command.start_time)
+      runtime = runtime / 60 > 65 ? "#{runtime.to_i / 3600} hours, #{(runtime.to_i % 3600)/60} minutes" : "#{runtime.to_i / 60} minutes"
+      status_url = url_for(:host => "submit.modencode.org", :controller => :pipeline, :action => :command_status, :id => command.id)
+    %>
+    A <%= command_name %> task (#<%= command_id %>) has completed with a status of "<%= status %>".
+      It ran from <%= command_start %> to <%= command_end %> (<%= runtime %>).
+      You can view the full output here: <%= status_url %>.
+  <% end -%>
+<% end %>
+----------------------------
+
+This email has been sent automatically from the modENCODE submission pipeline. You
+can change your notification preferences at <%= prefs_url %>, or contact help@modencode.org for 
+more information.
+
+Regards,
+The Pipeline Robot
