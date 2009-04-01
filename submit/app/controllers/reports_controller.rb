@@ -73,9 +73,31 @@ class ReportsController < ApplicationController
     end
   end
 
+
+  def data_matrix
+    levels
+  end
+
+  def levels
+    index
+    pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
+    levels = [0,1,2,3]
+    level_names = levels.map{|l| "Level "+l.to_s}
+
+    all_distributions_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, level| hash2[level] = 0} }
+    pis.each {|p| all_distributions_by_pi[p]}
+    levels.each{|l| pis.each {|p| all_distributions_by_pi[p][l] = 0}}
+
+    Project.all.reject { |p| p.deprecated? }.each {|p|
+	all_distributions_by_pi[p.user.pi.split(",")[0]][p.level] += 1  unless pis.index(p.user.pi.split(",")[0]).nil? 
+	}	
+    @all_distributions_by_pi = all_distributions_by_pi
+  end
+
   def index_table
     index
   end
+
 
   def index
 
@@ -88,7 +110,7 @@ class ReportsController < ApplicationController
     @quarters = quarters
     #these are the pis to include in the display - modify to add additional pis	
     pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
-    status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Needs attn", "Aprvl-PI","Aprvl-DCC","Aprvl-Both","Published"]
+    status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Aprvl-PI","Aprvl-DCC","Aprvl-Both","Published"]
     @all_status = status
     active_status = status[0..6]
     @active_status = status[0..6]

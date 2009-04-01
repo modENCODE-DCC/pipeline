@@ -26,6 +26,64 @@ class Project < ActiveRecord::Base
     self.user.pi unless self.user.nil?
   end
 
+  def has_readme?
+    #the readme file must have the name README
+    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name}
+    file_names.include?("README")
+  end
+
+  def has_raw_data?
+    file_types = [".cel", ".pair", ".txt", ".fasta", ".fastq"]
+    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
+    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+  end
+
+  def has_wig_data?
+    #assuming signal data is of type wig/bed with those filenames
+    file_types = [".wig", ".bed", ".gr", ".sgr"]
+    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
+    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+  end
+
+  def has_metadata?
+    #assuming metadata is labeled with "idf" and "sdrf" in filename
+    has_idf = false
+    has_sdrf = false
+    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
+    has_idf = file_names.map{|t| t.include?("idf")}.flatten.include?(true)
+    has_sdrf = file_names.map{|t| t.include?("sdrf")}.flatten.include?(true)
+    return has_idf && has_sdrf
+  end
+
+  def has_feature_data?
+    #assuming feature data has gff or gff3 extension
+    file_types = [".gff"]
+    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
+    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+  end
+
+  def has_config?
+    #TODO: fixme
+    return true
+  end
+
+  def level
+    # uploaded raw data files incl readme = level 1
+    # uploaded wig/alignment/feature files = level 2
+    # only once released  = level 3
+    if self.released?
+      return 3
+    elsif ((self.has_wig_data? || self.has_feature_data?) && (self.has_readme? || self.has_metadata?))
+      return 2  # TODO: need to add in a self.has_config?
+    elsif (self.has_raw_data? && (self.has_readme? || self.has_metadata?))
+      return 1
+    elsif self.status == Project::Status::NEW
+      return 0  
+    else
+      return 0
+    end
+  end
+
   module Status
     include Command::Status
     include Upload::Status
@@ -67,7 +125,7 @@ class Project < ActiveRecord::Base
     def self.status_number(state)
       states_in_order.find { |n, states| states.include?(state) }[0]
     end
-    
+
     def self.is_active_state(state)
       active_states = [
         Delete::Status::DELETING,

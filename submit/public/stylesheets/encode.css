@@ -50,6 +50,22 @@ tr.Active td { background-color: #e6e6e6; }
 tr.Released th { background-color: #00cc00; }
 tr.Released td { background-color: #c7ffc7; }
 
+tr.level0 th { background-color: #ffffff; }
+tr.level0 td { background-color: #ffffff; }
+tr.level1 th { background-color: #cc0099; }
+tr.level1 td { background-color: #ffd9f6; }
+tr.level2 th { background-color: #ffff00; }
+tr.level2 td { background-color: #ffffb2; }
+tr.level3 th { background-color: #00cc00; }
+tr.level3 td { background-color: #c7ffc7; }
+
+td.level0 { background-color: #ffffff; }
+td.level1 { background-color: #cc0099; }
+td.level2 { background-color: #ffff00; }
+td.level3 { background-color: #00cc00; }
+td.readme { background-color: #0033ff; }
+
+
 TABLE.summary_stats TR { height: 25px; border-bottom: 2px solid; text-align: center; }
 TABLE.summary_stats TD { padding-right: 10px; padding-left: 10px; vertical-align: middle; }
 TABLE.summary_stats { border-bottom: 5px solid;  border-top: 5px solid; font-size: 14px; border-collapse: collapse; }
