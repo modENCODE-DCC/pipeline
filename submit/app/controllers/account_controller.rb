@@ -81,6 +81,10 @@ class AccountController < ApplicationController
     end
 
     @batch = @user.preferences("batch")
+    if CommandNotifier.get_liasons.keys.map { |u| User.find_by_login(u) }.include?(@user) && @batch.nil? then
+      @batch = @user.preferences["batch"] = "true"
+      @batch = @user.preferences("batch")
+    end
     @no_email = @user.preferences("no_email")
     @all_notifications = @user.preferences("all_notifications")
   end
