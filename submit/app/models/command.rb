@@ -2,6 +2,7 @@ require 'open3'
 
 class Command < ActiveRecord::Base
   belongs_to :project
+  belongs_to :user
   acts_as_list :scope => :project_id
   acts_as_queue # Just a clone of acts_as_list with new method names
   has_many :email_messages, :dependent => :destroy
@@ -94,6 +95,10 @@ class Command < ActiveRecord::Base
 
   def name
     self.class.name
+  end
+  def running_user
+    u = self.user
+    u = self.project.user if (u.nil? && !self.project.nil?)
   end
   def fail
     self.status = Command::Status::FAILED

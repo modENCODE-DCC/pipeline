@@ -4,6 +4,7 @@ class User < ActiveRecord::Base
   self.inheritance_column = 'accesslevel'
   belongs_to :groups
   has_many :projects
+  has_many :commands
   has_many :track_stanzas, :dependent => :destroy
   has_many :comments, :dependent => :destroy
   has_many :user_preferences, :dependent => :destroy
