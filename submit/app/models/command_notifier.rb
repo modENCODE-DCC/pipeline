@@ -25,6 +25,7 @@ class CommandNotifier < ActionMailer::Base
     logger.info("Done sending batched messages")
   end
   def self.notify_of_completion(command)
+    logger.info("Notifying of completion of command ##{command.id}")
     user = nil
     liasons = get_liasons.keys.map { |l| User.find_by_login(l) }.compact
     unless command.project.nil? then
@@ -48,9 +49,11 @@ class CommandNotifier < ActionMailer::Base
       user_wants_no_email = user.preferences["no_email"] == "true"
       user_wants_all_notifications = user.preferences["all_notifications"] == "true"
       unless user_wants_no_email then
+        logger.info("  Notifying user #{user.login} of completion of command ##{command.id}")
         if user_wants_batched_email then
           # Always notify for users with batchmode turned on
           EmailMessage.new(:to_user => user, :command => command, :to_type => "user").save
+          logger.info("Saved batch message for #{user.name} <#{user.email}>")
         else
           # Notify immediately unless the command was really short-running
           if runtime >= MIN_RUNTIME_NOTIFY || user_wants_all_notifications then
@@ -63,12 +66,14 @@ class CommandNotifier < ActionMailer::Base
     # Notify liason of command completion
     liasons.each do |liason|
       next if liason.email.nil?
+      logger.info("  Notifying liason #{liason.login} of completion of command ##{command.id}")
       # (Batch by default)
       liason_wants_batched_email = true unless liason.preferences["batch"] == "false"
       liason_wants_no_email = liason.preferences["no_email"] == "true"
       next if liason_wants_no_email
       if liason_wants_batched_email then
         EmailMessage.new(:to_user => liason, :command => command, :to_type => "liason").save
+        logger.info("Saved batch message for #{liason.name} <#{liason.email}>")
       else
         CommandNotifier.deliver_command_notification_for_liason(liason, command)
       end
