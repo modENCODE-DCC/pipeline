@@ -79,7 +79,7 @@
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
       <td><%= Inflector.ordinalize(@all_waiting_commands.index(command)+1) %></td>
-      <td><%= command.project.user.login %></td> 
+      <td><%= command.project.nil? ? "-no project-" : command.project.user.login %></td> 
       <td>
         <% if command.status == Command::Status::QUEUED then %>
           <%= link_to "Pause", :action => :pause, :id => command.id %>,
@@ -103,8 +103,8 @@
         <td><a style="text-decoration: none; color: black" name="<%= "cmd_#{command.id}" %>"><%= command.id %></a></td>
         <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
         <td><%= command.project ? link_to(command.project.name, url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %></td>
-        <td><%= command.status.gsub(/ /, "&nbsp;") %></td>
-        <td><%= command.project ? link_to(command.project.user.login, url_for(:controller => :account, :action => :change_profile, :id => command.project.user)) : "Orphaned" %></td>
+        <td><%= command.status.nil? ? "" : command.status.gsub(/ /, "&nbsp;") %></td>
+        <td><%= command.running_user.nil? ? "Orphaned" : link_to(command.running_user.login, url_for(:controller => :account, :action => :change_profile, :id => command.running_user)) %></td>
         <td><%= command.host if command.host %></td>
         <td><%= command.start_time.nil? ? "Never started" : command.start_time.strftime("%H:%M:%S&nbsp;on&nbsp;%Y-%m-%d") %></td>
         <td><%= command.end_time.nil? ? "Never finished" : command.end_time.strftime("%H:%M:%S&nbsp;on&nbsp;%Y-%m-%d") %></td>
