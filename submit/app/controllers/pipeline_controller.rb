@@ -675,6 +675,7 @@ class PipelineController < ApplicationController
 
     delete_controller = DeleteController.new(:project => project)
 
+    options[:user] = current_user
     delete_controller.queue options
   end
 
@@ -1349,6 +1350,7 @@ class PipelineController < ApplicationController
     # Get the *Controller class to be used to do track finding
     TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
     find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
+    options[:user] = current_user
     find_tracks_controller.queue options
   end
 
@@ -1376,6 +1378,7 @@ class PipelineController < ApplicationController
     end
 
     load_controller = load_controller_class.new(:project => project)
+    options[:user] = current_user
     load_controller.queue options
   end
 
@@ -1403,6 +1406,7 @@ class PipelineController < ApplicationController
     end
 
     unload_controller = unload_controller_class.new(:project => project)
+    options[:user] = current_user
     unload_controller.queue options
   end
 
@@ -1430,6 +1434,7 @@ class PipelineController < ApplicationController
     end
 
     validate_controller = validate_controller_class.new(:project => project)
+    options[:user] = current_user
     validate_controller.queue options
 
   end
@@ -1474,6 +1479,7 @@ class PipelineController < ApplicationController
     project_archive.save
     expand_controller = ExpandController.new(:filename => project_archive.file_name, :project => project_archive.project)
 
+    options[:user] = current_user
     expand_controller.queue options
   end
   def do_upload(upurl, upftp, upfile, upcomment, filename, ftpFullPath)
@@ -1497,7 +1503,7 @@ class PipelineController < ApplicationController
       upload_controller.timeout = 36000 # 10 hours
 
       # Queue upload command
-      upload_controller.queue
+      upload_controller.queue(:user => current_user)
     elsif !upftp.blank?
       # Uploading from the FTP site
       FileUtils.copy(File.join(ftpFullPath,upftp), path_to_file(project_archive.file_name))
@@ -1505,7 +1511,7 @@ class PipelineController < ApplicationController
       upload_controller.timeout = 600 # 10 minutes
 
       # Queue upload command
-      upload_controller.queue
+      upload_controller.queue(:user => current_user)
     else
       # Uploading from the browser
       if !upfile.local_path

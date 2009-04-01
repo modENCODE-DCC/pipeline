@@ -69,7 +69,7 @@ class AdministrationController < ApplicationController
           # Gotta redo this code so it has access to the session
           TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
           find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
-          find_tracks_controller.queue
+          find_tracks_controller.queue(:user => current_user)
         }
       end
     end
@@ -125,7 +125,7 @@ class AdministrationController < ApplicationController
 
       command.move_to_bottom_in_queue
 
-      command.controller.queue
+      command.controller.queue(:user => current_user)
     else
       flash[:warning] = "Couldn't find command #{params[:id]} to requeue."
     end

@@ -78,6 +78,11 @@ class CommandController < ApplicationController
     command_object.status = Command::Status::QUEUED
     command_object.save
 
+    if (options[:user].is_a?(User)) then
+      command_object.user = options[:user]
+      command_object.save
+    end
+
     ## We'll try and do it ourselves.
     unless (options[:defer] && options[:defer] == true) then
       CommandController.do_queued_commands
