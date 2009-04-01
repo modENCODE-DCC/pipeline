@@ -99,6 +99,7 @@ class Command < ActiveRecord::Base
   def running_user
     u = self.user
     u = self.project.user if (u.nil? && !self.project.nil?)
+    return u
   end
   def fail
     self.status = Command::Status::FAILED

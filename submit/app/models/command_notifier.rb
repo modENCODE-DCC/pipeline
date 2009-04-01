@@ -26,14 +26,9 @@ class CommandNotifier < ActionMailer::Base
   end
   def self.notify_of_completion(command)
     logger.info("Notifying of completion of command ##{command.id}")
-    user = nil
     liasons = get_liasons.keys.map { |l| User.find_by_login(l) }.compact
-    unless command.project.nil? then
-      unless command.project.user.nil? then
-        user = command.project.user
-        liasons = get_liasons_for_pi(user.pi)
-      end
-    end
+    user = command.running_user
+    liasons = get_liasons_for_pi(user.pi) unless user.nil?
     # User gets an email when a command completes (unless it's one of the simple ones)
 
     # Don't notify if it was just an expand
