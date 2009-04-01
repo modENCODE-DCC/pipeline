@@ -22,7 +22,11 @@ pruzanov:
     "MacAlpine, David"
   ]
 
-#yostinso:
-#  [ "Stein, Lincoln" ]
+yostinso:
+  [
+    "Stein, Lincoln" 
+  ]
+
+
 #nlw:
 #  [ "Lewis, Suzi" ]
