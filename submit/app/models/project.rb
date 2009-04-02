@@ -84,6 +84,35 @@ class Project < ActiveRecord::Base
     end
   end
 
+  def release_date
+    return nil unless self.released?
+    last_release = self.commands.all.find_all { |cmd| cmd.is_a?(Release) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    return self.updated_at if last_release.nil?
+    return last_release.end_time.nil? ? last_release.updated_at : last_release.end_time
+  end
+
+  def embargo_start_date
+    # Special case for legacy projects released before 2009-02-01
+    return self.release_date.to_date if (!self.release_date.nil? && self.release_date.to_date < Date.new(2009, 02, 01))
+
+    # Find first upload date
+    first_upload = self.commands.all.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.first
+    return nil if first_upload.nil?
+    upload_date = first_upload.end_time.nil? ? first_upload.updated_at.to_date : first_upload.end_time.to_date
+  end
+  def embargo_end_date
+    start = self.embargo_start_date
+    return nil if start.nil?
+    end_date = start.>>(9)
+    if start.day > end_date.day then
+      # If it was on the 31st, and got pushed to the 30th (or 28th/29th), then jump to the 1st of the next month
+      end_date = Date.new(end_date.year, end_date.month, 1)
+      end_date = end_date.>> 1
+    end
+
+    return end_date
+  end
+
   module Status
     include Command::Status
     include Upload::Status
