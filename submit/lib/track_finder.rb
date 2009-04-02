@@ -343,6 +343,7 @@ class TrackFinder
                    fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
                    fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
                    src.name AS srcfeature,
+                   src.uniquename AS srcfeature_accession,
                    src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
                    o.genus, o.species,
@@ -375,6 +376,7 @@ class TrackFinder
                    fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
                    fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
                    src.name AS srcfeature,
+                   src.uniquename AS srcfeature_accession,
                    src.feature_id AS srcfeature_id,
                    srctype.name AS srctype,
                    frtype.name AS relationship_type,
@@ -868,11 +870,13 @@ class TrackFinder
                   if row['rank'].to_i then
                     # The new row is the Target
                     current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                    current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
                     current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
                   elsif row['rank'].to_i == 0 then
                     # The previously seen row is the Target; this shouldn't happen because of
                     # an ORDER BY clause in the query, but just to be safe, swap the location entries
                     current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                    current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
                     current_feature_hash['fmin'] = row['fmin']
                     current_feature_hash['fmax'] = row['fmax']
                     current_feature_hash['srcfeature'] = row['srcfeature']
@@ -987,11 +991,13 @@ class TrackFinder
                     if row['rank'].to_i then
                       # The new row is the Target
                       current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                      current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
                       current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
                     elsif row['rank'].to_i == 0 then
                       # The previously seen row is the Target; this shouldn't happen because of
                       # an ORDER BY clause in the query, but just to be safe, swap the location entries
                       current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                      current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
                       current_feature_hash['fmin'] = row['fmin']
                       current_feature_hash['fmax'] = row['fmax']
                       current_feature_hash['srcfeature'] = row['srcfeature']
@@ -1248,6 +1254,7 @@ class TrackFinder
       out = out + ";Name=#{feature['uniquename']}"
     end
     out = out + ";Target=#{feature['target']}" unless feature['target'].nil?
+    out = out + ";target_accession=#{feature['target_accession']}" unless feature['target_accession'].nil?
     out = out + ";analysis=#{feature['analysis']}" unless feature['analysis'].nil?
     out = out + ";normscore=#{feature['normscore']}" unless feature['normscore'].nil?
     out = out + ";identity=#{feature['identity']}" unless feature['identity'].nil?
