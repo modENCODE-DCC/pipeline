@@ -1,0 +1,43 @@
+<% projects = Project.all
+   headers = ["ID", "Name"]
+%>
+
+<table>
+<tr>
+<td>Data availability key:&nbsp;</td>
+<td class='readme'>Readme</td>
+<td class='level1'>Level1 Raw Data</td>
+<td class='level2'>Level2 Processed Data </td>
+<td class='level3'>Complete Submission</td>
+</tr>
+</table>
+<br />
+
+<table class="data_matrix">
+<tr style="text-align: left; ">
+<%= headers.map{|h| '<th>'+h+'</th>'}  %>
+<th colspan='4' >Data</th>
+</tr>
+<%
+  p = Project.find(146)
+  test = "<tr><td>XXX</td><td>THIS IS A TEST (#{p.id})</td><td>1</td>"
+  test +="<td class='level"+(p.has_raw_data? ? 1 : 0).to_s+"'>&nbsp;</td>"
+  test +="<td class='level"+(p.has_wig_data? || p.has_feature_data? ? 2 : 0).to_s+"'>&nbsp;</td>"
+  test +="<td class='level"+(p.has_metadata? ? 3 : 0).to_s+"'>&nbsp;</td>"
+  test +="</tr>"
+  all = ""
+%>
+<%#="#{test}"%>
+<%#= projects.map{|p| "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td></tr>"} %>
+<% projects.map do |p|
+  #test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td>"
+  test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td>"
+  test +="<td class='"+(p.has_readme? ? "readme" : "level0")+"'>&nbsp;&nbsp;</td>"
+  test +="<td class='level"+(p.has_raw_data? ? 1 : 0).to_s+"'>&nbsp;&nbsp;</td>"
+  test +="<td class='level"+(p.has_wig_data? || p.has_feature_data? ? 2 : 0).to_s+"'>&nbsp;&nbsp;</td>"
+  test +="<td class='level"+(p.has_metadata? ? 3 : 0).to_s+"'>&nbsp;&nbsp;</td>"
+  test +="</tr>"   
+  all += test
+ end %>
+<%="#{all}"%>
+</table>
