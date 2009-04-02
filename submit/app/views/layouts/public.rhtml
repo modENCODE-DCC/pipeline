@@ -91,7 +91,7 @@
           |
           <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
           |
-          <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.login}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
+          <%= link_to "Report Bug", "http://trac.modencode.org/newticket?reporter=#{@current_user.is_a?(User) ? @current_user.login : ''}&amp;keywords=pipeline&amp;owner=yostinso&amp;component=Submission%20Pipeline&amp;priority=minor&amp;description=#{CGI.escape("Problem with " + request.request_uri)}", :popup => true %>
           <% if current_user.is_a? Administrator then %>
           | <%= link_to_unless_current ' Administration', :controller => 'administration', :action => 'index' %> 
           <% end %>
