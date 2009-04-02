@@ -36,23 +36,26 @@ class CommandNotifier < ActionMailer::Base
 
     runtime = (command.end_time.nil? || command.start_time.nil?) ? 0 : (command.end_time - command.start_time)
 
-    # Notify user of command completion
-    unless user.nil? || user.email.nil? || liasons.include?(user) || (command.is_a?(Upload) && !command.is_a?(Upload::File::Url)) then
-      # Don't notify if they were just uploading from the browser
-      # (Don't batch by default)
-      user_wants_batched_email = user.preferences["batch"] == "true"
-      user_wants_no_email = user.preferences["no_email"] == "true"
-      user_wants_all_notifications = user.preferences["all_notifications"] == "true"
-      unless user_wants_no_email then
-        logger.info("  Notifying user #{user.login} of completion of command ##{command.id}")
-        if user_wants_batched_email then
-          # Always notify for users with batchmode turned on
-          EmailMessage.new(:to_user => user, :command => command, :to_type => "user").save
-          logger.info("Saved batch message for #{user.name} <#{user.email}>")
-        else
-          # Notify immediately unless the command was really short-running
-          if runtime >= MIN_RUNTIME_NOTIFY || user_wants_all_notifications then
-            CommandNotifier.deliver_command_notification_for_user(user, command)
+    # Make sure command either suceeded or failed and didn't just end abruptly while still running
+    if command.succeeded? || command.failed? then
+      # Notify user of command completion
+      unless user.nil? || user.email.nil? || liasons.include?(user) || (command.is_a?(Upload) && !command.is_a?(Upload::File::Url)) then
+        # Don't notify if they were just uploading from the browser
+        # (Don't batch by default)
+        user_wants_batched_email = user.preferences["batch"] == "true"
+        user_wants_no_email = user.preferences["no_email"] == "true"
+        user_wants_all_notifications = user.preferences["all_notifications"] == "true"
+        unless user_wants_no_email then
+          logger.info("  Notifying user #{user.login} of completion of command ##{command.id}")
+          if user_wants_batched_email then
+            # Always notify for users with batchmode turned on
+            EmailMessage.new(:to_user => user, :command => command, :to_type => "user").save
+            logger.info("Saved batch message for #{user.name} <#{user.email}>")
+          else
+            # Notify immediately unless the command was really short-running
+            if runtime >= MIN_RUNTIME_NOTIFY || user_wants_all_notifications then
+              CommandNotifier.deliver_command_notification_for_user(user, command)
+            end
           end
         end
       end
