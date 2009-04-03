@@ -25,7 +25,7 @@ class TrackFinder
   GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
 
   # Track finding constants
-  DEBUG = true
+  DEBUG = false
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
   CHROMOSOMES = [ 
