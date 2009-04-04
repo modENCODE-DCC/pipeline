@@ -253,7 +253,7 @@
   <% end %>
   <br style="clear:both"/><br/>
 
-  <h2 align="left">Uploaded Data:<hr align="left"/></h2>
+  <h2 align="left"><a name="uploaded_data" style="color:black">Uploaded Data:</a><hr align="left"/></h2>
     <table border="0" style="margin-top: 10px;" class="status">
       <tr>
         <th>&nbsp;</th>
@@ -306,7 +306,7 @@
               </tr>
               <% if archive.is_active then archive.project_files.each { |file| %>
                 <tr>
-                  <th>&nbsp;</th>
+                  <td style="font-size:70%; text-align: right"><%= link_to("replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %></th>
                   <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
                     if File.basename(file.file_name).size > 25 then
                       File.basename(file.file_name) 

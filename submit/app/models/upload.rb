@@ -72,6 +72,21 @@ class Upload < Command
       end
     end
   end
+  class FileReplacement < Upload::File
+    def controller
+      @controller = ::FileUploadReplacementController.new(:command => self) unless @controller
+      @controller = ::CommandController.new(:command => self) unless @controller
+      @controller
+    end
+  end
+
+  class UrlReplacement < Upload::Url
+    def controller
+      @controller = ::UrlUploadReplacementController.new(:command => self) unless @controller
+      @controller = ::CommandController.new(:command => self) unless @controller
+      @controller
+    end
+  end
   def fail
     self.status = Upload::Status::UPLOAD_FAILED
   end

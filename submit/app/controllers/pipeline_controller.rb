@@ -457,8 +457,126 @@ class PipelineController < ApplicationController
     redirect_to :action => 'show', :id => @project
   end
 
+  def upload_replacement
+    begin
+      @project = Project.find(params[:id])
+      return false unless check_user_can_write @project
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    begin
+      @file = ProjectFile.find(params[:replace])
+      return false if @file.project_archive.nil?
+      return false unless @file.project_archive.project == @project
+    rescue
+      flash[:error] = "Couldn't find project file with ID #{params[:replace]} attached to project #{@project.id}"
+      redirect_to :action => "show", :id => @project
+      return
+    end
+
+    @project_archive = @file.project_archive
+
+    return unless request.post?
+
+    # Handle form posts
+    # If Cancel was clicked, return to main project page
+    if params[:commit] == "Cancel"
+      redirect_to :action => 'show', :id => @project
+      return
+    end
+
+    # If submitted by another button, then it was an attempted upload
+    upurl = params[:upload_url]
+    upfile = params[:upload_file]
+    upcomment = params[:upload_comment]
+    upurl = "" if upurl.nil? or upurl == "http://" # If it's the default value, ignore it
+
+    # If nothing was submitted, return
+    if upfile.blank? && upurl.blank? then
+      flash[:warning] = "No file submitted. Please upload a file to continue."
+      return 
+    end
+
+    if !upurl.blank? then
+      # Use a URL
+      filename = sanitize_filename(upurl)
+    else # !upfile.blank?
+      # Use a file uploaded through the browser
+      filename = sanitize_filename(upfile.original_filename)
+    end
+
+    # Filename must equal name of file we're replacing
+    if filename != File.basename(@file.file_name) then
+      flash[:error] = "Filename of file being uploaded does not match file being replaced."
+      return
+    end
+
+    redirect_to :action => 'show', :id => @project
+
+    # Upload in background
+    do_upload_replacement(@file, upurl, upfile, upcomment, filename)
+  end
+
+  def do_upload_replacement(replace_file, upurl, upfile, upcomment, filename)
+    # The trick here is that we turn the file into an archive so it gets
+    # tracked properly by the system
+
+    # Create a ProjectArchive to handle the upload
+    (project_archive = @project.project_archives.new).save # So we get an archive_no
+    # Note the ".tgz" on the filename; we're about to create an archive of this single file
+    project_archive.file_name = "#{"%03d" % project_archive.attributes[project_archive.position_column]}_#{filename}.tgz"
+    project_archive.file_date = Time.now
+    project_archive.is_active = false
+    project_archive.comment = upcomment
+    project_archive.save
+
+    # Need to put the file somewhere, might as well overwrite the current one in the extracted dir
+    # This gives us an easy way to make the new tarball with the full path intact, too
+    File.unlink(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)) if File.exists?(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name))
+    FileUtils.mkpath(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name))) unless File.exists?(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)))
+
+    if !upurl.blank? || upurl == "http://" then
+      # Uploading from a remote URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
+      projectDir = path_to_project_dir(@project)
+
+      upload_controller = UrlUploadReplacementController.new(:source => upurl, :filename => File.join(path_to_project_dir(@project), "extracted", replace_file.file_name), :project => @project, :archive_name => project_archive.file_name)
+      upload_controller.timeout = 36000 # 10 hours
+
+      # Queue upload command
+      upload_controller.queue(:user => current_user)
+    else
+      # Uploading from the browser
+      if !upfile.local_path
+        destfile = File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)
+        File.open(destfile, "wb") { |f| f.write(upfile.read) }
+        upload_controller = FileUploadReplacementController.new(:source => destfile, :filename => destfile, :project => @project, :archive_name => project_archive.file_name)
+        upload_controller.timeout = 20 # 20 seconds
+        upload_controller.command_object.stderr = "Intentionally placeholdering to #{destfile}\n"
+      else
+        upload_controller = FileUploadReplacementController.new(:source => upfile.local_path, :filename => destfile, :project => @project, :archive_name => project_archive.file_name)
+        upload_controller.timeout = 600 # 10 minutes
+      end
+
+      # Immediately run upload command
+      # (Since this was uploaded from a browser, need to copy the file before the tmp file dissapears)
+      upload_controller.command_object.user = current_user
+      upload_controller.command_object.save
+      upload_controller.run
+    end
+
+  end
+
   def upload
-    @project = Project.find(params[:id])
+    begin
+      @project = Project.find(params[:id])
+      return false unless check_user_can_write @project
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
     @user = current_user
 
     extensions = ["zip", "ZIP", "tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"]
@@ -543,6 +661,7 @@ class PipelineController < ApplicationController
     end
 
     # Create a directory for putting the uploaded file into
+    # TODO: Are these two lines necessary?
     projectDir = File.dirname(path_to_file(filename))
     Dir.mkdir(projectDir,0775) unless File.exists?(projectDir)
 
@@ -1496,7 +1615,7 @@ class PipelineController < ApplicationController
 
     # Build a Command::Upload object to fetch the file
     if !upurl.blank? || upurl == "http://" then
-      # Uploading from a remove URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
+      # Uploading from a remote URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
       projectDir = path_to_project_dir(@project)
 
       upload_controller = UrlUploadController.new(:source => upurl, :filename => path_to_file(project_archive.file_name), :project => @project)
@@ -1515,7 +1634,6 @@ class PipelineController < ApplicationController
     else
       # Uploading from the browser
       if !upfile.local_path
-        # TODO: Need an uploader here
         File.open(path_to_file(project_archive.file_name), "wb") { |f| f.write(upfile.read) }
         upload_controller = FileUploadController.new(:source => path_to_file(project_archive.file_name), :filename => path_to_file(project_archive.file_name), :project => @project)
         upload_controller.timeout = 20 # 20 seconds
@@ -1526,6 +1644,8 @@ class PipelineController < ApplicationController
 
       # Immediately run upload command
       # (Since this was uploaded from a browser, need to copy the file before the tmp file dissapears)
+      upload_controller.command_object.user = current_user
+      upload_controller.command_object.save
       upload_controller.run
     end
 
@@ -1611,7 +1731,7 @@ class PipelineController < ApplicationController
 
   def path_to_file(filename)
     # the expand_path method resolves this relative path to full absolute path
-    path_to_project_dir+"/#{filename}"
+    File.join(path_to_project_dir, filename)
   end
 
   def getProjectTypes

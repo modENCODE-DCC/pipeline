@@ -4,11 +4,16 @@ class UrlUploadController < UploadController
     @last_update = Time.now
     return unless options[:command].nil? # Set in CommandController if :command is given
 
+    if block_given? then
+      yield
+      return unless self.command_object.nil?
+    end
     self.command_object = Upload::Url.new(options)
     command_object.command = URI.escape(options[:source]) + " to " + URI.escape(options[:filename])
   end
   def run
     super do
+      return yield if block_given?
       retval = true
       (upurl, destfile) = command_object.command.split(/ to /).map { |i| URI.unescape(i) }
       do_before(:destfile => destfile)

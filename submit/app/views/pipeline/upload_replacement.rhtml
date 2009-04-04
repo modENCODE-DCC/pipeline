@@ -1,0 +1,115 @@
+<style type="text/css">
+  ul.uploads li { padding-bottom: 20px }
+  TABLE.archive_list TR.highlighted { background-color: #CCCCFF }
+</style>
+<p>
+<b>Replace file in '<%= @project.name -%>':</b>
+</p>
+<div style="float: left">
+  Your are uploading a replacement for the highlighted file:<br/>
+  <table border="0" class="archive_list">
+    <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th></tr>
+    <tr>
+      <th style="padding-top: 10px;<%=" text-decoration: line-through" unless @project_archive.is_active %>">Archive <%= @project_archive.id %></th>
+      <td style="padding-top: 10px;<%=" text-decoration: line-through" unless @project_archive.is_active %>"><%= @project_archive.file_name %></td>
+      <td style="padding-top: 10px;<%=" text-decoration: line-through" unless @project_archive.is_active %>"><%= 
+        if @project_archive.file_size.to_f >= (1024**2) then
+              "#{(@project_archive.file_size.to_f / 1024**2).round(1)}M"
+        elsif @project_archive.file_size.to_f >= (1024) then
+              "#{(@project_archive.file_size.to_f / 1024).round(1)}K"
+        else
+          @project_archive.file_size 
+        end
+      %></td>
+      <td style="padding-top: 10px;<%=" text-decoration: line-through" unless @project_archive.is_active %>"><%= @project_archive.file_date.strftime("%b %d %H:%M") unless @project_archive.file_date.nil? %></td>
+      <td style="padding-top: 10px; font-size: 80%"<%= " rowspan=\"#{@project_archive.project_files.size+1}\"" if @project_archive.is_active %>>
+        <%= "(<i>#{@project_archive.comment}</i>)<br/>" if !@project_archive.comment.nil? && @project_archive.comment.length > 0 %>
+      </td>
+    </tr>
+    <% if @project_archive.is_active then @project_archive.project_files.each { |file| %>
+      <tr class="<%= file == @file ? "highlighted" : "" %>">
+        <th>&nbsp;</th>
+        <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
+          if File.basename(file.file_name).size > 25 then
+            File.basename(file.file_name) 
+          else
+            if file.file_name.size > 25 then
+              "<span style=\"color: #888\">..." + 
+              file.file_name[-25,25].sub("#{File.basename(file.file_name)}", '</span>\0')
+            else
+              "<span style=\"color: #888\">" + 
+              file.file_name.sub("#{File.basename(file.file_name)}", '</span>\0')
+            end
+          end
+          %></td>
+        <td style="text-align: right"><%= 
+          if file.is_overwritten then 
+            "&nbsp;" 
+          else 
+            if file.file_size.to_f >= (1024**2) then
+              "#{(file.file_size.to_f / 1024**2).round(1)}M"
+            elsif file.file_size.to_f >= (1024) then
+              "#{(file.file_size.to_f / 1024).round(1)}K"
+            else
+              file.file_size 
+            end
+          end 
+          %></td>
+        <td><%= if file.is_overwritten then "&nbsp;" else file.file_date.strftime("%b %d %H:%M") end %></td>
+      </tr>
+    <% } end %>
+  </table>
+  <br/>
+  <%= form_tag({:action => :upload_replacement, :id => @project, :replace => @file}, :multipart => true) %>
+  You can upload a replacement file:<br/>
+  <ul class="uploads">
+    <li>
+    <label for="upload_url">From a URL:</label><br/>
+    <%= text_field_tag 'upload_url', "http://", :size => 40 %>
+    </li>
+
+    <li>
+    <label for="upload_file">From your local machine:</label><br/>
+    <%= file_field_tag 'upload_file', :size => 25 %>
+    </li>
+
+    <% if @use_ftp then %>
+      <% if @ftpList.length > 0 %>
+        <li>
+        <label for="project_upload_ftp">From your <%= link_to 'FTP', '/help.html#ftpHelp' -%> space:</label><br/>
+        <%= link_to @ftpUrl, @ftpUrl %><br/>
+        <select id="ftp" name="ftp">
+          <option selected></option>
+          <%= options_for_select(@ftpList) %>
+        </select>
+        </li>
+      <% else %>
+        <li>
+        <label for="project_upload_ftp">From your (empty) FTP space:</label><br/>
+        First upload a file to your FTP space (<%= link_to 'directions', '/help.html#ftpHelp' -%>), 
+        at <%= link_to @ftpUrl, @ftpUrl %>.<br/>
+        Once the file is uploaded, <%= link_to 'refresh', @controller.request.request_uri %> this page.
+        </li>
+      <% end %>
+    <% end %>
+    <% if @allow_skip_content_type %>
+      <li>
+      <input type="checkbox" id="skip_content_check" name="skip_content_check" value="yes" value="false"/>
+      <label for="skip_content_check"><b>Ignore content type</b> (really?!)</label>
+    <% end %>
+  </ul>
+
+  <table cellpadding=0 cellspacing=0><tr>
+      <td><%= submit_tag "Submit" %></td>
+      <td><%= submit_tag "Cancel" %></td>
+  </tr></table>
+</form>
+<p>
+Use 'Submit' to upload and expand the archive, validate the data and metadata, <br/>
+and load the data to the database.
+</p>
+<p>
+The archive file must have one of these extensions: <br/>
+.zip, .tar.gz, .tgz, .tar.bz2 <br/>
+</p>
+</div>

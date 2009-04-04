@@ -3,6 +3,10 @@ class FileUploadController < UploadController
     super
     return unless options[:command].nil? # Set in CommandController if :command is given
 
+    if block_given? then
+      yield
+      return unless self.command_object.nil?
+    end
     self.command_object = Upload::File.new(options)
     command_object.command = URI.escape(options[:source]) + " to " + URI.escape(options[:filename])
     command_object.timeout = 36000 # 10 hours by default
@@ -22,13 +26,15 @@ class FileUploadController < UploadController
       command_object.status = Upload::Status::UPLOADING
       command_object.save
       begin
-        # Remove any files that are in the way of this upload
-        File.delete(destfile) if File.exists?(destfile)
+        # Remove any files that are in the way of this upload unless it's already the right file
+        unless source == destfile
+          File.delete(destfile) if File.exists?(destfile) 
 
-        if (command_object.timeout && command_object.timeout > 0) then
-          Timeout::timeout(command_object.timeout) { FileUtils.copy(source, destfile) }
-        else
-          FileUtils.copy(source, destfile)
+          if (command_object.timeout && command_object.timeout > 0) then
+            Timeout::timeout(command_object.timeout) { FileUtils.copy(source, destfile) }
+          else
+            FileUtils.copy(source, destfile)
+          end
         end
         command_object.status = Upload::Status::UPLOADED
         command_object.save
@@ -51,7 +57,9 @@ class FileUploadController < UploadController
   protected
   def do_after(options = {})
     # Clean up
-    File.delete(options[:source]) if !options[:source].blank? && File.exists?(options[:source])
+    unless options[:source] == options[:destfile] then
+      File.delete(options[:source]) if !options[:source].blank? && File.exists?(options[:source])
+    end
     super
   end
 
