@@ -27,39 +27,68 @@ class Project < ActiveRecord::Base
   end
 
   def has_readme?
+    return (self.readme_project_file.nil?) ? false : true
+  end
+
+  def readme_project_file
     #the readme file must have the name README
-    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name}
-    file_names.include?("README")
+    files = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten
+    return nil unless files.size > 0
+
+    # Is everything contained in a subdirectory?
+    if files.find { |f| f.file_name !~ /\// } then
+      # No, there are files in the root
+      return files.find { |f| f.file_name =~ /README(.txt)?$/ }
+    else
+      # No files in the root, what's the base dir?
+      root_dir = files.first.file_name
+      while ((root_dir = File.dirname(root_dir)) =~ /\//); 1; end
+      return files.find { |f| f.file_name =~ Regexp.new("#{Regexp.escape(File.join(root_dir, "README"))}(.txt)?$") }
+    end
+  end
+
+  def readme
+    pf = self.readme_project_file
+    return nil if pf.nil?
+    path = File.join(PipelineController.new.path_to_project_dir(pf.project_archive.project), "extracted", pf.file_name)
+    if File.exists?(path) then
+      return File.read(path)
+    else
+      return "Readme not extracted!"
+    end
   end
 
   def has_raw_data?
     file_types = [".cel", ".pair", ".txt", ".fasta", ".fastq"]
-    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
-    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+    file_extensions = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| File.extname(pf.file_name).downcase }.uniq.reject { |ext| ext == "" }
+    # If there's any intersection (&), then there must be one of file_types in file_extensions
+    return (file_extensions & file_types).size > 0 ? true : false
   end
 
   def has_wig_data?
     #assuming signal data is of type wig/bed with those filenames
     file_types = [".wig", ".bed", ".gr", ".sgr"]
-    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
-    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+    file_extensions = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| File.extname(pf.file_name).downcase }.uniq.reject { |ext| ext == "" }
+    # If there's any intersection (&), then there must be one of file_types in file_extensions
+    return (file_extensions & file_types).size > 0 ? true : false
   end
 
   def has_metadata?
     #assuming metadata is labeled with "idf" and "sdrf" in filename
     has_idf = false
     has_sdrf = false
-    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
-    has_idf = file_names.map{|t| t.include?("idf")}.flatten.include?(true)
-    has_sdrf = file_names.map{|t| t.include?("sdrf")}.flatten.include?(true)
+    file_names = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| pf.file_name.downcase }
+    has_idf = true if file_names.find { |fn| fn =~ /idf/i }
+    has_sdrf = true if file_names.find { |fn| fn =~ /sdrf/i }
     return has_idf && has_sdrf
   end
 
   def has_feature_data?
     #assuming feature data has gff or gff3 extension
     file_types = [".gff"]
-    file_names = ProjectArchive.find_all_by_project_id(self.id).map{|a| ProjectFile.find_all_by_project_archive_id(a.id)}.flatten.map{|f| f.file_name.downcase}
-    return file_types.map{|t| file_names.map{|n| n.include?(t)}}.flatten.include?(true)
+    file_extensions = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| File.extname(pf.file_name).downcase }.uniq.reject { |ext| ext == "" }
+    # If there's any intersection (&), then there must be one of file_types in file_extensions
+    return (file_extensions & file_types).size > 0 ? true : false
   end
 
   def has_config?
