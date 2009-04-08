@@ -145,6 +145,13 @@
         ""
       ],
       [
+        :expand, 
+        Project::Status::EXPANDING,
+        "<span style=\"color: #AAAAAA\">Expand uploaded data</span>",
+        "<span style=\"color: #AAAAAA\">Extract uploaded archives to enable browsing on the downloads page.</span>",
+        "<span style=\"color: #AAAAAA\">(Occurs after uploading and before validating.)</span>",
+      ],
+      [
         :expand_and_validate,
         Project::Status::VALIDATING,
         "Validate data",
@@ -192,8 +199,10 @@
     end
     is_running = !command_definitions.find { |cd| cd[1] == @project.status }.nil?
     command_definitions.each do |definition|
-      pos += 1
       (action, state, link, description, disabled_description) = definition
+      # Don't show the expanding option unless it's actually occuring; the user should never have to click it
+      next if action == :expand && @project.status != Project::Status::EXPANDING
+      pos += 1
   %>
     <div style="clear:both">
       <div class="arrow">

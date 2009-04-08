@@ -42,11 +42,18 @@ class UrlUploadController < UploadController
         command_object.save
         retval = false
       ensure
-        do_after_val = 
         retval = retval & do_after(:destfile => destfile)
       end
       return retval
     end
+  end
+
+  def do_after(options = {})
+    super
+
+    # Rexpand all active archives for this project
+    PipelineController.new.queue_reexpand_project(command_object.project)
+    CommandController.do_queued_commands
   end
 
   def get_contents(upurl, destfile)

@@ -351,17 +351,7 @@ class PipelineController < ApplicationController
     end
 
     # ---------EXPAND ALL--------------
-    # Delete everything in the extracted dir since it's no longer up-to-date
-    unless @project.project_archives.first.nil? then
-      ExpandController.remove_extracted_folder(@project.project_archives.first)
-    end
-
-    # Rexpand any active archives from oldest to newest
-    current_project_archive = @project.project_archives.first
-    while (current_project_archive)
-      do_expand(current_project_archive, :defer => true) if current_project_archive.is_active
-      current_project_archive = current_project_archive.lower_item
-    end
+    queue_reexpand_project(project)
 
     # ---------VALIDATE--------------
     do_validate(@project) # Don't defer; we'll start processing
@@ -564,6 +554,10 @@ class PipelineController < ApplicationController
       upload_controller.command_object.user = current_user
       upload_controller.command_object.save
       upload_controller.run
+
+      # Rexpand all active archives for this project
+      queue_reexpand_project(@project)
+      CommandController.do_queued_commands
     end
 
   end
@@ -678,6 +672,11 @@ class PipelineController < ApplicationController
     return false unless check_user_can_write @project
 
     do_deactivate_archive(project_archive)
+
+    # Rexpand all active archives for this project
+    queue_reexpand_project(@project)
+    CommandController.do_queued_commands
+
     redirect_to :action => 'show', :id => @project
   end
 
@@ -687,6 +686,11 @@ class PipelineController < ApplicationController
     return false unless check_user_can_write @project
 
     do_activate_archive(project_archive)
+
+    # Rexpand all active archives for this project
+    queue_reexpand_project(@project)
+    CommandController.do_queued_commands
+
     redirect_to :action => 'show', :id => @project
   end
 
@@ -703,6 +707,10 @@ class PipelineController < ApplicationController
         do_activate_archive(project_archive)
       end
 
+    # Rexpand all active archives for this project
+    queue_reexpand_project(@project)
+    CommandController.do_queued_commands
+
     redirect_to :action => 'show', :id => @project
   end
 
@@ -718,6 +726,10 @@ class PipelineController < ApplicationController
       @project.project_archives.each do |project_archive|
         do_deactivate_archive(project_archive)
       end
+
+    # Rexpand all active archives for this project
+    queue_reexpand_project(@project)
+    CommandController.do_queued_commands
 
     redirect_to :action => 'show', :id => @project
   end
@@ -761,7 +773,6 @@ class PipelineController < ApplicationController
     end
 
     unless Project::Status::ok_next_states(@project).include?(Project::Status::UNLOADING) then
-#      flash[:error] = "Project status must be #{OKAY_TO_UNLOAD.orjoin}."
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -813,7 +824,6 @@ class PipelineController < ApplicationController
       return false
     end
     unless Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING) then
-#      flash[:error] = "Project status must be #{OKAY_TO_VALIDATE.orjoin}"
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -837,7 +847,6 @@ class PipelineController < ApplicationController
       return
     end
     unless Project::Status::ok_next_states(@project).include?(Project::Status::FINDING) then
-#      flash[:error] = "Project status must be #{OKAY_TO_FIND_TRACKS.orjoin}"
       redirect_to :action => :show, :id => @project
       return false
     end
@@ -867,7 +876,6 @@ class PipelineController < ApplicationController
       return
     end
     unless Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
-#      flash[:error] = "Project status must be #{OKAY_TO_CONFIGURE_TRACKS.orjoin}"
       # Redirect here so that hitting refresh in the browser doesn't prompt annoyingly
       redirect_to :action => :show, :id => @project
       return false
@@ -1647,6 +1655,10 @@ class PipelineController < ApplicationController
       upload_controller.command_object.user = current_user
       upload_controller.command_object.save
       upload_controller.run
+
+      # Rexpand all active archives for this project
+      queue_reexpand_project(@project)
+      CommandController.do_queued_commands
     end
 
   end
@@ -1802,6 +1814,19 @@ class PipelineController < ApplicationController
     end
   end
 
+  def queue_reexpand_project(project)
+    # Delete everything in the extracted dir since it's no longer up-to-date
+    unless project.project_archives.first.nil? then
+      ExpandController.remove_extracted_folder(project.project_archives.first)
+    end
+
+    # Rexpand any active archives from oldest to newest
+    current_project_archive = project.project_archives.first
+    while (current_project_archive)
+      do_expand(current_project_archive, :defer => true) if current_project_archive.is_active
+      current_project_archive = current_project_archive.lower_item
+    end
+  end
 private
 
   def copy_stanza(user_id, old_project_id, new_project_id)
