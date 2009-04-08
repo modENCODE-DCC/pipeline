@@ -48,6 +48,6 @@ The modENCODE DCC
 <% if user.preferences["all_notifications"] != "true" then %>
 ----------------------------
 Your notification preferences are currently such that you will not get an email 
-notification for any tasks that take less than <%= (CommandNotifier::MIN_RUNTIME_NOTIFIER / 60) %> 
+notification for any tasks that take less than <%= (CommandNotifier::MIN_RUNTIME_NOTIFY / 60) %> 
 minutes. You can change this at <%= prefs_url %>.
 <% end %>
