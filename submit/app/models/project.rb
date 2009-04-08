@@ -120,6 +120,11 @@ class Project < ActiveRecord::Base
     return last_release.end_time.nil? ? last_release.updated_at : last_release.end_time
   end
 
+  def most_recent_upload_date
+    last_upload = self.commands.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    return nil if last_upload.nil?
+    return last_upload.end_time.nil? ? last_upload.updated_at.to_date : last_upload.end_time.to_date
+  end
   def embargo_start_date
     # Special case for legacy projects released before 2009-02-01
     return self.release_date.to_date if (!self.release_date.nil? && self.release_date.to_date < Date.new(2009, 02, 01))
@@ -288,17 +293,6 @@ class Project < ActiveRecord::Base
       when FAILED
         ok = [ UPLOADING, DELETING ]
         ok.push VALIDATING if project.project_archives.find_all { |pa| pa.is_active }.size > 0
-      end
-
-
-      def ok.orjoin(delim = ", ", lastjoin = "or")
-        if self.size > 2 then
-          return "#{self[0...-1].join(delim)}#{delim}#{lastjoin} #{self[-1]}"
-        elsif self.size > 1 then
-          return self.join(" #{lastjoin} ")
-        else
-          return self.join(delim)
-        end
       end
 
       return ok.uniq
