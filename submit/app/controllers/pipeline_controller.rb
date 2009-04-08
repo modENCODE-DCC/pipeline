@@ -351,7 +351,7 @@ class PipelineController < ApplicationController
     end
 
     # ---------EXPAND ALL--------------
-    queue_reexpand_project(project)
+    queue_reexpand_project(@project)
 
     # ---------VALIDATE--------------
     do_validate(@project) # Don't defer; we'll start processing
