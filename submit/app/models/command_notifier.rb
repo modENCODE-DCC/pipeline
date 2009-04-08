@@ -1,12 +1,3 @@
-class NilClass
-  def <=>(other)
-    if other == nil then
-      return 0
-    else
-      return -1
-    end
-  end
-end
 class CommandNotifier < ActionMailer::Base
   MIN_RUNTIME_NOTIFY = 60*10 # Ten minutes
   SUBJECT_TEMPLATE = "A modENCODE submission pipeline notification"
