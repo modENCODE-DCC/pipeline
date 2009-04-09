@@ -58,6 +58,7 @@ class UrlUploadController < UploadController
 
   def get_contents(upurl, destfile)
     begin
+      upurl = URI.escape(upurl)
       OpenURI.open_uri( upurl, :content_length_proc => proc { |len| command_object.content_length = len; command_object.save }, :progress_proc => proc { |prog| self.update_uploader_progress_with_save = prog }
           ) { |result|
             ::File.open(destfile, "w") { |dfile|
