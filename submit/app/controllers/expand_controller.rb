@@ -168,14 +168,19 @@ class ExpandController < CommandController
   end
   def makeUnarchiveCommand(upload_dir, filename)
     # handle unzipping the archive
+    escape_quote = "'\\''"
     path_to_file = File.join(path_to_project_dir, filename)
+
+    path_to_file = path_to_file.gsub(/'/, escape_quote)
+    upload_dir = upload_dir.gsub(/'/, escape_quote)
+    
     if ["zip", "ZIP"].any? {|ext| filename.ends_with?("." + ext) }
-      cmd = "unzip -o  #{path_to_file} -d #{upload_dir}"   # .zip 
+      cmd = "unzip -o  '#{path_to_file}' -d '#{upload_dir}'"   # .zip 
     else
       if ["gz", "GZ", "tgz", "TGZ"].any? {|ext| filename.ends_with?("." + ext) }
-        cmd = "tar -xzvf #{path_to_file} -C #{upload_dir}"  # .gz .tgz gzip 
+        cmd = "tar -xzvf '#{path_to_file}' -C '#{upload_dir}'"  # .gz .tgz gzip 
       else  
-        cmd = "tar -xjvf #{path_to_file} -C #{upload_dir}"  # .bz2 bzip2
+        cmd = "tar -xjvf '#{path_to_file}' -C '#{upload_dir}'"  # .bz2 bzip2
       end
     end
   end
