@@ -38,12 +38,12 @@ class Project < ActiveRecord::Base
     # Is everything contained in a subdirectory?
     if files.find { |f| f.file_name !~ /\// } then
       # No, there are files in the root
-      return files.find { |f| f.file_name =~ /README(.txt)?$/ }
+      return files.find { |f| f.file_name =~ /^README(.txt)?$/ }
     else
       # No files in the root, what's the base dir?
       root_dir = files.first.file_name
       while ((root_dir = File.dirname(root_dir)) =~ /\//); 1; end
-      return files.find { |f| f.file_name =~ Regexp.new("#{Regexp.escape(File.join(root_dir, "README"))}(.txt)?$") }
+      return files.find { |f| f.file_name =~ Regexp.new("^#{Regexp.escape(File.join(root_dir, "README"))}(.txt)?$") }
     end
   end
 
