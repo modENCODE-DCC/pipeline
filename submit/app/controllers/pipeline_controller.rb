@@ -473,11 +473,13 @@ class PipelineController < ApplicationController
       @project_archive.file_name = "#{"%03d" % @project_archive.attributes[@project_archive.position_column]}_README.tgz"
       @project_archive.file_date = Time.now
       @project_archive.is_active = true
+      @project_archive.save
 
       @file = @project_archive.project_files.new
       @file.file_name = "README"
       @file.file_size = 0
       @file.file_date = Time.now
+      @file.save
       @replace_id = "README"
       @replace_file_name = @file.file_name
 
