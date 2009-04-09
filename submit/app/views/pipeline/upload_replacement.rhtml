@@ -62,6 +62,7 @@
   <br/>
   <%= form_tag({:action => :upload_replacement, :id => @project, :replace => @replace_id}, :multipart => true) %>
   You can upload a replacement file:<br/>
+  (The replacement file must have the same name and should not be uploaded compressed.)<br/>
   <ul class="uploads">
     <li>
     <label for="upload_url">From a URL:</label><br/>
