@@ -5,7 +5,7 @@ class ExpandController < CommandController
 
     self.command_object = Expand.new(options)
     command_object.command = options[:filename]
-    command_object.timeout = options[:timeout].blank? ? 1200 : options[:timeout] # 20 minutes by default
+    command_object.timeout = options[:timeout].blank? ? 3600*2 : options[:timeout] # 2 hours by default
   end
 
   def run
