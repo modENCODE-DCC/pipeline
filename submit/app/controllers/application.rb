@@ -37,27 +37,43 @@ class Array
   def andjoin(delim = ", ", lastjoin = "and")
     self.orjoin(delim, lastjoin)
   end
+  def nil_flatten_compare(other)
+    if other.is_a?(Enumerable) then
+      if (self <=> other).nil?
+        cmp_self = self.clone
+        cmp_other = other.clone
+        (0..self.size-1).each { |i|
+          break unless i < other.size-1
+          if cmp_self[i].nil? && cmp_other[i].nil? then
+            cmp_self[i] = 0
+            cmp_other[i] = 0
+          elsif cmp_self[i].nil?
+            cmp_self[i] = -1
+            cmp_other[i] = 1
+          elsif cmp_other[i].nil?
+            cmp_self[i] = 1
+            cmp_other[i] = -1
+          end
+          if (cmp_self[i] <=> cmp_other[i]).nil?
+            cmp_self[i] = 0
+            cmp_other[i] = 0
+          end
+        }
+        return cmp_self <=> cmp_other
+      end
+      return self <=> other
+    end
+  end
 end
 class NilClass
-  def <=>(other)
+  def compare(other)
     if (other == nil || other == false) then
       return 0
     else
       return -1
     end
   end
-end
-class Numeric
-  old_comp = self.instance_method(:<=>)
-  define_method(:<=>) do |other|
-    default_result = old_comp.bind(self).call(other)
-    (default_result.nil? && other == nil) ? 1 : default_result
-  end
-end
-class Date
-  old_comp = self.instance_method(:<=>)
-  define_method(:<=>) do |other|
-    default_result = old_comp.bind(self).call(other)
-    (default_result.nil? && other == nil) ? 1 : default_result
+  def <=>(other)
+    compare(other)
   end
 end

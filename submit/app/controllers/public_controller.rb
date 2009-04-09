@@ -14,9 +14,25 @@ class PublicController < ApplicationController
     redirect_to :action => :list
   end
 
+  def set_show_noreadme
+    session[:show_noreadme] = params[:show_noreadme] == "true" ? true : false
+    redirect_to :action => :list
+  end
+
   def set_show_deprecated
     session[:show_deprecated] = params[:show_deprecated] == "true" ? true : false
     redirect_to :action => :list
+  end
+
+  def readme
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return false
+    end
+    @readme = @project.readme
   end
 
   def list
@@ -43,7 +59,7 @@ class PublicController < ApplicationController
       @projects = @projects.sort { |p1, p2|
         p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.send(col) : p1.send(col) } << p1.id
         p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.send(col) : p2.send(col) } << p2.id
-        p1_attrs <=> p2_attrs
+        p1_attrs.nil_flatten_compare p2_attrs
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
     else

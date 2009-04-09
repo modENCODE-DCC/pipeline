@@ -1965,14 +1965,14 @@ private
         p1_attrs = sorts.map { |col| 
           sort_attr = (session[:sort_list][col][0] == 'backward') ?  p2.send(col) : p1.send(col)
           sort_attr = Project::Status::state_position(sort_attr) if col == "status"
-          sort_attr
+          sort_attr = sort_attr.nil? ? -999 : sort_attr
         } << p1.id
         p2_attrs = sorts.map { |col| 
           sort_attr = (session[:sort_list][col][0] == 'backward') ?  p1.send(col) : p2.send(col) 
           sort_attr = Project::Status::state_position(sort_attr) if col == "status"
-          sort_attr
+          sort_attr = sort_attr.nil? ? -999 : sort_attr
         } << p2.id
-        p1_attrs <=> p2_attrs
+        p1_attrs.nil_flatten_compare p2_attrs
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
     else
