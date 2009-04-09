@@ -274,6 +274,16 @@ class PipelineController < ApplicationController
       return
     end
 
+    flash.clear
+    if !@project.has_readme? && !@project.has_metadata? then
+      flash[:error] = "" if flash[:error].nil?
+      error_msg = "This project has no README or IDF/SDRF and will not be displayed on the downloads page!<br/>Fix this now by <a href=\"" + url_for(:action => :upload_replacement, :id => @project, :replace => "README") + "\">uploading a README</a>."
+      unless flash[:error].end_with?(error_msg) then
+        flash[:error] += "<br/>" unless flash[:error] == ""
+        flash[:error] += error_msg
+      end
+    end
+
 
     @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
@@ -456,17 +466,46 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    begin
-      @file = ProjectFile.find(params[:replace])
-      return false if @file.project_archive.nil?
-      return false unless @file.project_archive.project == @project
-    rescue
-      flash[:error] = "Couldn't find project file with ID #{params[:replace]} attached to project #{@project.id}"
-      redirect_to :action => "show", :id => @project
-      return
-    end
+    # Handle inserting a README when none existed before
+    if params[:replace] == "README" then
+      # Make a new archive
+      (@project_archive = @project.project_archives.new).save
+      @project_archive.file_name = "#{"%03d" % @project_archive.attributes[@project_archive.position_column]}_README.tgz"
+      @project_archive.file_date = Time.now
+      @project_archive.is_active = true
 
-    @project_archive = @file.project_archive
+      @file = @project_archive.project_files.new
+      @file.file_name = "README"
+      @file.file_size = 0
+      @file.file_date = Time.now
+      @replace_id = "README"
+      @replace_file_name = @file.file_name
+
+      unless request.post?
+        render
+        @file.destroy
+        @project_archive.destroy
+        return
+      else
+        @file.destroy
+        @project_archive.destroy
+      end
+
+    else
+      begin
+        @file = ProjectFile.find(params[:replace])
+        return false if @file.project_archive.nil?
+        return false unless @file.project_archive.project == @project
+      rescue
+        flash[:error] = "Couldn't find project file with ID #{params[:replace]} attached to project #{@project.id}"
+        redirect_to :action => "show", :id => @project
+        return
+      end
+
+      @project_archive = @file.project_archive
+      @replace_id = @file.id
+      @replace_file_name = @file.file_name
+    end
 
     return unless request.post?
 
@@ -506,10 +545,10 @@ class PipelineController < ApplicationController
     redirect_to :action => 'show', :id => @project
 
     # Upload in background
-    do_upload_replacement(@file, upurl, upfile, upcomment, filename)
+    do_upload_replacement(@replace_file_name, upurl, upfile, upcomment, filename)
   end
 
-  def do_upload_replacement(replace_file, upurl, upfile, upcomment, filename)
+  def do_upload_replacement(replace_file_name, upurl, upfile, upcomment, filename)
     # The trick here is that we turn the file into an archive so it gets
     # tracked properly by the system
 
@@ -524,14 +563,14 @@ class PipelineController < ApplicationController
 
     # Need to put the file somewhere, might as well overwrite the current one in the extracted dir
     # This gives us an easy way to make the new tarball with the full path intact, too
-    File.unlink(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)) if File.exists?(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name))
-    FileUtils.mkpath(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name))) unless File.exists?(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)))
+    File.unlink(File.join(path_to_project_dir(@project), "extracted", replace_file_name)) if File.exists?(File.join(path_to_project_dir(@project), "extracted", replace_file_name))
+    FileUtils.mkpath(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file_name))) unless File.exists?(File.dirname(File.join(path_to_project_dir(@project), "extracted", replace_file_name)))
 
     if !upurl.blank? || upurl == "http://" then
       # Uploading from a remote URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
       projectDir = path_to_project_dir(@project)
 
-      upload_controller = UrlUploadReplacementController.new(:source => upurl, :filename => File.join(path_to_project_dir(@project), "extracted", replace_file.file_name), :project => @project, :archive_name => project_archive.file_name)
+      upload_controller = UrlUploadReplacementController.new(:source => upurl, :filename => File.join(path_to_project_dir(@project), "extracted", replace_file_name), :project => @project, :archive_name => project_archive.file_name)
       upload_controller.timeout = 36000 # 10 hours
 
       # Queue upload command
@@ -539,7 +578,7 @@ class PipelineController < ApplicationController
     else
       # Uploading from the browser
       if !upfile.local_path
-        destfile = File.join(path_to_project_dir(@project), "extracted", replace_file.file_name)
+        destfile = File.join(path_to_project_dir(@project), "extracted", replace_file_name)
         File.open(destfile, "wb") { |f| f.write(upfile.read) }
         upload_controller = FileUploadReplacementController.new(:source => destfile, :filename => destfile, :project => @project, :archive_name => project_archive.file_name)
         upload_controller.timeout = 20 # 20 seconds

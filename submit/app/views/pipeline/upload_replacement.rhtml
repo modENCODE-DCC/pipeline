@@ -60,7 +60,7 @@
     <% } end %>
   </table>
   <br/>
-  <%= form_tag({:action => :upload_replacement, :id => @project, :replace => @file}, :multipart => true) %>
+  <%= form_tag({:action => :upload_replacement, :id => @project, :replace => @replace_id}, :multipart => true) %>
   You can upload a replacement file:<br/>
   <ul class="uploads">
     <li>
