@@ -1249,9 +1249,9 @@ class TrackFinder
 
     # Build the attributes column
     if !feature['name'].nil? && feature['name'].length > 0 then
-      out = out + ";Name=#{feature['name']}"
+      out = out + ";Name=#{feature['name'][0...128]}"
     elsif !feature['uniquename'].nil? && feature['uniquename'].length > 0 then
-      out = out + ";Name=#{feature['uniquename']}"
+      out = out + ";Name=#{feature['uniquename'][0...128]}"
     end
     out = out + ";Target=#{feature['target']}" unless feature['target'].nil?
     out = out + ";target_accession=#{feature['target_accession']}" unless feature['target_accession'].nil?
