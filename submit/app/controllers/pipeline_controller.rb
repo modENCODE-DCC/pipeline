@@ -539,8 +539,8 @@ class PipelineController < ApplicationController
     end
 
     # Filename must equal name of file we're replacing
-    if filename != File.basename(@file.file_name) then
-      flash[:error] = "Filename of file being uploaded does not match file being replaced."
+    if filename != sanitize_filename(@file.file_name) then
+      flash[:error] = "Filename of file being uploaded (#{filename}) does not match file being replaced (#{File.basename(@file.file_name)})."
       return
     end
 
@@ -579,8 +579,8 @@ class PipelineController < ApplicationController
       upload_controller.queue(:user => current_user)
     else
       # Uploading from the browser
+      destfile = File.join(path_to_project_dir(@project), "extracted", replace_file_name)
       if !upfile.local_path
-        destfile = File.join(path_to_project_dir(@project), "extracted", replace_file_name)
         File.open(destfile, "wb") { |f| f.write(upfile.read) }
         upload_controller = FileUploadReplacementController.new(:source => destfile, :filename => destfile, :project => @project, :archive_name => project_archive.file_name)
         upload_controller.timeout = 20 # 20 seconds
