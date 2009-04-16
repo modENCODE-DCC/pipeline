@@ -303,6 +303,7 @@ class TrackFinder
         return yield
       rescue DBI::DatabaseError => e
         cmd_puts "DBI error: #{e.err} #{e.errstr}"
+        logger.error e
         @dbh.disconnect unless @dbh.nil?
         return false
       end
@@ -700,6 +701,7 @@ class TrackFinder
         rescue
         end
       end
+      sth_idf_info.finish
     }
 
     # Protocol types and names and links
@@ -740,6 +742,7 @@ class TrackFinder
           end
         end
       end
+      sth_protocol_type.finish
     }
 
     return tracknum
