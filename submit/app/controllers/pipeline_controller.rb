@@ -918,8 +918,10 @@ class PipelineController < ApplicationController
     end
     unless Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
       # Redirect here so that hitting refresh in the browser doesn't prompt annoyingly
-      redirect_to :action => :show, :id => @project
-      return false
+      unless params[:override] && current_user.is_a?(Moderator) then
+        redirect_to :action => :show, :id => @project
+        return false
+      end
     end
 
     if params[:organism] then
