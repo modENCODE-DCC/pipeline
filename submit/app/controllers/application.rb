@@ -6,12 +6,33 @@ class ApplicationController < ActionController::Base
 
   include AuthenticatedSystem
 
+  def self.getErrorMessages
+    if File.exists? "#{RAILS_ROOT}/config/error.yml" then
+      return open("#{RAILS_ROOT}/config/error.yml") { |f| YAML.load(f.read) }
+    end
+    return nil
+  end
+
+  begin
+  unless self.getErrorMessages.nil? then
+    before_filter { |controller| 
+
+      f = controller.send(:flash); 
+      self.getErrorMessages.each_pair { |level, message|
+        f.now[level.to_sym] = message
+      }
+    }
+  end
+  rescue
+    logger.error $!
+  end
   rescue_from ActionController::UnknownAction, :with => :action_not_found
 
   def action_not_found(e)
     url = request.nil? ? "" : request.url
     redirect_to :controller => "error", :action => "404", :tried_url => url
   end
+
 
 end
 class FalseClass
