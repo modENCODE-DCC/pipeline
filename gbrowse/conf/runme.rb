@@ -72,10 +72,16 @@ else
   all_track_defs += TrackStanza.find_all_by_released(true)
 end
 all_track_defs.each { |ts|
-  unless released_projects.include?(ts.project) then
+  if !released_projects.include?(ts.project) then
     s = ts.stanza
     s.values.each { |stanza|
       stanza["category"] = "Unreleased: #{stanza["category"]}"
+    }
+    ts.stanza = s
+  elsif (ts.project.deprecated?) then
+    s = ts.stanza
+    s.values.each { |stanza|
+      stanza["category"] = "Unreleased: Deprecated: #{stanza["category"]}"
     }
     ts.stanza = s
   end
