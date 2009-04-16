@@ -67,7 +67,19 @@ unless user_id.nil? then
     # Released stanzas for all projects
     all_track_defs += TrackStanza.find_all_by_released(true)
   end
+else
+  # Just get all accepted configurations
+  all_track_defs += TrackStanza.find_all_by_released(true)
 end
+all_track_defs.each { |ts|
+  unless released_projects.include?(ts.project) then
+    s = ts.stanza
+    s.values.each { |stanza|
+      stanza["category"] = "Unreleased: #{stanza["category"]}"
+    }
+    ts.stanza = s
+  end
+}
 
 
 unique_project_ids = all_track_defs.map { |td| td.project_id }.uniq
@@ -104,6 +116,7 @@ if track_defs.nil? then
 end
 
 track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
+  next if database.nil?
   num = database.gsub(/^modencode_preview_/, '')
   config_text << "[#{database}:database]\n"
   config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
