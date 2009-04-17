@@ -14,7 +14,7 @@ class ApplicationController < ActionController::Base
   end
 
   begin
-  unless self.getErrorMessages.nil? then
+  unless self.getErrorMessages.nil? || self.getErrorMessages == false then
     before_filter { |controller| 
 
       f = controller.send(:flash); 
