@@ -1,4 +1,4 @@
-error: Pipeline processing is currently paused due to a hardware failure.
+#error: Pipeline processing is currently paused due to a hardware failure.
 # message: message
 # notice: notice
 # warning: warning
