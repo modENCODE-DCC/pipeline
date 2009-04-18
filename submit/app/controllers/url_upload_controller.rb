@@ -42,6 +42,8 @@ class UrlUploadController < UploadController
         command_object.save
         retval = false
       ensure
+        # Destfile might have been updated, so get it again
+        (upurl, destfile) = command_object.command.split(/ to /).map { |i| URI.unescape(i) }
         retval = retval & do_after(:destfile => destfile)
       end
       return retval

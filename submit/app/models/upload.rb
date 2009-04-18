@@ -43,10 +43,29 @@ class Upload < Command
     def formatted_status
       (upurl, destfile) = self.command.split(/ to /).map { |i| URI.unescape(i) }
       unless self.status == Upload::Status::UPLOAD_FAILED then
-        if progress_percent then
-        "Uploading #{upurl}...<br/>\n#{progress_percent}% complete (#{progress} of #{content_length} bytes transferred), #{self.status}."
+        if progress.to_i < 4096 then # 4K
+          human_size = "#{progress} bytes"
+        elsif progress.to_i < 4194304 # 4MB
+          human_size = "#{progress.to_i/1048576} KB"
+        elsif progress.to_i < 1073741824 # 1 GB
+          human_size = "#{progress.to_i/1048576} MB"
         else
-        "Uploading #{progress} bytes, #{self.status}."
+          human_size = "#{(progress.to_f/1073741824.to_f).round(1)} GB"
+        end
+        if content_length.to_i < 4096 then # 4K
+          human_content_length = "#{content_length} bytes"
+        elsif content_length.to_i < 4194304 # 4MB
+          human_content_length = "#{content_length.to_i/1048576} KB"
+        elsif content_length.to_i < 1073741824 # 1 GB
+          human_content_length = "#{content_length.to_i/1048576} MB"
+        else
+          human_content_length = "#{(content_length.to_f/1073741824.to_f).round(1)} GB"
+        end
+
+        if progress_percent then
+        "Uploading #{upurl}...<br/>\n#{progress_percent}% complete (#{human_size} of #{human_content_length} bytes transferred), #{self.status}."
+        else
+        "Uploading #{human_size}, #{self.status}."
         end
       else
         "Upload failed: #{self.stderr.gsub(/([\r\n])/, "<br/>\\1")}"
@@ -55,11 +74,29 @@ class Upload < Command
     
     def short_formatted_status
       unless self.status == Upload::Status::UPLOAD_FAILED then
-        if progress_percent then
-          (upurl, destfile) = self.command.split(/ to /).map { |i| URI.unescape(i) }
-        "Uploading #{upurl}.<br/>\n#{progress_percent}% complete. (#{progress}/#{content_length} bytes.)"
+        if progress.to_i < 4096 then # 4K
+          human_size = "#{progress} bytes"
+        elsif progress.to_i < 4194304 # 4MB
+          human_size = "#{progress.to_i/1048576} KB"
+        elsif progress.to_i < 1073741824 # 1 GB
+          human_size = "#{progress.to_i/1048576} MB"
         else
-        "Uploading #{upurl}.<br/>\n#{progress } bytes."
+          human_size = "#{(progress.to_f/1073741824.to_f).round(1)} GB"
+        end
+        if content_length.to_i < 4096 then # 4K
+          human_content_length = "#{content_length} bytes"
+        elsif content_length.to_i < 4194304 # 4MB
+          human_content_length = "#{content_length.to_i/1048576} KB"
+        elsif content_length.to_i < 1073741824 # 1 GB
+          human_content_length = "#{content_length.to_i/1048576} MB"
+        else
+          human_content_length = "#{(content_length.to_f/1073741824.to_f).round(1)} GB"
+        end
+        (upurl, destfile) = self.command.split(/ to /).map { |i| URI.unescape(i) }
+        if progress_percent then
+          "Uploading #{upurl}.<br/>\n#{progress_percent}% complete. (#{human_size}/#{human_content_length}.)"
+        else
+          "Uploading #{upurl}.<br/>\n#{human_size}."
         end
       else
         "Upload failed: #{self.stderr.gsub(/([\r\n])/, "<br/>\\1")}"
