@@ -3,7 +3,7 @@ Hello <%= @name %>,
   prefs_url = url_for(:host => "submit.modencode.org", :controller => "submit/account", :action => :change_profile)
   commands_by_project = Hash.new { |h, k| h[k] = Array.new }
   @commands.each { |cmd| commands_by_project[cmd.project_id].push(cmd) }
-  commands_by_project.sort { |p1, p2| p1[0] <=> p2[0] }.each do |project, commands|
+  commands_by_project.sort { |p1, p2| (p1[0].nil? ? 0 : p1[0]) <=> (p2[0].nil? ? 0 : p2[0]) }.each do |project, commands|
     project_id = commands.first.project.nil? ? "0" : commands.first.project.id
     project_name = commands.first.project.nil? ? "-deleted-" : commands.first.project.name
     project_url = commands.first.project.nil? ? "-deleted-" : url_for(:host => "submit.modencode.org", :controller => "submit/pipeline", :action => :show, :id => commands.first.project.id)
