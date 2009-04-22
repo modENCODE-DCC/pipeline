@@ -127,6 +127,7 @@ class CommandController < ApplicationController
 
     me = Socket.gethostname
     disallowed_pis = Workers.get_workers.find { |worker| worker.name == me }.disallowed_pis
+    disallowed_users = Workers.get_workers.find { |worker| worker.name == me }.disallowed_users
     ## Check the ordered queued commands against the "active"
     ## hash. Try to return one not included.
     all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |a, b| a.queue_position <=> b.queue_position }
@@ -135,7 +136,7 @@ class CommandController < ApplicationController
       logger.info "next_available_command: \tlooking at: #{possible_command} is gid #{possible_command.project_id}"
       if not all_active_project_ids.include?(possible_command.project_id)
         logger.info "next_available_command: \tnot attached to an active project: #{possible_command}"
-        if not disallowed_pis.include?(possible_command.project.user.pi) then
+        if !disallowed_pis.include?(possible_command.project.user.pi) && !disallowed_users.include(possible_command.project.user.login) then
           logger.info "next_available_command: \tnot disallowed from running on this machine: #{possible_command}"
           command_to_return = possible_command
           break

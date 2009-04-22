@@ -8,10 +8,11 @@ class Workers
   ## A mini little worker....
   class Worker
     attr_reader :name, :ip, :disallowed_pis
-    def initialize (name, ip, disallowed_pis)
+    def initialize (name, ip, disallowed_pis, disallowed_users)
       @name = name
       @ip = ip
       @disallowed_pis = disallowed_pis
+      @disallowed_users = disallowed_users
     end
   end
 
@@ -25,7 +26,8 @@ class Workers
         all_workers.push(Worker.new(
           w['name'], 
           w["ip"],
-          w["disallow_pis"] ? w["disallow_pis"].keys : []
+          w["disallow_pis"] ? w["disallow_pis"].keys : [],
+          w["disallow_users"] ? w["disallow_users"].keys : []
         ))
       end
     else
