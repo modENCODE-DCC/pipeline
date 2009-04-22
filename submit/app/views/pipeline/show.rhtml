@@ -270,9 +270,9 @@
           <table border="0" class="archive_list">
             <tr>
               <th style="font-weight: normal;" colspan="5">
-                <%= link_to_if(@user_can_write && @num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Expand All Active Archives", { :action => :expand_all, :id => @project }) unless @project.project_archives.blank? %>
-                <%= " | " + link_to_if(@user_can_write && @num_archives > @num_active_archives && @project.status != Expand::Status::EXPANDING, "Use All Archives", { :action => :activate_all, :id => @project }, :confirm => "This will activate all archives, requiring the re-expansion of all active archives before validation. Continue?") unless @project.project_archives.blank? %>
-                <%= " | " + link_to_if(@user_can_write && @num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Don't use any Archives", { :action => :deactivate_all, :id => @project }, :confirm => "This will deactivate all archives. You will have to add a new archive or activate an existing one before validation. Continue?") unless @project.project_archives.blank? %>
+                <%= link_to_if(!@project.released? && @user_can_write && @num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Expand All Active Archives", { :action => :expand_all, :id => @project }) unless @project.project_archives.blank? %>
+                <%= " | " + link_to_if(!@project.released? && @user_can_write && @num_archives > @num_active_archives && @project.status != Expand::Status::EXPANDING, "Use All Archives", { :action => :activate_all, :id => @project }, :confirm => "This will activate all archives, requiring the re-expansion of all active archives before validation. Continue?") unless @project.project_archives.blank? %>
+                <%= " | " + link_to_if(!@project.released? && @user_can_write && @num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Don't use any Archives", { :action => :deactivate_all, :id => @project }, :confirm => "This will deactivate all archives. You will have to add a new archive or activate an existing one before validation. Continue?") unless @project.project_archives.blank? %>
               </th>
             </tr>
             <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th></tr>
@@ -295,17 +295,17 @@
                   <% unless @project.status == Expand::Status::EXPANDING then -%>
                     <%=
                         if archive.status == ProjectArchive::Status::NOT_EXPANDED || (archive.project.project_archives.find_all { |pa| pa.is_active && pa != archive }.size > 0) then
-                          link_to_if @user_can_write && archive.file_size.to_i > 0, "Use only this archive", { :action => :expand, :id => archive }, :confirm => "This will deactivate all other archives, and expand just this one. Continue?"
+                          link_to_if !@project.released? && @user_can_write && archive.file_size.to_i > 0, "Use only this archive", { :action => :expand, :id => archive }, :confirm => "This will deactivate all other archives, and expand just this one. Continue?"
                         else
-                          link_to_if @user_can_write && archive.file_size.to_i > 0, "Re-expand", { :action => :expand, :id => archive }
+                          link_to_if !@project.released? && @user_can_write && archive.file_size.to_i > 0, "Re-expand", { :action => :expand, :id => archive }
                         end
                     -%>
                     <br/>
                     <%= 
                       if archive.is_active then
-                        link_to_if @user_can_write && archive.file_size.to_i > 0, "Don't use", { :action => :deactivate_archive, :id => archive }
+                        link_to_if !@project.released? && @user_can_write && archive.file_size.to_i > 0, "Don't use", { :action => :deactivate_archive, :id => archive }
                       else
-                        link_to_if @user_can_write && archive.file_size.to_i > 0, "Not currently in use.  Click to include.", { :action => :activate_archive, :id => archive }
+                        link_to_if !@project.released? && @user_can_write && archive.file_size.to_i > 0, "Not currently in use.  Click to include.", { :action => :activate_archive, :id => archive }
                       end
                     -%>
                   <% end %>
@@ -315,7 +315,7 @@
               </tr>
               <% if archive.is_active then archive.project_files.each { |file| %>
                 <tr>
-                  <td style="font-size:70%; text-align: right"><%= link_to("replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %></th>
+                  <td style="font-size:70%; text-align: right"><%= link_to_if(!@project.released?, "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %></th>
                   <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
                     if File.basename(file.file_name).size > 25 then
                       File.basename(file.file_name) 
