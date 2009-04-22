@@ -136,7 +136,7 @@ class CommandController < ApplicationController
       logger.info "next_available_command: \tlooking at: #{possible_command} is gid #{possible_command.project_id}"
       if not all_active_project_ids.include?(possible_command.project_id)
         logger.info "next_available_command: \tnot attached to an active project: #{possible_command}"
-        if !disallowed_pis.include?(possible_command.project.user.pi) && !disallowed_users.include(possible_command.project.user.login) then
+        if !disallowed_pis.include?(possible_command.project.user.pi) && !disallowed_users.include?(possible_command.project.user.login) then
           logger.info "next_available_command: \tnot disallowed from running on this machine: #{possible_command}"
           command_to_return = possible_command
           break
