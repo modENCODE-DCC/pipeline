@@ -4,8 +4,8 @@ workers:
   - {
       name: blinky,
       ip: 131.243.192.224,
-      disallow_pis: [ "Lai, Eric" ]
-      disallow_users: [ "pruzanov" ]
+      disallow_pis: { "Lai, Eric" }
+      disallow_users: { "pruzanov" }
     }
   - {
       name: yeti,
@@ -22,8 +22,8 @@ workers:
   - {
       name: heartbroken,
       ip: 131.243.192.216,
-      disallow_pis: [ "Lai, Eric" ]
-      disallow_users: [ "pruzanov" ]
+      disallow_pis: { "Lai, Eric" }
+      disallow_users: { "pruzanov" }
     }
   ## Testing
   #- {name: rubuntu1, ip: 192.168.122.85}
