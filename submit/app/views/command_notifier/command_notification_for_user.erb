@@ -2,13 +2,13 @@ Hello <%= @name %>,
 <%
   commands_by_project = Hash.new { |h, k| h[k] = Array.new }
   user = nil
-  prefs_url = url_for(:host => "submit.modencode.org", :controller => "submit/account", :action => :change_profile)
+  prefs_url = url_for(:host => "submit.modencode.org", :controller => "account", :action => :change_profile)
   @commands.each { |cmd| commands_by_project[cmd.project_id].push(cmd) }
   commands_by_project.sort { |p1, p2| (p1[0].nil? ? 0 : p1[0]) <=> (p2[0].nil? ? 0 : p2[0]) }.each do |project, commands|
     user = commands.first.project.nil? ? nil : commands.first.project.user
     project_id = commands.first.project.nil? ? "0" : commands.first.project.id
     project_name = commands.first.project.nil? ? "-deleted-" : commands.first.project.name
-    project_url = commands.first.project.nil? ? "-deleted-" : url_for(:host => "submit.modencode.org", :controller => "submit/pipeline", :action => :show, :id => commands.first.project.id)
+    project_url = commands.first.project.nil? ? "-deleted-" : url_for(:host => "submit.modencode.org", :controller => "pipeline", :action => :show, :id => commands.first.project.id)
   %>
 --------Project #<%= project %> - <%= project_name %>--------
   For more information about project #<%= project_id %>, see <%= project_url %>.
@@ -24,7 +24,7 @@ Hello <%= @name %>,
       command_end = command.end_time.nil? ? "-unknown-" : command.end_time.strftime("%b %d at %H:%M")
       runtime = (command.end_time.nil? || command.start_time.nil?) ? 0 : (command.end_time - command.start_time)
       runtime = runtime / 60 > 65 ? "#{runtime.to_i / 3600} hours, #{(runtime.to_i % 3600)/60} minutes" : "#{runtime.to_i / 60} minutes"
-      status_url = url_for(:host => "submit.modencode.org", :controller => "submit/pipeline", :action => :command_status, :id => command.id)
+      status_url = url_for(:host => "submit.modencode.org", :controller => "pipeline", :action => :command_status, :id => command.id)
     %>
   Your <%= command_name %> task has completed with a status of "<%= status %>".
     It ran from <%= command_start %> to <%= command_end %> (<%= runtime %>).
