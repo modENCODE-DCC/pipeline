@@ -54,8 +54,10 @@ class UrlUploadController < UploadController
     super
 
     # Rexpand all active archives for this project
-    PipelineController.new.queue_reexpand_project(command_object.project)
-    CommandController.do_queued_commands
+    unless command_object.failed? then
+      PipelineController.new.queue_reexpand_project(command_object.project)
+      CommandController.do_queued_commands
+    end
   end
 
   def get_contents(upurl, destfile)
@@ -91,6 +93,9 @@ class UrlUploadController < UploadController
           }
     rescue Exception => e
       logger.warn "Rescued upload exception #{e}"
+      logger.error e
+      command_object.status = Upload::Status::UPLOAD_FAILED 
+      command_object.save
       raise CommandFailException.new("Failed to fetch URL #{upurl}")
     end
   end

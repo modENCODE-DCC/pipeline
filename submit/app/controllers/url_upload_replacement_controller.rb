@@ -10,7 +10,38 @@ class UrlUploadReplacementController < UrlUploadController
     end
   end
   def run
-    res = super
+    res = false
+    super do
+      retval = true
+      (upurl, destfile) = command_object.command.split(/ to /).map { |i| URI.unescape(i) }
+      do_before(:destfile => destfile)
+      command_object.status = Upload::Status::UPLOADING
+      begin
+        if (command_object.timeout && command_object.timeout > 0) then
+          Timeout::timeout(command_object.timeout) { get_contents(upurl, destfile) }
+        else
+          get_contents(upurl, destfile)
+        end
+        command_object.status = Upload::Status::UPLOADED
+        command_object.save
+      rescue Timeout::Error
+        command_object.stderr = "Upload timed out! Took longer than #{command_object.timeout} seconds."
+        command_object.status = Upload::Status::UPLOAD_FAILED 
+        command_object.save
+        retval = false
+      rescue CommandFailException
+        command_object.stderr = $!.message
+        command_object.status = Upload::Status::UPLOAD_FAILED 
+        command_object.save
+        retval = false
+      rescue
+        command_object.stderr = $!
+        command_object.status = Upload::Status::UPLOAD_FAILED 
+        command_object.save
+        retval = false
+      end
+      res = retval
+    end
     return res if res == false
     # Okay, now file is in uploaded location, make a tarball of it
     escape_quote = "'\\''"
