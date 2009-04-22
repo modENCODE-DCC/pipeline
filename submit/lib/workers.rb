@@ -7,7 +7,7 @@ class Workers
 
   ## A mini little worker....
   class Worker
-    attr_reader :name, :ip, :disallowed_pis
+    attr_reader :name, :ip, :disallowed_pis, :disallowed_users
     def initialize (name, ip, disallowed_pis, disallowed_users)
       @name = name
       @ip = ip
