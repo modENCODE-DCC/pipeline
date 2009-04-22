@@ -158,18 +158,20 @@ class AccountController < ApplicationController
   def reset_password
     @user = User.find_by_password_reset_code(params[:id]) if params[:id]
     raise if @user.nil?
-    return if @user unless params[:password]
-      if (params[:password] == params[:password_confirmation])
-        @user.password_confirmation = params[:password_confirmation]
-        @user.password = params[:password]
+    return if @user unless params[:user]
+    if (params[:user][:password] == params[:user][:password_confirmation])
+        @user.update_attributes(params[:user])
         @user.reset_password
+        if @user.activated_at.nil? then
+          @user.activated_at = Time.now.utc
+        end
+        @user.save
         flash[:notice] = @user.save ? "Password reset." : "Password not reset." 
       else
         flash[:error] = "Password mismatch." 
       end  
       redirect_to(:controller => '/account', :action => 'index') 
   rescue
-    logger.error "Invalid reset code entered." 
     flash[:error] = "Sorry - that is an invalid password reset code. Please check your code and try again. Perhaps your email client inserted a carriage return." 
      redirect_to(:controller => '/account', :action => 'index')
   end
