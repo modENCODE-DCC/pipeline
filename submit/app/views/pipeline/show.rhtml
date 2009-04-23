@@ -318,7 +318,11 @@
                   <td style="font-size:70%; text-align: right"><%= link_to_if(!@project.released?, "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %></th>
                   <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
                     if File.basename(file.file_name).size > 25 then
-                      File.basename(file.file_name) 
+                      if File.basename(file.file_name) != file.file_name then
+                      "<span style=\"color: #888\">.../</span>" + File.basename(file.file_name) 
+                      else
+                        File.basename(file.file_name) 
+                      end
                     else
                       if file.file_name.size > 25 then
                         "<span style=\"color: #888\">..." + 
