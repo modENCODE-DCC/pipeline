@@ -1,4 +1,3 @@
-require 'ruby-debug'
 class UploadController < CommandController
 
   # UploadController methods
