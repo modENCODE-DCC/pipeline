@@ -17,7 +17,7 @@ class UploadController < CommandController
     project_archive = command_object.project.project_archives.all.find { |pa| File.basename(pa.file_name) == File.basename(options[:destfile]) }
     if project_archive then
       if command_object.status == Upload::Status::UPLOAD_FAILED then
-        project_archive.destroy if project_archive
+        #project_archive.destroy if project_archive
         return false
       else
         project_archive.file_size = File.size(options[:destfile])

@@ -28,7 +28,7 @@ class ExpandController < CommandController
         command_object.stderr = "Can't expand archive; \"#{command_object.command}\" does not exist.";
         command_object.save
         # Destroy the ProjectArchive if it's not going to be able to expand
-        project_archive.destroy
+#        project_archive.destroy
         return false
       end
 
@@ -46,7 +46,7 @@ class ExpandController < CommandController
         else
           command_object.status = Expand::Status::EXPAND_FAILED
           # Destroy the ProjectArchive if it's not going to be able to expand
-          project_archive.destroy
+#          project_archive.destroy
         end
       rescue Errno::EACCES, Errno::EEXIST
         # Any file exception here means the entire unarchiving process has failed
