@@ -16,6 +16,6 @@
 <% end %>
 <% if @project.commands.length > short_history.length || current_user.is_a?(Moderator) %>
   <div style="margin-left: 4px; padding-top: 0px;">
-    ... and <%=link_to( [ (@project.commands.length-10).abs, 0].max.to_s+" more",  { :action => :full_command_history, :id => @project }) %>.
+    ... and <%=link_to( [ (@project.commands.length-10), 0].max.to_s+" more",  { :action => :full_command_history, :id => @project }) %>.
   </div>
 <% end %>
