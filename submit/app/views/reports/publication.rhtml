@@ -79,4 +79,51 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 <td><%=PublishToGEO.all.count%></td>
 </tr>
 </table>
+<%
+  gbrowse_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
+  modmine_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
+  geo_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
+  time_from_submission_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; rc.last.nil? ? nil : (rc.last.end_time - p.created_at) }.compact
+  time_from_submission_to_gbrowse = gbrowse_projects.map{|p| pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; pc.last.nil? ? nil : (pc.last.end_time - p.created_at )}.compact
+  time_from_first_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.first.nil?)  ? nil : (rc.last.end_time - vc.first.end_time) }.compact
+  time_from_first_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.first.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.first.end_time )}.compact
+  time_from_last_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil?)  ? nil : (rc.last.end_time - vc.last.end_time) }.compact
+  time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.last.end_time )}.compact
+  time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.updated_at - rc.last.updated_at )}.compact
+%>
+<br/><br/>
+
+<table class="data_matrix">
+<tr style="text-align: center;">
+<th style="width: 150px;">Time from</th><th style="width: 150px;">to Release</th><th style="width: 150px;">to Gbrowse</th><th style="width: 150px;">to ModMine</th><th style="width: 150px;">to GEO</th>
+</tr>
+<tr style="text-align: center; background-color: <%=colors[0]%>;">
+<td>Initial Submission</td>
+<td><%=((time_from_submission_to_release.sum/time_from_submission_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%=((time_from_submission_to_gbrowse.sum/time_from_submission_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
+<td>.</td>
+<td>.</td>
+</tr>
+<tr style="text-align: center; background-color: <%=colors[1]%>;">
+<td>Initial validation</td>
+<td><%=((time_from_first_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%=((time_from_first_validate_to_gbrowse.sum/time_from_first_validate_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
+<td>.</td>
+<td>.</td>
+</tr>
+<tr style="text-align: center; background-color: <%=colors[0]%>;">
+<td>Final validation</td>
+<td><%=((time_from_last_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%=((time_from_last_validate_to_gbrowse.sum/time_from_first_validate_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
+<td>.</td>
+<td>.</td>
+</tr>
+<tr style="text-align: center; background-color: <%=colors[1]%>;">
+<td>Release</td>
+<td>N/A</td>
+<td><%=((time_from_release_to_gbrowse.sum/time_from_first_validate_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
+<td>.</td>
+<td>.</td>
+</tr>
+</table>
 </center>
