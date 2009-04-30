@@ -83,13 +83,14 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
   gbrowse_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
   modmine_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
   geo_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
-  time_from_submission_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; rc.last.nil? ? nil : (rc.last.end_time - p.created_at) }.compact
-  time_from_submission_to_gbrowse = gbrowse_projects.map{|p| pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; pc.last.nil? ? nil : (pc.last.end_time - p.created_at )}.compact
-  time_from_first_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.first.nil?)  ? nil : (rc.last.end_time - vc.first.end_time) }.compact
-  time_from_first_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.first.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.first.end_time )}.compact
-  time_from_last_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil?)  ? nil : (rc.last.end_time - vc.last.end_time) }.compact
-  time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.last.end_time )}.compact
-  time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.updated_at - rc.last.updated_at )}.compact
+  time_from_submission_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; rc.last.nil? ? nil : (rc.last.end_time - p.created_at) }.compact.deleteif{|v| v<0}
+  time_from_submission_to_gbrowse = gbrowse_projects.map{|p| pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; pc.last.nil? ? nil : (pc.last.end_time - p.created_at )}.compact.deleteif{|v| v<0}
+  time_from_first_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.first.nil?)  ? nil : (rc.last.end_time - vc.first.end_time) }.compact.deleteif{|v| v<0}
+  time_from_first_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.first.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.first.end_time )}.compact.deleteif{|v| v<0}
+  time_from_last_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil?)  ? nil : (rc.last.end_time - vc.last.end_time) }.compact.deleteif{|v| v<0}
+  time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.last.end_time )}.compact.deleteif{|v| v<0}
+  time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time.nil? ? pc.last.updated_at : pc.last.end_time) - (vc.last.end_time.nil? ? vc.last.updated_at : vc.last.end_time) }.deleteif{|v| v<0}
+  time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.updated_at - rc.last.updated_at )}.compact.deleteif{|v| v<0}
 %>
 <br/><br/>
 
