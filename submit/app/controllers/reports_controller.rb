@@ -74,6 +74,14 @@ class ReportsController < ApplicationController
   end
 
 
+  def vetting_stats
+    index
+  end
+
+  def publication
+    index
+  end
+
   def data_matrix
     levels
   end

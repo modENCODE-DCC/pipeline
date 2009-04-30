@@ -1,0 +1,49 @@
+<% 
+   released_projects = Project.find_all_by_status(Project::Status::RELEASED).find_all{|p| !p.deprecated?}
+   
+   publishes = Publish.all
+   headers = ["ID", "Name", "PI", "Released", "To GBrowse", "To modmine", "To GEO"]
+%>
+<center>
+<h2>
+Publication dates for Released datasets for the modENCODE project, as of <%=Time.now.strftime("%B %d, %Y")%>
+</h2>
+<br />
+<table class="data_matrix">
+<tr>
+<%= headers.map{|h| '<th style="text-align: center">'+h+'</th>'}  %>
+</tr>
+  <%
+    colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
+    i = 0
+  %>
+<% released_projects.map do |p|
+   next if p.deprecated?
+  #test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td>"
+   color = colors[i%2]
+   i += 1
+   color = colors[2] if p.deprecated?
+  publish_gbrowse = publishes.find_all{|g| g.project_id==p.id && g.type==PublishToGbrowse.name}
+  publish_modmine = publishes.find_all{|g| g.project_id==p.id && g.type==PublishToModMine.name}
+  publish_geo =  publishes.find_all{|g| g.project_id==p.id && g.type==PublishToGEO.name}
+  released = p.commands.find_all{|c| c.type==Release.name}
+%>
+  <tr style="background-color: <%= color %>">
+  <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
+  <td class="name"> <%= link_to p.name, {:action => 'citation', :id => p.id, :controller => 'pipeline' } %></td>
+  <td style="width: 100px; text-align: center;"><%=p.user.pi.split(",")[0]%></td>
+  <td style="width: 150px; text-align: center;"><%=released.empty? ? "" : released.last.updated_at.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_gbrowse.empty? ? "" : publish_gbrowse.last.updated_at.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_modmine.empty? ? "" : publish_modmine.last.updated_at.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_geo.empty? ? "" : publish_geo.last.updated_at.strftime("%Y %b %d")%></td>
+  </tr>
+<% end %>
+<tr style="text-align: center">
+<td colspan="3" style="text-align: right">Totals:</td>
+<td><%=released_projects.count%></td>
+<td><%=PublishToGbrowse.all.count%></td>
+<td><%=PublishToModMine.all.count%></td>
+<td><%=PublishToGEO.all.count%></td>
+</tr>
+</table>
+</center>
