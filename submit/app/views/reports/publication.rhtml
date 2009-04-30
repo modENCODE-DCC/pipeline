@@ -50,9 +50,9 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
   <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
   <td class="name hardwrap">
         <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.user.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
-          <%= link_to p.name, :action => 'citation', :id => p %>
+          <%= link_to p.name, :action => 'citation', :id => p, :controller => 'public' %>
         <% elsif p.has_readme? then %>
-          <%= link_to p.name, :action => 'readme', :id => p.id %>
+          <%= link_to p.name, :action => 'readme', :id => p.id, :controller => 'public' %>
         <% else %>
           <%= link_to p.name, { :action => 'show', :id => p.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
 	  <% end %>
