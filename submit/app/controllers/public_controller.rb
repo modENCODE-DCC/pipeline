@@ -208,7 +208,7 @@ class PublicController < ApplicationController
     flatten = ''
     if params[:structured] != "true" then
       flatten = '--transform \'s/^\.\///g\'  --transform \'s/\//_/g\''
-      files = "--files-from <( cd #{File.dirname(@current_directory).gsub(/'/, escape_quote)}; find . -type f )"
+      files = "--files-from <( cd '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}'; find './#{File.basename(@current_directory).gsub(/'/, escape_quote)}' -type f )"
     end
     command = "tar #{exclude} #{flatten} -czv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
 
