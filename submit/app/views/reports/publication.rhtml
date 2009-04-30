@@ -1,6 +1,5 @@
 <% 
    released_projects = @projects
-   #Project.find_all_by_status(Project::Status::RELEASED).find_all{|p| !p.deprecated?}
    
    publishes = Publish.all
    headers = ["ID", "Name", "PI", "Released", "To GBrowse", "To modmine", "To GEO"]
@@ -36,14 +35,14 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
     i = 0
   %>
 <% released_projects.map do |p|
-   next if p.deprecated?
+   #next if p.deprecated?
   #test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td>"
    color = colors[i%2]
    i += 1
    color = colors[2] if p.deprecated?
-  publish_gbrowse = publishes.find_all{|g| g.project_id==p.id && g.type==PublishToGbrowse.name}
-  publish_modmine = publishes.find_all{|g| g.project_id==p.id && g.type==PublishToModMine.name}
-  publish_geo =  publishes.find_all{|g| g.project_id==p.id && g.type==PublishToGEO.name}
+  publish_gbrowse = PublishToGbrowse.all.find_all{|g| g.project_id==p.id}
+  publish_modmine = PublishToModMine.all.find_all{|g| g.project_id==p.id}
+  publish_geo =  PublishToGEO.all.find_all{|g| g.project_id==p.id}
   released = p.commands.find_all{|c| c.type==Release.name}
 %>
   <tr style="background-color: <%= color %>">
