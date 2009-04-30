@@ -79,7 +79,36 @@ class ReportsController < ApplicationController
   end
 
   def publication
-    index
+    @projects = Project.find_all_by_status(Project::Status::RELEASED)
+    @projects.delete_if { |p| p.deprecated? }
+
+    @pis = User.all.map { |u| u.pi }.uniq
+    @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if params[:sort] then
+      session[:sort_list] = Hash.new unless session[:sort_list]
+      params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
+    end
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    if params[:pi] && params[:pi].length > 0 then
+      @projects.reject! { |p| p.user.pi != params[:pi] }
+    end
+    if session[:sort_list] then
+      sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
+      @projects = @projects.sort { |p1, p2|
+        p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.send(col) : p1.send(col) } << p1.id
+        p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.send(col) : p2.send(col) } << p2.id
+        p1_attrs.nil_flatten_compare p2_attrs
+      }
+      session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    else
+      @projects = @projects.sort { |p1, p2| p2.id <=> p1.id }
+    end
+
   end
 
   def data_matrix

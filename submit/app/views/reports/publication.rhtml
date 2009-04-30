@@ -1,5 +1,6 @@
 <% 
-   released_projects = Project.find_all_by_status(Project::Status::RELEASED).find_all{|p| !p.deprecated?}
+   released_projects = @projects
+   #Project.find_all_by_status(Project::Status::RELEASED).find_all{|p| !p.deprecated?}
    
    publishes = Publish.all
    headers = ["ID", "Name", "PI", "Released", "To GBrowse", "To modmine", "To GEO"]
@@ -11,7 +12,24 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 <br />
 <table class="data_matrix">
 <tr>
-<%= headers.map{|h| '<th style="text-align: center">'+h+'</th>'}  %>
+  <tr class="titles">
+    <% refresh_action_name = :publication -%>
+    <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
+    <th class="hardwrap">
+      <%= link_to "Submission&nbsp;Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %>
+      <br/>
+      <span style="font-size: 80%">(click for readme)</span>
+    </th>
+    <th class="contains_select"><%= link_to "PI:", :action => refresh_action_name, :sort => { 'pi' => @new_sort_direction['pi'] } %>&nbsp;<% form_tag url_for(:action => :publication), :method => :get, :style => "display:inline" do %>
+      <select class="header_select" onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
+    <% end %></th>
+    <th>
+      <%= link_to "Released", :action => refresh_action_name, :sort => { 'release_date' => @new_sort_direction['release_date'] } %>
+      <br/>
+    </th>
+    <th>To gbrowse</th>
+    <th>To modmine</th>
+    <th>To GEO</th>
 </tr>
   <%
     colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
@@ -30,9 +48,25 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 %>
   <tr style="background-color: <%= color %>">
   <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
-  <td class="name"> <%= link_to p.name, {:action => 'citation', :id => p.id, :controller => 'pipeline' } %></td>
+  <td class="name hardwrap">
+        <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.user.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
+          <%= link_to p.name, :action => 'citation', :id => p %>
+        <% elsif p.has_readme? then %>
+          <%= link_to p.name, :action => 'readme', :id => p.id %>
+        <% else %>
+          <%= link_to p.name, { :action => 'show', :id => p.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
+	  <% end %>
+  </td>
   <td style="width: 100px; text-align: center;"><%=p.user.pi.split(",")[0]%></td>
-  <td style="width: 150px; text-align: center;"><%=released.empty? ? "" : released.last.updated_at.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;">
+  <%= release_date = released.last
+          if release_date then
+              release_date.updated_at.strftime("%Y %b %d")
+            else
+              ""
+            end
+      %>
+  </td>
   <td style="width: 150px; text-align: center;"><%=publish_gbrowse.empty? ? "" : publish_gbrowse.last.updated_at.strftime("%Y %b %d")%></td>
   <td style="width: 150px; text-align: center;"><%=publish_modmine.empty? ? "" : publish_modmine.last.updated_at.strftime("%Y %b %d")%></td>
   <td style="width: 150px; text-align: center;"><%=publish_geo.empty? ? "" : publish_geo.last.updated_at.strftime("%Y %b %d")%></td>
