@@ -16,8 +16,8 @@
     type_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_type')
     url_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_url')
 
-    growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "DNA extraction", "purify", "nucleic_acid_extraction"]
-    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol"]
+    growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol"]
+    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR"]
     analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment"]
 
     growth_protocols = type_tags.find_all { |tag| growth.include?(tag.value) }
@@ -88,13 +88,16 @@
   <%
     animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
     antibodies = ["antibody"]
-    arrays = ["ADF", "array_data_file", "array"]
-    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA" ]
+    arrays = ["ADF", "array_data_file", "array", "BPMAP"]
+    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "GEO_record", "total_RNA" ]
+    external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID"]
 
     animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
     antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
     array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
     sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
+    repository_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, external_ids])
+
   %>
   <% if animal_reagents.size > 0 then %>
     <li>
@@ -106,7 +109,6 @@
           name = tag.value 
           url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
           name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
-
           short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
           if url_tag then
             link_to short_name, "#{url_tag.value}#{name}"
@@ -186,6 +188,24 @@
         end
       }.uniq.join(", ") %>
       <%= ", and #{sample_reagents.size - @max_entries} more." if sample_reagents.size > @max_entries %>
+    </li>
+  <% end %>
+  <% if repository_records.size > 0 then %>
+    <li>
+      <b>External Resources:</b>
+      <%= repository_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
+        name = tag.value 
+        url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+        url_tag ||= TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'GEO record link')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'GEO_record')
+
+        if url_tag then
+          link_to name_tag, "#{url_tag.value}"
+        else
+          name_tag
+        end
+      }.uniq.join(", ") %>
+      <%= ", and #{repository_records.size - @max_entries} more." if repository_records.size > @max_entries %>
     </li>
   <% end %>
 </ol>
