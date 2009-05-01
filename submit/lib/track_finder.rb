@@ -682,19 +682,19 @@ class TrackFinder
                 seen.push row['data_value']
               rescue
               end
-              # Datum attributes
-              begin
-                TrackTag.new(
-                  :experiment_id => experiment_id,
-                  :name => row['data_value'],
-                  :project_id => project_id,
-                  :track => tracknum,
-                  :value => row['attr_value'],
-                  :cvterm => row['attr_name'],
-                  :history_depth => history_depth
-                ).save unless row['attr_value'].nil? || row['attr_value'].empty?
-              rescue
-              end
+            end
+            # Datum attributes
+            begin
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => row['data_value'],
+                :project_id => project_id,
+                :track => tracknum,
+                :value => row['attr_value'],
+                :cvterm => row['attr_name'],
+                :history_depth => history_depth
+              ).save unless row['attr_value'].nil? || row['attr_value'].empty?
+            rescue
             end
           end
         end
@@ -730,18 +730,18 @@ class TrackFinder
               rescue
               end
               # Datum attributes
-              begin
-                TrackTag.new(
-                  :experiment_id => experiment_id,
-                  :name => row['data_value'],
-                  :project_id => project_id,
-                  :track => tracknum,
-                  :value => row['attr_value'],
-                  :cvterm => row['attr_name'],
-                  :history_depth => history_depth
-                ).save unless row['attr_value'].nil? || row['attr_value'].empty?
-              rescue
-              end
+            end
+            begin
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => row['data_value'],
+                :project_id => project_id,
+                :track => tracknum,
+                :value => row['attr_value'],
+                :cvterm => row['attr_name'],
+                :history_depth => history_depth
+              ).save unless row['attr_value'].nil? || row['attr_value'].empty?
+            rescue
             end
             # And go through any attached previous applied protocols
             prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
