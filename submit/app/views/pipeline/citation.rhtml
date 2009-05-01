@@ -17,7 +17,7 @@
     url_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_url')
 
     growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol"]
-    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR"]
+    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR", "sequencing"]
     analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment"]
 
     growth_protocols = type_tags.find_all { |tag| growth.include?(tag.value) }
@@ -89,14 +89,16 @@
     animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
     antibodies = ["antibody"]
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
-    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "GEO_record", "total_RNA" ]
+    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
     external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID"]
+    modencode_ids = ["modENCODE Reference"]
 
     animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
     antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
     array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
     sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
     repository_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, external_ids])
+    modencode_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, modencode_ids])
 
   %>
   <% if animal_reagents.size > 0 then %>
@@ -168,6 +170,7 @@
       <%= ", and #{array_reagents.size - @max_entries} more." if array_reagents.size > @max_entries %>
     </li>
   <% end %>
+  <% related_projects = Array.new %>
   <% if sample_reagents.size > 0 then %>
     <li>
       <b>Samples:</b>
@@ -175,32 +178,37 @@
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
-
+	related_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'modENCODE Reference')
+	related_projects += TrackTag.find_all_by_name(name).map{|t| t.project_id}
         short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+	v = ""
         if url_tag then
-          link_to short_name, "#{url_tag.value}#{name}"
+          v = link_to short_name, "#{url_tag.value}#{name}"
         elsif name =~ /^[A-Z]\w+:/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          v = link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
         elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          v = link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
         else
-          short_name
+          v = short_name
         end
+	if related_tag then
+          v += " (DCC-#{related_tag.value})"
+	end
+	v
       }.uniq.join(", ") %>
       <%= ", and #{sample_reagents.size - @max_entries} more." if sample_reagents.size > @max_entries %>
     </li>
   <% end %>
   <% if repository_records.size > 0 then %>
     <li>
-      <b>External Resources:</b>
+      <b>External Links:</b>
       <%= repository_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
-        url_tag ||= TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'GEO record link')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'GEO_record')
 
         if url_tag then
-          link_to name_tag, "#{url_tag.value}"
+          link_to name_tag.value, url_tag.value
         else
           name_tag
         end
@@ -209,5 +217,24 @@
     </li>
   <% end %>
 </ol>
-
+<% related_projects.delete(@project_id) %>
+<br />
+<h2>Related modENCODE submissions:</h2>
+<ul>
+  <% if modencode_records.size > 0 then %>
+      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
+        submission_num = tag.value.to_i 
+	"<li><b>DCC-#{submission_num}</b>: #{Project.find(submission_num).name}</li>"
+	#"<li><b>#{submission_num}</b>: #{Project.find(submission_num).name} #{link_to "(readme)", :action => "readme", :id => @project_id, :controller => "pipeline" if Project.find(submission_num).has_readme?} #{link_to "(citation)", :action => "citation", :id => @project_id, :controller => "pipeline"} </li>"
+      }.uniq.join(", ") %>
+      <%= ", and #{repository_records.size - @max_entries} more." if repository_records.size > @max_entries %>
+  <% end %>
+  <%=
+	related_projects.uniq.map{|id|
+	p = Project.find(id)
+	"<li><b>DCC-#{p.id.to_s}</b>: #{p.name}</li>"
+	}.uniq.join(", ") 
+  %>
+</ul>
+<br />
 <b>Release Date:</b> <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Public Release Date"); tag ? tag.value : "[Please Fill In]" %> 
