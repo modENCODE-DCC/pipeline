@@ -2001,7 +2001,9 @@ private
                "Y2Q1" => {"year" => "Y2", "quarter"=> "Q1", "start" => Date.civil(2008,5,1), "end" => Date.civil(2008,7,31)},
                "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
-               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
+               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) }, 
+               "Y3Q1" => {"year" => "Y3", "quarter"=> "Q1", "start" => Date.civil(2009,5,1), "end" => Date.civil(2009,7,31)} }
+
     @status_names = {
       Project::Status::NEW => "New",
       Project::Status::UPLOADED => "Uploaded",
