@@ -143,7 +143,12 @@ class ReportsController < ApplicationController
                "Y2Q1" => {"year" => "Y2", "quarter"=> "Q1", "start" => Date.civil(2008,5,1), "end" => Date.civil(2008,7,31)}, 
                "Y2Q2" => {"year" => "Y2", "quarter"=> "Q2", "start" => Date.civil(2008,8,1), "end" => Date.civil(2008,10,31) },
                "Y2Q3" => {"year" => "Y2", "quarter"=> "Q3", "start" => Date.civil(2008,11,1), "end" => Date.civil(2009,1,31) },
-               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) } }
+               "Y2Q4" => {"year" => "Y2", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) }, 
+               "Y3Q1" => {"year" => "Y3", "quarter"=> "Q1", "start" => Date.civil(2009,5,1), "end" => Date.civil(2009,7,31) }, 
+      #         "Y3Q2" => {"year" => "Y3", "quarter"=> "Q2", "start" => Date.civil(2009,8,1), "end" => Date.civil(2009,10,31) }, 
+       #        "Y3Q3" => {"year" => "Y3", "quarter"=> "Q3", "start" => Date.civil(2009,11,1), "end" => Date.civil(2010,1,31) },
+        #       "Y3Q4" => {"year" => "Y3", "quarter"=> "Q4", "start" => Date.civil(2009,2,1), "end" => Date.civil(2009,4,30) }  
+	}
     @quarters = quarters
     #these are the pis to include in the display - modify to add additional pis	
     pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
@@ -151,6 +156,20 @@ class ReportsController < ApplicationController
     @all_status = status
     active_status = status[0..6]
     @active_status = status[0..6]
+
+
+    levels = [0,1,2,3]
+    level_names = levels.map{|l| "Level "+l.to_s}
+
+    all_distribution_levels_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, level| hash2[level] = 0} }
+    pis.each {|p| all_distribution_levels_by_pi[p]}
+    levels.each{|l| pis.each {|p| all_distribution_levels_by_pi[p][l] = 0}}
+
+    Project.all.reject { |p| p.deprecated? }.each {|p|
+        all_distribution_levels_by_pi[p.user.pi.split(",")[0]][p.level] += 1  unless pis.index(p.user.pi.split(",")[0]).nil?
+        }
+    @all_distribution_levels_by_pi = all_distribution_levels_by_pi
+
 
     # initialize to make sure all PIs are included; require each status to be represented
     all_distributions_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, status| hash2[status] = 0} }

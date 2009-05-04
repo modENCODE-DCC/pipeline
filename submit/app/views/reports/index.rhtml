@@ -13,37 +13,43 @@ This page provides an overview of the status' of the modENCODE submissions.</p>
 <tr>
 <td colspan="2">
 <p class="caption">
-<b>Distribution of modENCODE submissions, binned by Project PI.</b> This represents the cumulative distribution of submissions made to the DCC (both active and released), by PI, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>. 
-Numbers above the bars depict the total number of submissions by that particular project.  
-Numbers in parentheses indicate the total for that particular status (active, released).  
-"n" value in the title represents the sum of all active and released projects.  
+<b>
+Distribution of modENCODE submissions, binned by Project PI.</b> This represents the cumulative distribution of submissions made to the DCC, by PI, as of <%="#{Time.now.strftime("%B %d, %Y")}"%>.
+Numbers above the bars depict the total number of submissions by that particular project.
+Numbers in parentheses indicate the total for that particular level.
+"n" value in the title represents the sum of all active and released projects.
+<br />Level 0: no metadata/readme.  Level 1: README+raw data. Level 2: README+some interpreted data.  Level 3: fully vetted & released.
 </p> 
 </td>
 </tr>
 
-<tr><td align="center">
+<tr>
     <%    
-      data_hash = Hash.new{|k,v| k[v] = []} 
-      @all_projects_by_pi.sort.each{|pi,stati| stati.map{|k,v| data_hash[k] += [v]}} 
-      legend = @all_projects_by_pi.sort.map{|pi,stati| pi}
+      data_hash = Hash.new{|k,v| k[v] = []}
+      @all_distribution_levels_by_pi.sort.each{|pi,level| level.map{|k,v| data_hash[k] += [v]}}
+      legend = @all_distribution_levels_by_pi.sort.map{|pi,level| pi}
       pi_colors=["ff0000","ff9900","ffff00","00cc00","00ccff","0033ff","9999ff","9900cc","cc0099","660066","666666"]
-      color = ["cccccc","00cc00"]
+      color = ["cccccc","cc0099", "ffff00", "00cc00"]
     %>
 
-<%= google_stacked_vert_bar_chart([], :title => "Distribution of Submissions by Project PI|as of #{Time.now.strftime("%b %d %Y")}", :color =>color.join(","), :chxt => "x,y", :width => 650, :min => 0, :data => data_hash, :legend => legend, :show_legend => true, :align => "right" ) %>
-</td>
+
 <td style="vertical-align: middle;" >
   <table class="summary_stats">
     <tr class="header">
-      <th>&nbsp;</th><th>&nbsp;</th><%= legend.map{|pi| "<th class='header' style='padding-left: 5px; padding-right: 5px; '>#{pi}</th>"}.join("") %><th class='header'>Totals</th> 
+      <th>&nbsp;</th><th class='header' style='text-align: center;'>Level</th><%= legend.map{|pi| "<th class='header' style='padding-left: 3px; padding-right: 3px; '>#{pi}</th>"}.join("") %><th class='header'>Totals</th>
     </tr>
-      <%= data_hash.sort.map{|s,v| "<tr class='#{s}'>"+"<th>&nbsp</th><td class='content'><b>#{s}</b>"+v.map{|val| "<td class='content2'>#{val}</td>"}.join("\n")+"<td class='content2'><b>#{v.sum}</b></td></tr>" } %>
+      <%= data_hash.sort.map{|s,v| "<tr class='level#{s}'>"+"<th>&nbsp</th><td class='content' style='text-align: center'><b>#{s}</b>"+v.map{|val| "<td class='content2'>#{val}</td>"}.join("\n")+"<td class='content2'><b>#{v.sum}</b></td></tr>" } %>
     <tr class="footer">
       <td>&nbsp;</td><td class='content'><b>Totals</b></td><%= legend.map{|s| "<td class='content2'><b>#{@all_projects_by_pi[s].sum{|k,v| v}}</b></td>"}.join("")%><td class='content2'><b><%="#{data_hash.map{|s,v| v.sum}.sum}"%></b></td>
     </tr>
   </table>
 </td>
+
+<td align="center">
+<%= google_stacked_vert_bar_chart([], :title => "Distribution of Submissions by Project PI|as of #{Time.now.strftime("%b %d %Y")}", :color =>color.join(","), :chxt => "x,y", :width => 650, :min => 0, :data => data_hash, :legend => legend, :show_legend => true, :align => "right" ) %>
+</td>
 </tr>
+
 <tr colspan="2" style="height: 25px;" ><td>&nbsp</td></tr>
 <tr style="border-top: 1px solid gray;" >
 <td colspan="2">
@@ -55,15 +61,14 @@ Numbers in parentheses indicate the total for that particular project PI.
 <i>Individual quarters are broken down by project PI in the "New Submissions per quarter", below.</i>
 </p>
 </td></tr>
-<tr><td align="center">
+<tr>
     <%
       data_hash = Hash.new{|k,v| k[v] = []}
       @all_new_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]}}
       legend = @all_new_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
 
     %>
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 400, :legend => legend, :color =>pi_colors.join(","), :show_legend => true) %>
-</td>
+
 <td style="vertical-align: middle;" >
   <table class="summary_stats">
     <tr class="header">
@@ -75,9 +80,14 @@ Numbers in parentheses indicate the total for that particular project PI.
     </tr>
   </table>
 </td>
+
+<td align="center">
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 500, :legend => legend, :color =>pi_colors.join(","), :show_legend => true) %>
+</td>
 </tr>
 <tr colspan="2" style="height: 25px;" ><td>&nbsp</td></tr>
 <tr style="border-top: 1px solid gray;" >
+
 <tr>
 <td colspan="2">
 <p class="caption">
@@ -88,7 +98,8 @@ Numbers in parentheses indicate the total for that particular project PI.
 <i>Individual quarters are broken down by project PI in the "Released Submissions per quarter", below.</i>
 </p>
 </td></tr>
-<tr><td align="center">
+<tr>
+
     <%
       data_hash = Hash.new{|k,v| k[v] = []}
       @all_released_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
@@ -96,8 +107,6 @@ Numbers in parentheses indicate the total for that particular project PI.
       legend = @all_released_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
 
     %>
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 400, :legend => legend, :color => pi_colors.join(","), :show_legend => true) %>
-</td>
 <td style="vertical-align: middle;" >
   <table class="summary_stats">
     <tr class="header">
@@ -108,6 +117,9 @@ Numbers in parentheses indicate the total for that particular project PI.
       <td>&nbsp;</td><td><b>Totals</b></td><%= "#{@all_released_projects_per_group_per_quarter.sort.map{|q,dist| dist.map{|k,v| v}.sum}.map{|v| "<td class='content_quarters'><b>#{v}</b></td>"}.join(",")}"%><td class='content_quarters'><b><%="#{data_hash.map{|pi,dist| dist.sum}.sum}"%></b></td>
     </tr>
   </table>
+</td>
+<td align="center">
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 500, :legend => legend, :color => pi_colors.join(","), :show_legend => true) %>
 </td>
 </tr>
   </table>
