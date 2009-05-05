@@ -1,0 +1,71 @@
+<style type="text/css">
+  TH { 
+    padding-right: 15px;
+    min-width: 100px;
+    text-align: left;
+  }
+  TD {
+    padding-right: 15px;
+  }
+</style>
+
+<p>
+Some useful information for <b>reviewers</b> of the modENCODE project.
+</p>
+
+<div>
+<br />
+<%= link_to "Vetting system stats", :controller => 'reports', :action => 'vetting_stats'%>
+- has details of submissions being processed through the system.
+<br /><br />
+<%= link_to "Table of publication through DCC", :controller => 'reports', :action => 'publication'%>
+- has details of the post-release status of submissions, showing dates to gbrowse, modmine, and GEO.
+<br />
+</div>
+
+<br /><br />
+<div>
+<h2>What's currently running on the system</h2>
+  <table>
+    <tr>
+      <th colspan="2">Command</th>
+      <th>Project</th>
+      <th>Running On</th>
+      <th>Running Since</th>
+      <th>Owner</th>
+    </tr>
+    <% @active_commands.each do |command| %>
+    <tr>
+      <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
+      <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+      <td><%= link_to "#{command.project_id}: #{Project.find(command.project_id).name}", :controller => :pipeline, :action => :show, :id => command.project_id %></td>
+      <td><%= command.host if command.host %></td>
+      <td><%= command.start_time %></td>
+      <td><%= command.project.user.login if command.project %></td> 
+    </tr>
+    <% end %>
+  </table>
+<br />
+  <h2>What's in the Queue</h2>
+  <table>
+    <tr>
+      <th colspan="2">Command</th>
+      <th>Project</th>
+      <th>Position in queue</th>
+      <th>In the Queue since</th>
+      <th>Owner</th>
+    </tr>
+    <% @all_waiting_commands.each do |command| %>
+    <tr>
+      <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
+      <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+      <td><%= link_to "#{command.project_id}: #{Project.find(command.project_id).name}", :controller => :pipeline, :action => :show, :id => command.project_id %></td>
+      <td><%= Inflector.ordinalize(@all_waiting_commands.index(command)+1) %></td>
+      <td><%= command.created_at %>
+      <td><%= command.project.nil? ? "-no project-" : command.project.user.login %></td> 
+    </tr>
+    <% end %>
+  </table>
+</div>
+
+
