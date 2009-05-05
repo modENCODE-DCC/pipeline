@@ -12,34 +12,35 @@ admin pages %>
        list.find_all{|p| p.updated_at.to_date.month==month}.count : 
        list.find_all{|p| p.created_at.to_date.month==month}.count )
    end
-
+   today_color = "#CEEAFF"
 %>
 
 <h2>System Stats</h2>
 <table class='summary_stats'>
 <tr><td>&nbsp;</td>
 <% headers = [(Date.today-3).strftime("%m/%d"), (Date.today-2).strftime("%m/%d"), (Date.today-1).strftime("%m/%d"), "Today", "This month", "Last Month", "Forever"]%>
-<%= headers.map{|h| '<th style="padding-left: 10px">'+h+'</th>'} %>
+<%= headers.map{|h| '<th style="padding-left: 5px; padding-right: 5px; '+(h=="Today" ? 'background-color: '+today_color+';' : '')+'">'+h+'</th>'} %>
 </tr>
 <tr>
 <th style='text-align: right'>submissions worked: </th>
 <td style='text-align: right'><%= get_date_count("update", Date.today-3, Project.all) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-2, Project.all) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-1, Project.all) %></td>
-<td style='text-align: right'><%= get_date_count("update", Date.today, Project.all) %></td>
+<td style='text-align: right; background-color: <%=today_color%>; '><%= get_date_count("update", Date.today, Project.all) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month, Project.all) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month-1, Project.all) %></td>
 <td style='text-align: right'><%= Project.all.count %></td>
 </tr>
 <tr>
 <th style='text-align: right'>active users: </th>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date==Date.today-3}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date==Date.today-2}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date==Date.today-1}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date==Date.today}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date.month==Date.today.month}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|p| p.updated_at.to_date.month==(Date.today.month-1)}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
-<td style='text-align: right'><%= Command.all.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<% command_set = Command.all %>
+<td style='text-align: right'><%= command_set.find_all{|p| p.updated_at.to_date==Date.today-3}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right'><%= command_set.find_all{|p| p.updated_at.to_date==Date.today-2}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right'><%= command_set.find_all{|p| p.updated_at.to_date==Date.today-1}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right; background-color: <%=today_color%>;'><%= command_set.find_all{|p| p.updated_at.to_date==Date.today}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right'><%= command_set.find_all{|p| p.updated_at.to_date.month==Date.today.month}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right'><%= command_set.find_all{|p| p.updated_at.to_date.month==(Date.today.month-1)}.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
+<td style='text-align: right'><%= command_set.find_all{|c| !c.project_id.nil?}.map{|c| c.user_id.nil? ? Project.find(c.project_id).user_id : c.user_id}.uniq.count %></td>
 </tr>
 
 <tr>
@@ -47,30 +48,31 @@ admin pages %>
 <td style='text-align: right'><%= get_date_count("create", Date.today-3, Command.all) %></td>
 <td style='text-align: right'><%= get_date_count("create", Date.today-2, Command.all) %></td>
 <td style='text-align: right'><%= get_date_count("create", Date.today-1, Command.all) %></td>
-<td style='text-align: right'><%= get_date_count("create", Date.today, Command.all) %></td>
+<td style='text-align: right; background-color: <%=today_color%>;'><%= get_date_count("create", Date.today, Command.all) %></td>
 <td style='text-align: right'><%= get_month_count("create", Date.today.month, Command.all) %></td>
 <td style='text-align: right'><%= get_month_count("create", Date.today.month-1, Command.all) %></td>
 <td style='text-align: right'><%=Command.all.count %></td>
 </tr>
 </table>
 <br />
+<br />
 <h2>Command Stats</h2>
 <table class='summary_stats'>
 <tr><td>&nbsp;</td>
-<%= headers.map{|h| '<th style="padding-left: 10px">'+h+'</th>'} %>
+<%= headers.map{|h| '<th style="padding-left: 5px; padding-right: 5px; '+(h=="Today" ? 'background-color: '+today_color+';' : '')+'">'+h+'</th>'} %>
 </tr>
 <tr>
 <th style='text-align: right'>Create: </th>
 <td style='text-align: right'><%= get_date_count("create", Date.today-3, Project.all) %></td>
 <td style='text-align: right'><%= get_date_count("create", Date.today-2, Project.all) %></td>
 <td style='text-align: right'><%= get_date_count("create", Date.today-1, Project.all) %></td>
-<td style='text-align: right'><%= get_date_count("create", Date.today, Project.all) %></td>
+<td style='text-align: right; background-color: <%=today_color%>;'><%= get_date_count("create", Date.today, Project.all) %></td>
 <td style='text-align: right'><%= get_month_count("create", Date.today.month, Project.all) %></td>
 <td style='text-align: right'><%= get_month_count("create", Date.today.month-1, Project.all) %></td>
 <td style='text-align: right'><%=Project.all.count %></td>
 </tr>
 
-<% commands = [Validate, Upload, FindTracks, Load, Release, Publish] %>
+<% commands = [Validate, Upload, FindTracks, Load, Release, Publish, Delete] %>
 <% commands.each do |command| 
    command_set = Command.all.find_all{|c| c.is_a?(command)}
 %>
@@ -79,7 +81,7 @@ admin pages %>
 <td style='text-align: right'><%= get_date_count("update", Date.today-3, command_set) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-2, command_set) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-1, command_set) %></td>
-<td style='text-align: right'><%= get_date_count("update", Date.today, command_set) %></td>
+<td style='text-align: right; background-color: <%=today_color%>;'><%= get_date_count("update", Date.today, command_set) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month, command_set) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month-1, command_set) %></td>
 <td style='text-align: right'><%=command_set.count %></td>
@@ -91,7 +93,7 @@ admin pages %>
 <td style='text-align: right'><%= get_date_count("update", Date.today-3, command_set) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-2, command_set) %></td>
 <td style='text-align: right'><%= get_date_count("update", Date.today-1, command_set) %></td>
-<td style='text-align: right'><%= get_date_count("update", Date.today, command_set) %></td>
+<td style='text-align: right; background-color: <%=today_color%>;'><%= get_date_count("update", Date.today, command_set) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month, command_set) %></td>
 <td style='text-align: right'><%= get_month_count("update", Date.today.month-1, command_set) %></td>
 <td style='text-align: right'><%=command_set.count %></td>
