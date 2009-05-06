@@ -144,24 +144,20 @@ class PublicController < ApplicationController
 
     all_track_defs = Array.new
     released_configs = TrackStanza.find_all_by_project_id_and_released(params[:id], true)
-    unless current_user == :false then
-      all_track_defs = TrackStanza.find_all_by_user_id_and_project_id(current_user.id, params[:id])
+    unless current_user == :false || released_configs.size > 0 then
+      released_configs = TrackStanza.find_all_by_user_id_and_project_id(current_user.id, params[:id])
+      @unreleased_config = true
     end
-    released_configs.each { |td|
-      all_track_defs.delete_if { |atd| atd.project_id == td.project_id }
-      all_track_defs.push td
-    }
-
-    track_defs = Hash.new
-    all_track_defs.each { |td| track_defs.merge! td.stanza }
-
     @citations = Hash.new
-    track_defs.each { |stanzaname, definition|
-      tracknum = definition["feature"].match(/.*:(\d+)(_details)?$/)[1].to_i
-      citation = definition["citation"]
-      @citations[citation] = Array.new unless @citations[citation]
-      @citations[citation].push [ stanzaname, tracknum ]
-    }
+    if released_configs.size > 0 then
+      track_defs = released_configs.first.stanza
+      track_defs.each { |stanzaname, definition|
+        tracknum = definition["feature"].match(/.*:(\d+)(_details)?$/)[1].to_i
+        citation = definition["citation"]
+        @citations[citation] = Array.new unless @citations[citation]
+        @citations[citation].push [ stanzaname, tracknum ]
+      }
+    end
   end
 
   def download_tarball

@@ -1,3 +1,6 @@
+<% if @unreleased_config then %>
+  <span style="font-color:red; font-weight: bold">No citation for this project has been approved, so you are seeing either a citation that you have configured or the default one.</span>
+<% end %>
 <% @citations.each do |citation, tracks| %>
   For the track<%= "s" if tracks.size > 1 %>:<br/>
   <div style="margin-left: 15px">
