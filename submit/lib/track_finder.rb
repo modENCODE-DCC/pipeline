@@ -918,18 +918,18 @@ class TrackFinder
                   chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                   analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                   organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-                  begin
-                    TrackTag.new(
-                      :experiment_id => experiment_id,
-                      :name => 'Feature',
-                      :project_id => project_id,
-                      :track => tracknum,
-                      :value => current_feature_hash['name'],
-                      :cvterm => current_feature_hash['type'],
-                      :history_depth => 0
-                    ).save
-                  rescue
-                  end
+#                  begin
+#                    TrackTag.new(
+#                      :experiment_id => experiment_id,
+#                      :name => 'Feature',
+#                      :project_id => project_id,
+#                      :track => tracknum,
+#                      :value => current_feature_hash['name'],
+#                      :cvterm => current_feature_hash['type'],
+#                      :history_depth => 0
+#                    ).save
+#                  rescue
+#                  end
                 end
 
                 # Reinitialize with the new row
@@ -984,18 +984,18 @@ class TrackFinder
                 chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                 analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                 organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-                begin
-                  TrackTag.new(
-                    :experiment_id => experiment_id,
-                    :name => 'Feature',
-                    :project_id => project_id,
-                    :track => tracknum,
-                    :value => current_feature_hash['name'],
-                    :cvterm => current_feature_hash['type'],
-                    :history_depth => 0
-                  ).save
-                rescue
-                end
+#                begin
+#                  TrackTag.new(
+#                    :experiment_id => experiment_id,
+#                    :name => 'Feature',
+#                    :project_id => project_id,
+#                    :track => tracknum,
+#                    :value => current_feature_hash['name'],
+#                    :cvterm => current_feature_hash['type'],
+#                    :history_depth => 0
+#                  ).save
+#                rescue
+#                end
               end
             end
           }
@@ -1037,18 +1037,18 @@ class TrackFinder
                     chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                     analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                     organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-                    begin
-                      TrackTag.new(
-                        :experiment_id => experiment_id,
-                        :name => 'Feature',
-                        :project_id => project_id,
-                        :track => tracknum,
-                        :value => current_feature_hash['name'],
-                        :cvterm => current_feature_hash['type'],
-                        :history_depth => 0
-                      ).save
-                    rescue
-                    end
+#                    begin
+#                      TrackTag.new(
+#                        :experiment_id => experiment_id,
+#                        :name => 'Feature',
+#                        :project_id => project_id,
+#                        :track => tracknum,
+#                        :value => current_feature_hash['name'],
+#                        :cvterm => current_feature_hash['type'],
+#                        :history_depth => 0
+#                      ).save
+#                    rescue
+#                    end
                   end
 
                   # Reinitialize with the new row
@@ -1399,6 +1399,12 @@ class TrackFinder
     cmd_puts "Done."
   end
 
+  @debug = false
+  def debug=(d)
+    @debug = d
+  end
+
+
   # Track configuration
   def generate_gbrowse_conf(project_id)
     project = Project.find(project_id)
@@ -1432,6 +1438,7 @@ class TrackFinder
 
     default_organism = "Drosophila melanogaster"
     types.each do |type|
+      puts "Testing type #{type}" if @debug
 
       # Make sure this feature type is located to a chromosome
       sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
