@@ -6,6 +6,15 @@ class ApplicationController < ActionController::Base
 
   include AuthenticatedSystem
 
+  before_filter { |ctrl| 
+    if ctrl.request.subdomains.first != "submit" then
+      unless ctrl.request.remote_ip =~ /^131.243/ then
+        new_url = ctrl.request.url.sub("#{ctrl.request.subdomains.first}.lbl.gov", "submit.modencode.org")
+        ctrl.send(:redirect_to, new_url)
+      end
+    end
+  }
+
   def self.getErrorMessages
     if File.exists? "#{RAILS_ROOT}/config/error.yml" then
       return open("#{RAILS_ROOT}/config/error.yml") { |f| YAML.load(f.read) }
