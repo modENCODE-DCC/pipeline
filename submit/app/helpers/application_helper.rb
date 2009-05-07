@@ -83,7 +83,7 @@ module ApplicationHelper
 
     image_tag("http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}", :style => "align: #{options[:align]}", :alt => "#{options[:title]}")
   rescue
-    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+    "An error occurred: #{CGI::escape($ERROR_INFO.inspect)}"
 
   end
 
@@ -128,7 +128,7 @@ module ApplicationHelper
     image_tag("http://chart.apis.google.com/chart?#{opts.map{|k,v|"#{k}=#{v}"}.join('&')}")
   rescue
 
-    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+    "An error occurred: #{CGI::escape($ERROR_INFO.inspect)}"
   end
 
   def google_scatter_plot(d, options = {})
@@ -167,7 +167,7 @@ module ApplicationHelper
 
   rescue
 
-    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+    "An error occurred: #{CGI::escape($ERROR_INFO.inspect)}"
   end
 
   def google_scatter_plot_xy(d, options = {})
@@ -206,7 +206,7 @@ module ApplicationHelper
 
   rescue
 
-    "An error occured: #{CGI::escape($ERROR_INFO.inspect)}"
+    "An error occurred: #{CGI::escape($ERROR_INFO.inspect)}"
   end
 
   def google_pie_chart(data, options = {})
