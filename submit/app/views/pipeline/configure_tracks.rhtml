@@ -1,389 +1,326 @@
-<style type="text/css">
-  H2 { margin-bottom: 8px }
-  HR { margin-top: 4px; margin-bottom: 0px; width: 70%; text-align: left; margin: 0 auto 0 0; }
-</style>
-<%
-  gbrowse_source = "modencode_flybase"
-  default_chr = "3L"
-  default_fmin = 6066513
-  default_fmax = 6266513
-  if @organism == "Caenorhabditis elegans" then
-    gbrowse_source = "modencode_wormbase"
-    default_chr = "III"
-    default_fmin = 4200000
-    default_fmax = 4300000
-  end
-%>
-<script src="/gbrowse/js/prototype.js" type="text/javascript"></script>
-<script src="/gbrowse/js/scriptaculous.js" type="text/javascript"></script>
-<script src="/gbrowse/js/yahoo-dom-event.js" type="text/javascript"></script>
-<script src="/gbrowse/js/buttons.js" type="text/javascript"></script>
 
-<script src="/gbrowse/js/toggle.js" type="text/javascript"></script>
-<script src="/gbrowse/js/karyotype.js" type="text/javascript"></script>
-<script src="/gbrowse/js/controller.js" type="text/javascript"></script>
-<script src="/gbrowse/js/rubber.js" type="text/javascript"></script>
-<script src="/gbrowse/js/overviewSelect.js" type="text/javascript"></script>
-<script src="/gbrowse/js/detailSelect.js" type="text/javascript"></script>
-<script src="/gbrowse/js/regionSelect.js" type="text/javascript"></script>
-<script src="/gbrowse/js/track.js" type="text/javascript"></script>
-<script src="/gbrowse/js/balloon.js" type="text/javascript"></script>
+<% if session[:generating_track_stanza] == true then %>
+  Generating stanza in the background... Page will refresh.
+  <script language="javascript">setTimeout( "window.location.reload()", 10*1000 )</script>
+<% else %>
+  <% if session[:generating_track_stanza_error] && session[:generating_track_stanza_error].length > 0 then %>
+  <div style="color: red; font-weight: bold;  margin-bottom: 10px">Failed to generate track configuration: <%= session[:generating_track_stanza_error] %>.</div>
+  <% end %>
+  <style type="text/css">
+    H2 { margin-bottom: 8px }
+    HR { margin-top: 4px; margin-bottom: 0px; width: 70%; text-align: left; margin: 0 auto 0 0; }
+  </style>
+  <%
+    gbrowse_source = "modencode_flybase"
+    default_chr = "3L"
+    default_fmin = 6066513
+    default_fmax = 6266513
+    if @organism == "Caenorhabditis elegans" then
+      gbrowse_source = "modencode_wormbase"
+      default_chr = "III"
+      default_fmin = 4200000
+      default_fmax = 4300000
+    end
+  %>
+  <script src="/gbrowse/js/prototype.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/scriptaculous.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/yahoo-dom-event.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/buttons.js" type="text/javascript"></script>
 
-<script src="/gbrowse/js/balloon.config.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/toggle.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/karyotype.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/controller.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/rubber.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/overviewSelect.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/detailSelect.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/regionSelect.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/track.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/balloon.js" type="text/javascript"></script>
 
-<script type="text/javascript">
+  <script src="/gbrowse/js/balloon.config.js" type="text/javascript"></script>
 
-  var tracksToUpdate = new Array();
-  Controller.update_coordinates = function(trackname, action, chr, fmin, fmax, extraOnSuccess) {
+  <script type="text/javascript">
 
-    if (!extraOnSuccess) { extraOnSuccess = function() {}; }
-    //Grey out image
-    if (trackname == "left 0") {
-      // Ignore
-      return;
-    }
-    var gbtrack = Controller.gbtracks.get(trackname);
-    $(gbtrack.track_image_id).setOpacity(0.3);
-    
-    new Ajax.Request(this.url,{
-      method:     'post',
-      parameters: {navigate: action },
-      onSuccess: function(transport) {
-        var results                 = transport.responseJSON;
-        var track_keys              = results.track_keys;
-        Controller.segment_info     = results.segment_info;
+    var tracksToUpdate = new Array();
+    Controller.update_coordinates = function(trackname, action, chr, fmin, fmax, extraOnSuccess) {
 
-        this.last_update_key = create_time_key();
-        gbtrack.set_last_update_key(this.last_update_key)
-
-        Controller.rerender_track( trackname );
-
-      } // end onSuccess
+      if (!extraOnSuccess) { extraOnSuccess = function() {}; }
+      //Grey out image
+      if (trackname == "left 0") {
+        // Ignore
+        return;
+      }
+      var gbtrack = Controller.gbtracks.get(trackname);
+      $(gbtrack.track_image_id).setOpacity(0.3);
       
-    }); // end Ajax.Request
-  }; // end update_coordinates
-  Controller.old_get_remaining_tracks = Controller.get_remaining_tracks;
-  Controller.get_remaining_tracks = function (track_keys, timeout, expiration, time_key) {
-    Controller.old_get_remaining_tracks(track_keys, timeout, expiration, time_key);
-    updateNextTrack();
-  }
-  // Allow number keys only (cribbed and adapted from T-mobile's website)
-  function restrictNumeric(keyEvent) {
-    var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
-    if (charCode == 13 || charCode == 3) {
-      Event.stop(keyEvent);
-      keyEvent.element().blur();
+      new Ajax.Request(this.url,{
+        method:     'post',
+        parameters: {navigate: action },
+        onSuccess: function(transport) {
+          var results                 = transport.responseJSON;
+          var track_keys              = results.track_keys;
+          Controller.segment_info     = results.segment_info;
+
+          this.last_update_key = create_time_key();
+          gbtrack.set_last_update_key(this.last_update_key)
+
+          Controller.rerender_track( trackname );
+
+        } // end onSuccess
+        
+      }); // end Ajax.Request
+    }; // end update_coordinates
+    Controller.old_get_remaining_tracks = Controller.get_remaining_tracks;
+    Controller.get_remaining_tracks = function (track_keys, timeout, expiration, time_key) {
+      Controller.old_get_remaining_tracks(track_keys, timeout, expiration, time_key);
+      updateNextTrack();
     }
-    if (charCode > 31 && (charCode < 48 || charCode > 57)) {
-      if (charCode == 189 || charCode == 45) {
-        return true;
-      } else if ((charCode >= 37 && charCode <= 40) && keyEvent.keyCode != 0) {
-        // Arrow keys
+    // Allow number keys only (cribbed and adapted from T-mobile's website)
+    function restrictNumeric(keyEvent) {
+      var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
+      if (charCode == 13 || charCode == 3) {
+        Event.stop(keyEvent);
+        keyEvent.element().blur();
+      }
+      if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+        if (charCode == 189 || charCode == 45) {
+          return true;
+        } else if ((charCode >= 37 && charCode <= 40) && keyEvent.keyCode != 0) {
+          // Arrow keys
+          return true;
+        } else {
+          Event.stop(keyEvent);
+          return false;
+        }
+      } else if (charCode == 8 || charCode == 46) {
         return true;
       } else {
-        Event.stop(keyEvent);
-        return false;
-      }
-    } else if (charCode == 8 || charCode == 46) {
-      return true;
-    } else {
-      return true;
-    }
-  }
-  function restrictCitationText(keyEvent) {
-    return true;
-    /*
-    var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
-    if (charCode == 46 || charCode == 59 || charCode == 44 ||
-        charCode == 40 || charCode == 41 || charCode == 91 ||
-        charCode == 93) {
-          return true;
-    }
-    return restrictText(keyEvent);
-    */
-  }
-  function restrictText(keyEvent) {
-    var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
-    if (charCode == 13 || charCode == 3) {
-      Event.stop(keyEvent);
-      keyEvent.element().blur();
-    }
-    if (charCode >= 97 && charCode <= 122) {
-      // a-z
-      return true;
-    }
-    if (charCode >= 65 && charCode <= 90) {
-      // A-Z
-      return true;
-    }
-    if (charCode == 58) {
-      // :
-      return true;
-    }
-    if (charCode > 31 && (charCode < 48 || charCode > 57)) {
-      // 0-9, _, -, ' '
-      if (charCode == 32 || charCode == 95 || charCode == 189 || charCode == 45) {
         return true;
-      } else if ((charCode >= 37 && charCode <= 40) && keyEvent.keyCode != 0) {
-        // Arrow keys
+      }
+    }
+    function restrictCitationText(keyEvent) {
+      return true;
+      /*
+      var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
+      if (charCode == 46 || charCode == 59 || charCode == 44 ||
+          charCode == 40 || charCode == 41 || charCode == 91 ||
+          charCode == 93) {
+            return true;
+      }
+      return restrictText(keyEvent);
+      */
+    }
+    function restrictText(keyEvent) {
+      var charCode = keyEvent.which ? keyEvent.which : keyEvent.keyCode;
+      if (charCode == 13 || charCode == 3) {
+        Event.stop(keyEvent);
+        keyEvent.element().blur();
+      }
+      if (charCode >= 97 && charCode <= 122) {
+        // a-z
+        return true;
+      }
+      if (charCode >= 65 && charCode <= 90) {
+        // A-Z
+        return true;
+      }
+      if (charCode == 58) {
+        // :
+        return true;
+      }
+      if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+        // 0-9, _, -, ' '
+        if (charCode == 32 || charCode == 95 || charCode == 189 || charCode == 45) {
+          return true;
+        } else if ((charCode >= 37 && charCode <= 40) && keyEvent.keyCode != 0) {
+          // Arrow keys
+          return true;
+        } else {
+          return restrictNumeric(keyEvent);
+        }
+      } else if (charCode == 8 || charCode == 46) {
         return true;
       } else {
         return restrictNumeric(keyEvent);
       }
-    } else if (charCode == 8 || charCode == 46) {
-      return true;
-    } else {
-      return restrictNumeric(keyEvent);
     }
-  }
-  function hideCitationTextField(evt) {
-    var elem = evt.element();
-    var value = "";
-    if (elem.options) {
-      value = elem.options[elem.selectedIndex].innerHTML;
-    } else {
-      value = elem.getValue();
-    }
-    elem.previous().previous().firstDescendant().innerHTML = value;
-    elem.previous().hide();
-    elem.hide();
-    elem.previous().previous().firstDescendant().show();
-
-  }
-  function hideTextField(evt) {
-    var value = evt.element().getValue();
-    evt.element().value = value.gsub(/[^a-zA-Z0-9_ :-]/, '');
-    hideField(evt);
-  }
-  function hideNumberField(evt) {
-    var value = evt.element().getValue();
-    evt.element().value = value.gsub(/-/, 'n').sub(/^n/, '-').gsub(/[^0-9-]/, '');
-    hideField(evt);
-  }
-  function showTextAreaForm(label, evt) {
-    var elem = $(label).firstDescendant();
-    elem.hide();
-    var formfield = label.next().next();
-    label.next().show();
-    formfield.show();
-    formfield.focus();
-    formfield.select();
-    Event.extend(evt).stop();
-  }
-  function showForm(label, evt) {
-    var elem = $(label).firstDescendant();
-    elem.hide();
-    var formfield = label.next();
-    formfield.show();
-    formfield.focus();
-    formfield.select();
-    Event.extend(evt).stop();
-  }
-  function hideField(evt) {
-    var elem = evt.element();
-    var value = "";
-    if (elem.options) {
-      value = elem.options[elem.selectedIndex].innerHTML;
-    } else {
-      value = elem.getValue();
-    }
-    elem.previous().firstDescendant().innerHTML = value;
-    elem.hide();
-    elem.previous().firstDescendant().show();
-  }
-
-  function updateNextTrack() {
-    if (tracksToUpdate.length > 0) {
-      var track_name = tracksToUpdate.shift();
-      Controller.update_coordinates(
-        track_name,
-        'name:' + $('chr_'+track_name).getValue() + ':' + $('fmin_'+track_name).getValue() + '..' + $('fmax_'+track_name).getValue(),
-        $('chr_'+track_name).getValue(),
-        $('fmin_'+track_name).getValue(),
-        $('fmax_'+track_name).getValue()
-      );
-    }
-  }
-
-  function initController(evt) {
-    // Initialize GBrowse session by fetching full page
-    Controller.set_display_option('cache',0);
-    new Ajax.Request(Controller.url + "?name=<%= default_chr %>%3A<%= default_fmin %>..<%= default_fmax %>",{
-      method:     'get',
-      onSuccess:  function(transport) { 
-        Controller.set_last_update_keys(Controller.gbtracks.keys());
-        tracksToUpdate = Controller.gbtracks.keys();
-        updateNextTrack(Controller.gbtracks.keys());
-      },
-    });
-  }
-
-  // Set up GBrowse controller and tooltip
-  Controller.set_url('/gbrowse/cgi-bin/gbrowse/<%= gbrowse_source %>/');
-
-  var GBubble = new Balloon;
-  BalloonConfig(GBubble,'GBubble');
-  GBubble.images = "/gbrowse/images/balloons/GBubble";
-</script>
-<h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %> - <%= @project.name %><hr/></h2>
-<% if @released then %>
-  <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
-<% end %>
-<div style="float:right">
-  <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %>
-  <br/>
-  <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
-  <% if current_user.is_a? Moderator then %>
-    <script type="text/javascript">
-      function copy_stanzas_from() {
-        var old_project = prompt("What project ID should I copy from?", "");
-        if (isNaN(old_project)) {
-          alert(old_project + " isn't a number?!");
-          return false;
-        }
-        var copy_options = new Hash();
-        copy_options.set("old_project_id", old_project);
-        copy_options.set("do", "copy");
-        copy_options.set("reload", "true");
-        new Ajax.Request("<%= url_for(:action => :async_update_track_location, :id => @project.id) %>",
-            {asynchronous:true, evalScripts:true, parameters: copy_options }
-          );
+    function hideCitationTextField(evt) {
+      var elem = evt.element();
+      var value = "";
+      if (elem.options) {
+        value = elem.options[elem.selectedIndex].innerHTML;
+      } else {
+        value = elem.getValue();
       }
-    </script>
-    <%= button_to_function "Copy Stanzas From...", "copy_stanzas_from()" %>
-  <% end %>
-</div>
-<%= form_tag :action => :configure_tracks, :id => @project.id %>
-  <span class="flipfield" style="clear:both">
-    <span onmousedown="showForm(this, event)">
-      Organism = 
-      <span style="font-weight: bold" >
-        <%= @organism %>
-      </span>
-    </span>
-    <select style="display:none" name="organism" id="organism">
-      <%= options_for_select [ 'Drosophila melanogaster', 'Caenorhabditis elegans'], @organism %>
-    </select>
-    <script type="text/javascript">
-      Event.observe($('organism'), 'blur', hideField);
-    </script>
-  </span><br/>
-  <%= submit_tag "Change Organism" %>
-</form>
-<br/><hr/><br/>
+      elem.previous().previous().firstDescendant().innerHTML = value;
+      elem.previous().hide();
+      elem.hide();
+      elem.previous().previous().firstDescendant().show();
 
+    }
+    function hideTextField(evt) {
+      var value = evt.element().getValue();
+      evt.element().value = value.gsub(/[^a-zA-Z0-9_ :-]/, '');
+      hideField(evt);
+    }
+    function hideNumberField(evt) {
+      var value = evt.element().getValue();
+      evt.element().value = value.gsub(/-/, 'n').sub(/^n/, '-').gsub(/[^0-9-]/, '');
+      hideField(evt);
+    }
+    function showTextAreaForm(label, evt) {
+      var elem = $(label).firstDescendant();
+      elem.hide();
+      var formfield = label.next().next();
+      label.next().show();
+      formfield.show();
+      formfield.focus();
+      formfield.select();
+      Event.extend(evt).stop();
+    }
+    function showForm(label, evt) {
+      var elem = $(label).firstDescendant();
+      elem.hide();
+      var formfield = label.next();
+      formfield.show();
+      formfield.focus();
+      formfield.select();
+      Event.extend(evt).stop();
+    }
+    function hideField(evt) {
+      var elem = evt.element();
+      var value = "";
+      if (elem.options) {
+        value = elem.options[elem.selectedIndex].innerHTML;
+      } else {
+        value = elem.getValue();
+      }
+      elem.previous().firstDescendant().innerHTML = value;
+      elem.hide();
+      elem.previous().firstDescendant().show();
+    }
 
-<% @track_defs.sort.each do |stanzaname, definition| %>
+    function updateNextTrack() {
+      if (tracksToUpdate.length > 0) {
+        var track_name = tracksToUpdate.shift();
+        Controller.update_coordinates(
+          track_name,
+          'name:' + $('chr_'+track_name).getValue() + ':' + $('fmin_'+track_name).getValue() + '..' + $('fmax_'+track_name).getValue(),
+          $('chr_'+track_name).getValue(),
+          $('fmin_'+track_name).getValue(),
+          $('fmax_'+track_name).getValue()
+        );
+      }
+    }
+
+    function initController(evt) {
+      // Initialize GBrowse session by fetching full page
+      Controller.set_display_option('cache',0);
+      new Ajax.Request(Controller.url + "?name=<%= default_chr %>%3A<%= default_fmin %>..<%= default_fmax %>",{
+        method:     'get',
+        onSuccess:  function(transport) { 
+          Controller.set_last_update_keys(Controller.gbtracks.keys());
+          tracksToUpdate = Controller.gbtracks.keys();
+          updateNextTrack(Controller.gbtracks.keys());
+        },
+      });
+    }
+
+    // Set up GBrowse controller and tooltip
+    Controller.set_url('/gbrowse/cgi-bin/gbrowse/<%= gbrowse_source %>/');
+
+    var GBubble = new Balloon;
+    BalloonConfig(GBubble,'GBubble');
+    GBubble.images = "/gbrowse/images/balloons/GBubble";
+  </script>
+  <h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %> - <%= @project.name %><hr/></h2>
   <% if @released then %>
-    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :html => { :id => "form_#{stanzaname}", :action => "#", :onsubmit => "if (!confirm('This configuration has been approved; are you sure you want to reconfigure it?')) { return false; } else { $(this).getInputs('hidden', 'copy_accepted').first().value = (confirm('Revert to your old (pre-acceptance) configuration? (Otherwise will overwrite with current accepted configuration.)') ? 'false' : 'true'); }" } %>
-  <% else %>
-    <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :complete => "show_response()", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+    <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
   <% end %>
-    <input type="hidden" name="copy_accepted" value="false"/>
-    <input type="hidden" name="stanzaname" value="<%=stanzaname%>"/>
-    <b>[<%= stanzaname %>]</b><br/>
-    <% 
-      chr = definition[:chr] || default_chr
-      fmax = definition[:fmax] || default_fmax
-      fmin = definition[:fmin] || default_fmin
-      semantic_configs = definition[:semantic_zoom]
-    %>
-    <% definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
-      <% next if option.is_a? Symbol %>
-
-      <% if okay_values = @stanza_options[option] then %>
-        <% 
-          if definition[:unique_analyses] && option == "bgcolor" then
-            n = 0
-            color_mappings = Hash[ definition[:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
-            default_color = "lightgrey"
-            sub =  "sub { my @as = shift->each_tag_value(\"analysis\"); return '#{default_color}' unless scalar(@as);"
-            color_mappings.each_pair { |analysis, color|
-              sub += "  return '#{color}' if '#{analysis}' eq $as[0];"
-            }
-            sub += "  return '#{default_color}'; }"
-            okay_values[sub] = "[Color By Analysis]"
-          end 
-        %>
-        <span class="flipfield">
-          <span onmousedown="show<%= "TextArea" if okay_values == :citation_text %>Form(this, event)">
-            <%= option %> = 
-            <% if okay_values == :citation_text %>
-              <div style="width: 700px; margin-left: 10px; border: thin dashed black; padding: 5px;">
-                <%= value %>
-              </div>
-            <% else %>
-              <span style="font-weight: bold" >
-                <% if okay_values.is_a? Hash then %>
-                  <%= okay_values[value] %>
-                <% else %>
-                  <%= value %>
-                <% end %>
-              </span>
-            <% end %>
-          </span>
-          <% if okay_values.is_a? Array then %>
-            <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
-              <%= options_for_select okay_values, value %>
-            </select>
-            <script type="text/javascript">
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
-            </script>
-          <% elsif okay_values.is_a? Hash then %>
-            <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
-              <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
-            </select>
-            <script type="text/javascript">
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
-            </script>
-          <% elsif okay_values == :text %>
-            <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
-            <script type="text/javascript">
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictText);
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
-            </script>
-          <% elsif okay_values == :citation_text %>
-            <br style="display:none"/><textarea style="display:none; width: 700px; height: 400px" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>"><%= value %></textarea>
-            <script type="text/javascript">
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictCitationText);
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideCitationTextField);
-            </script>
-          <% elsif okay_values == :integer %>
-            <input type="text" style="display:none" name="<%=option%>" value="<%=value%>" id="<%="#{stanzaname}_#{option}"%>"/>
-            <script type="text/javascript">
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictNumeric);
-              Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideNumberField);
-            </script>
-          <% end %>
-        </span>
-      <% else %>
-        <%= option %> = <%= value %>
-      <% end %>
-      <br/>
-
+  <div style="float:right">
+    <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %>
+    <br/>
+    <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
+    <% if current_user.is_a? Moderator then %>
+      <script type="text/javascript">
+        function copy_stanzas_from() {
+          var old_project = prompt("What project ID should I copy from?", "");
+          if (isNaN(old_project)) {
+            alert(old_project + " isn't a number?!");
+            return false;
+          }
+          var copy_options = new Hash();
+          copy_options.set("old_project_id", old_project);
+          copy_options.set("do", "copy");
+          copy_options.set("reload", "true");
+          new Ajax.Request("<%= url_for(:action => :async_update_track_location, :id => @project.id) %>",
+              {asynchronous:true, evalScripts:true, parameters: copy_options }
+            );
+        }
+      </script>
+      <%= button_to_function "Copy Stanzas From...", "copy_stanzas_from()" %>
     <% end %>
-    <% if semantic_configs.size > 0 then %><br/><% end %>
-      <% semantic_configs.each do |zoom_level, zoom_definition| %>
-        <span class="flipfield">
-          <span onmousedown="showForm(this, event)" style="font-weight:bold">
-            [<%= stanzaname %>:
-            <span>
-              <%= zoom_level %>
-            </span>
-          </span>
-          <input size="6" type="text" style="display:none" name="zoom:<%=zoom_level%>" value="<%=zoom_level%>" id="<%="#{stanzaname}:#{zoom_level}"%>"/>
-          <b>]</b>
-          <script type="text/javascript">
-            Event.observe($('<%="#{stanzaname}:#{zoom_level}"%>'), 'keypress', restrictNumeric);
-            Event.observe($('<%="#{stanzaname}:#{zoom_level}"%>'), 'blur', hideNumberField);
-          </script>
+  </div>
+  <%= form_tag :action => :configure_tracks, :id => @project.id %>
+    <span class="flipfield" style="clear:both">
+      <span onmousedown="showForm(this, event)">
+        Organism = 
+        <span style="font-weight: bold" >
+          <%= @organism %>
         </span>
-        <br/>
-        <% zoom_definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
-          <% if okay_values = @stanza_options[option] then %>
-            <span class="flipfield">
-              <span onmousedown="showForm(this, event)">
-                <%= option %> = 
+      </span>
+      <select style="display:none" name="organism" id="organism">
+        <%= options_for_select [ 'Drosophila melanogaster', 'Caenorhabditis elegans'], @organism %>
+      </select>
+      <script type="text/javascript">
+        Event.observe($('organism'), 'blur', hideField);
+      </script>
+    </span><br/>
+    <%= submit_tag "Change Organism" %>
+  </form>
+  <br/><hr/><br/>
+
+
+  <% @track_defs.sort.each do |stanzaname, definition| %>
+    <% if @released then %>
+      <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id, :reload => true }, :html => { :id => "form_#{stanzaname}", :action => "#", :onsubmit => "if (!confirm('This configuration has been approved; are you sure you want to reconfigure it?')) { return false; } else { $(this).getInputs('hidden', 'copy_accepted').first().value = (confirm('Revert to your old (pre-acceptance) configuration? (Otherwise will overwrite with current accepted configuration.)') ? 'false' : 'true'); }" } %>
+    <% else %>
+      <%= form_remote_tag :url => { :action => :async_update_track_location, :id => @project.id }, :complete => "show_response()", :html => { :id => "form_#{stanzaname}", :action => "#" } %>
+    <% end %>
+      <input type="hidden" name="copy_accepted" value="false"/>
+      <input type="hidden" name="stanzaname" value="<%=stanzaname%>"/>
+      <b>[<%= stanzaname %>]</b><br/>
+      <% 
+        chr = definition[:chr] || default_chr
+        fmax = definition[:fmax] || default_fmax
+        fmin = definition[:fmin] || default_fmin
+        semantic_configs = definition[:semantic_zoom]
+      %>
+      <% definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
+        <% next if option.is_a? Symbol %>
+
+        <% if okay_values = @stanza_options[option] then %>
+          <% 
+            if definition[:unique_analyses] && option == "bgcolor" then
+              n = 0
+              color_mappings = Hash[ definition[:unique_analyses].map { |a| v = [a, TrackFinder::GD_COLORS[n%TrackFinder::GD_COLORS.size]]; n += 1; v} ]
+              default_color = "lightgrey"
+              sub =  "sub { my @as = shift->each_tag_value(\"analysis\"); return '#{default_color}' unless scalar(@as);"
+              color_mappings.each_pair { |analysis, color|
+                sub += "  return '#{color}' if '#{analysis}' eq $as[0];"
+              }
+              sub += "  return '#{default_color}'; }"
+              okay_values[sub] = "[Color By Analysis]"
+            end 
+          %>
+          <span class="flipfield">
+            <span onmousedown="show<%= "TextArea" if okay_values == :citation_text %>Form(this, event)">
+              <%= option %> = 
+              <% if okay_values == :citation_text %>
+                <div style="width: 700px; margin-left: 10px; border: thin dashed black; padding: 5px;">
+                  <%= value %>
+                </div>
+              <% else %>
                 <span style="font-weight: bold" >
                   <% if okay_values.is_a? Hash then %>
                     <%= okay_values[value] %>
@@ -391,73 +328,145 @@
                     <%= value %>
                   <% end %>
                 </span>
-              </span>
-              <% if okay_values.is_a? Array then %>
-                <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
-                  <%= options_for_select okay_values, value %>
-                </select>
-                <script type="text/javascript">
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
-                </script>
-              <% elsif okay_values.is_a? Hash then %>
-                <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
-                  <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
-                </select>
-                <script type="text/javascript">
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
-                </script>
-              <% elsif okay_values == :text %>
-                <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
-                <script type="text/javascript">
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictText);
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideTextField);
-                </script>
-              <% elsif okay_values == :integer %>
-                <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
-                <script type="text/javascript">
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictNumeric);
-                  Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideNumberField);
-                </script>
               <% end %>
             </span>
-          <% else %>
-            <%= option %> = <%= value %>
-          <% end %>
-          <br/>
+            <% if okay_values.is_a? Array then %>
+              <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
+                <%= options_for_select okay_values, value %>
+              </select>
+              <script type="text/javascript">
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
+              </script>
+            <% elsif okay_values.is_a? Hash then %>
+              <select style="display:none" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>">
+                <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
+              </select>
+              <script type="text/javascript">
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideField);
+              </script>
+            <% elsif okay_values == :text %>
+              <input type="text" style="display:none" name="<%=option%>" value="<%=h value%>" id="<%="#{stanzaname}_#{option}"%>"/>
+              <script type="text/javascript">
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictText);
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideTextField);
+              </script>
+            <% elsif okay_values == :citation_text %>
+              <br style="display:none"/><textarea style="display:none; width: 700px; height: 400px" name="<%=option%>" id="<%="#{stanzaname}_#{option}"%>"><%= value %></textarea>
+              <script type="text/javascript">
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictCitationText);
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideCitationTextField);
+              </script>
+            <% elsif okay_values == :integer %>
+              <input type="text" style="display:none" name="<%=option%>" value="<%=value%>" id="<%="#{stanzaname}_#{option}"%>"/>
+              <script type="text/javascript">
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'keypress', restrictNumeric);
+                Event.observe($('<%="#{stanzaname}_#{option}"%>'), 'blur', hideNumberField);
+              </script>
+            <% end %>
+          </span>
+        <% else %>
+          <%= option %> = <%= value %>
         <% end %>
+        <br/>
+
       <% end %>
+      <% if semantic_configs.size > 0 then %><br/><% end %>
+        <% semantic_configs.each do |zoom_level, zoom_definition| %>
+          <span class="flipfield">
+            <span onmousedown="showForm(this, event)" style="font-weight:bold">
+              [<%= stanzaname %>:
+              <span>
+                <%= zoom_level %>
+              </span>
+            </span>
+            <input size="6" type="text" style="display:none" name="zoom:<%=zoom_level%>" value="<%=zoom_level%>" id="<%="#{stanzaname}:#{zoom_level}"%>"/>
+            <b>]</b>
+            <script type="text/javascript">
+              Event.observe($('<%="#{stanzaname}:#{zoom_level}"%>'), 'keypress', restrictNumeric);
+              Event.observe($('<%="#{stanzaname}:#{zoom_level}"%>'), 'blur', hideNumberField);
+            </script>
+          </span>
+          <br/>
+          <% zoom_definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
+            <% if okay_values = @stanza_options[option] then %>
+              <span class="flipfield">
+                <span onmousedown="showForm(this, event)">
+                  <%= option %> = 
+                  <span style="font-weight: bold" >
+                    <% if okay_values.is_a? Hash then %>
+                      <%= okay_values[value] %>
+                    <% else %>
+                      <%= value %>
+                    <% end %>
+                  </span>
+                </span>
+                <% if okay_values.is_a? Array then %>
+                  <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
+                    <%= options_for_select okay_values, value %>
+                  </select>
+                  <script type="text/javascript">
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
+                  </script>
+                <% elsif okay_values.is_a? Hash then %>
+                  <select style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>">
+                    <%= options_for_select okay_values.invert.sort { |a, b| a[0] <=> b[0] }, value %>
+                  </select>
+                  <script type="text/javascript">
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideField);
+                  </script>
+                <% elsif okay_values == :text %>
+                  <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
+                  <script type="text/javascript">
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictText);
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideTextField);
+                  </script>
+                <% elsif okay_values == :integer %>
+                  <input type="text" style="display:none" name="zoom:<%=zoom_level%>_<%=option%>" value="<%=value%>" id="<%="#{stanzaname}:#{zoom_level}_#{option}"%>"/>
+                  <script type="text/javascript">
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'keypress', restrictNumeric);
+                    Event.observe($('<%="#{stanzaname}:#{zoom_level}_#{option}"%>'), 'blur', hideNumberField);
+                  </script>
+                <% end %>
+              </span>
+            <% else %>
+              <%= option %> = <%= value %>
+            <% end %>
+            <br/>
+          <% end %>
+        <% end %>
 
-    <div id="trackcontainer_<%= stanzaname %>">
-      <input 
-        type="text" value="<%=chr%>" name="chr" id="chr_<%= stanzaname %>" size="5"/>:<input 
-        type="text" value="<%=fmin%>" name="fmin" id="fmin_<%= stanzaname %>" size="5"/>..<input 
-        type="text" value="<%=fmax%>" name="fmax" id="fmax_<%= stanzaname %>" size="5"/>
+      <div id="trackcontainer_<%= stanzaname %>">
+        <input 
+          type="text" value="<%=chr%>" name="chr" id="chr_<%= stanzaname %>" size="5"/>:<input 
+          type="text" value="<%=fmin%>" name="fmin" id="fmin_<%= stanzaname %>" size="5"/>..<input 
+          type="text" value="<%=fmax%>" name="fmax" id="fmax_<%= stanzaname %>" size="5"/>
 
-      <script type="text/javascript">
-        Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictText);
-        Event.observe($('fmin_<%=stanzaname%>'), 'keypress', restrictNumeric);
-        Event.observe($('fmax_<%=stanzaname%>'), 'keypress', restrictNumeric);
-      </script>
-      <%= submit_tag "Update" %>
-    </div>
-  </form>
-  <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
-  <%= button_to "Remove semantic zoom configuration(s) from #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_semantic_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." if semantic_configs.size > 0 %>
-  <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
-  <script type="text/javascript">
-    $('form_<%=stanzaname%>').reset();
-    var gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %> = new GBrowseTrack('<%= stanzaname %>', 'notype', 'detail');
-    Controller.gbtracks.set('<%= stanzaname %>', gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %>);
+        <script type="text/javascript">
+          Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictText);
+          Event.observe($('fmin_<%=stanzaname%>'), 'keypress', restrictNumeric);
+          Event.observe($('fmax_<%=stanzaname%>'), 'keypress', restrictNumeric);
+        </script>
+        <%= submit_tag "Update" %>
+      </div>
+    </form>
+    <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
+    <%= button_to "Remove semantic zoom configuration(s) from #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_semantic_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." if semantic_configs.size > 0 %>
+    <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
+    <script type="text/javascript">
+      $('form_<%=stanzaname%>').reset();
+      var gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %> = new GBrowseTrack('<%= stanzaname %>', 'notype', 'detail');
+      Controller.gbtracks.set('<%= stanzaname %>', gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %>);
+    </script>
+
+
+    <hr/>
+    <br/>
+  <% end %>
+
+  <div>
+    <%= button_to "Accept Configuration", { :action => :configure_tracks, :id => @project.id, :accept_config => true }, :disabled => @released %>
+  </div>
+  <script type="text/javascript" language="javascript">
+    initController();
   </script>
-
-
-  <hr/>
-  <br/>
 <% end %>
-
-<div>
-  <%= button_to "Accept Configuration", { :action => :configure_tracks, :id => @project.id, :accept_config => true }, :disabled => @released %>
-</div>
-<script type="text/javascript" language="javascript">
-  initController();
-</script>

@@ -1,4 +1,5 @@
 require 'find'
+include Spawn
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
@@ -1006,16 +1007,36 @@ class PipelineController < ApplicationController
       @released = false
     end
     if ts.nil? || params[:reset_definitions] then
-      @track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
-      # Delete old one
-      TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id)
-      ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(@track_defs)
-      ts.save
-      # Unaccept config(s) for this project if any have been accepted
-      TrackStanza.find_all_by_project_id(@project.id).each { |ts|
-        ts.released = false
-        ts.save
-      }
+      unless (session[:generating_track_stanza] == true) then
+        session[:generating_track_stanza] = true
+        session[:generating_track_stanza_error] = nil
+        spawn do
+          require 'timeout'
+          status = nil
+          track_defs = nil
+          begin
+          status = Timeout::timeout(600) {
+            logger.info "Starting GBrowse config generation"
+            track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
+            logger.info "Done with GBrowse config generation"
+          }
+          rescue
+            logger.error "Failed to generate config (timeout?)"
+            session[:generating_track_stanza_error] = "Unable to generate config (timeout?)"
+          end
+          # Delete old one
+          TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id)
+          ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(track_defs)
+          ts.save
+          # Unaccept config(s) for this project if any have been accepted
+          TrackStanza.find_all_by_project_id(@project.id).each { |ts|
+            ts.released = false
+            ts.save
+          }
+          session[:generating_track_stanza] = false
+          session.close
+        end
+      end
       redirect_to :action => :configure_tracks, :id => @project
       return
     else
