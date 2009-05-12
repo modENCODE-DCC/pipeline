@@ -1,6 +1,8 @@
-
-<% if session[:generating_track_stanza] == true then %>
+<% if session[:generating_track_stanza] == @project.id then %>
   Generating stanza in the background... Page will refresh.
+  <script language="javascript">setTimeout( "window.location.reload()", 10*1000 )</script>
+<% elsif session[:generating_track_stanza] && session[:generating_track_stanza] != @project.id then %>
+  Generating stanza for another project (<%= @project.id %>), waiting for it to finish first.
   <script language="javascript">setTimeout( "window.location.reload()", 10*1000 )</script>
 <% else %>
   <% if session[:generating_track_stanza_error] && session[:generating_track_stanza_error].length > 0 then %>

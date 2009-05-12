@@ -1007,8 +1007,9 @@ class PipelineController < ApplicationController
       @released = false
     end
     if ts.nil? || params[:reset_definitions] then
-      unless (session[:generating_track_stanza] == true) then
-        session[:generating_track_stanza] = true
+
+      unless (session[:generating_track_stanza]) then
+        session[:generating_track_stanza] = @project.id
         session[:generating_track_stanza_error] = nil
         spawn do
           require 'timeout'
@@ -1033,10 +1034,12 @@ class PipelineController < ApplicationController
             ts.released = false
             ts.save
           }
-          session[:generating_track_stanza] = false
+          session[:generating_track_stanza] = nil
           session.close
         end
       end
+      session.close
+      redirect_to :action => :configure_tracks, :id => @project
     else
       @ts_user = ts.user
       @track_defs = ts.stanza
