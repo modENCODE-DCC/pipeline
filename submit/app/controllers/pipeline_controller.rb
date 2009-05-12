@@ -1037,8 +1037,6 @@ class PipelineController < ApplicationController
           session.close
         end
       end
-      redirect_to :action => :configure_tracks, :id => @project
-      return
     else
       @ts_user = ts.user
       @track_defs = ts.stanza
