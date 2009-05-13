@@ -38,6 +38,7 @@ class PublicController < ApplicationController
   def list
     @projects = Project.all
     @projects.delete_if { |p| p.deprecated? } unless session[:show_deprecated]
+    @projects.delete_if { |p| !p.released? && !p.has_metadata? && !p.has_readme? } unless session[:show_noreadme]
 
     @pis = User.all.map { |u| u.pi }.uniq
     @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
@@ -66,6 +67,36 @@ class PublicController < ApplicationController
       @projects = @projects.sort { |p1, p2| p2.id <=> p1.id }
     end
 
+    respond_to do |format|
+      format.html # Behave normally
+      format.xml {
+        xml_objs = Project.all.map { |p| 
+          full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
+          url = url_for(:action => :get_file, :id => p) + full_path
+          { 
+            :id => p.id,
+            :deprecated => p.deprecated?,
+            :replaced_by => p.deprecated? ? p.deprecated_by_project.id : nil,
+            :name => p.name,
+            :chadoxml => url 
+          }
+        }
+        render :xml => xml_objs
+      }
+      format.text {
+        text_objs = Project.all.map { |p| 
+          full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
+          url = url_for(:action => :get_file, :id => p) + full_path
+          [
+            p.id,
+            p.deprecated?,
+            p.deprecated? ? p.deprecated_by_project.id : nil,
+            url 
+          ].join("\t")
+        }
+        render :text => text_objs.join("\n")
+      }
+    end
   end
 
   def get_gbrowse_stanzas

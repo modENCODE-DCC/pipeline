@@ -7,6 +7,7 @@
   SELECT.header_select { margin: 0px; }
   TR.titles TH.contains_select A { position: relative; top: -7px }
   TR.titles TH.contains_select SELECT { position: relative; top: -7px }
+
 </style>
 
 Below, you can find:
@@ -24,34 +25,60 @@ Below, you can find:
   <% end %>
 <% end %>
 
-<table class="archive_list2" style="width: 70%">
+<table class="archive_list2" style="width: 70%; position: relative; left: -25px">
   <tr><td colspan="6" style="text-align: left">
-      <% form_tag ({ :action => :set_show_deprecated }, :id => "show_deprecated_form") do |f| %>
+      <% form_tag({ :action => :set_show_deprecated }, :id => "show_deprecated_form") do %>
         <% show_deprecated = session[:show_deprecated] || false %>
         <%= check_box_tag "show_deprecated", (!show_deprecated).to_s, show_deprecated, :onchange => "$(this).form.submit()" %>
         <%= label_tag "show_deprecated", "Show deprecated submissions." %>
       <% end %>
+      <% if current_user.is_a?(Moderator) %>
+        <% form_tag({ :action => :set_show_noreadme }, :id => "show_noreadme_form") do %>
+          <% show_noreadme = session[:show_noreadme] || false %>
+          <%= check_box_tag "show_noreadme", (!show_noreadme).to_s, show_noreadme, :onchange => "$(this).form.submit()" %>
+          <%= label_tag "show_noreadme", "Show submissions with no README (moderators only)." %>
+        <% end %>
+      <% end %>
       <script type="text/javascript">
         $('show_deprecated_form').reset();
+        <% if current_user.is_a?(Moderator) %>$('show_noreadme_form').reset();<% end %>
       </script>
   </td></tr>
-  <tr><th colspan="6" class="tophr">&nbsp;</td></tr>
+  <tr><th colspan="8" class="tophr">&nbsp;</td></tr>
   <tr class="titles">
     <% refresh_action_name = :list -%>
     <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
-    <th><%= link_to "Submission&nbsp;Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
+    <th class="hardwrap">
+      <%= link_to "Submission&nbsp;Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %>
+      <br/>
+      <span style="font-size: 80%">(click for readme)</span>
+    </th>
     <th><%= link_to "Status", :action => refresh_action_name, :sort => { 'released?' => @new_sort_direction['released?'] } %></th>
     <th class="contains_select"><%= link_to "PI:", :action => refresh_action_name, :sort => { 'pi' => @new_sort_direction['pi'] } %>&nbsp;<% form_tag url_for(:action => :list), :method => :get, :style => "display:inline" do %>
       <select class="header_select" onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
     <% end %></th>
-    <th>Actions</th>
     <th>
-      Embargoed&nbsp;Until
+      Data
+      <br/>
+      <span style="font-size: 80%">(click to download)</span>
+    </th>
+    <th>
+      Generated Files
+      <br/>
+      <span style="font-size: 80%">(produced by the DCC)</span>
+    </th>
+    <th>
+      <%= link_to "Upload&nbsp;Date", :action => refresh_action_name, :sort => { 'most_recent_upload_date' => @new_sort_direction['most_recent_upload_date'] } %>
+      <br/>
+      <span style="font-size: 80%">(most recent upload)</span>
+    </th>
+    <th>
+      <%= link_to "Embargoed&nbsp;Until", :action => refresh_action_name, :sort => { 'embargo_end_date' => @new_sort_direction['embargo_end_date'] } %>
       <br/>
       <%= link_to "(data release policy)", "http://www.modencode.org/docs/modENCODE_publication_policy.pdf", :popup => true, :style => "font-size: 80%" %>
     </th>
   </tr>
-  <tr><th colspan="6" class="tophr">&nbsp;</th></tr>
+  <tr><th colspan="8" class="tophr">&nbsp;</th></tr>
     
   <% 
     colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
@@ -65,7 +92,19 @@ Below, you can find:
     %>
     <tr style="background-color: <%= color %>">
       <td style="text-align: left"><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
-      <td class="name"> <%= link_to project.name, {:action => 'show', :id => project.id, :controller => 'pipeline' } %></td>
+      <td class="name hardwrap">
+        <%
+          wrapped_name = project.name
+          wrapped_name.gsub!(/(.{35})/, "\\1\n")
+        %>
+        <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
+          <%= link_to wrapped_name, :action => 'citation', :id => project %>
+        <% elsif project.has_readme? then %>
+          <%= link_to wrapped_name, :action => 'readme', :id => project.id %>
+        <% else %>
+          <%= link_to wrapped_name, { :action => 'show', :id => project.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
+        <% end %>
+      </td>
       <td class="status">
         <% if project.deprecated? then %>
           <span style="text-decoration: line-through">
@@ -77,28 +116,46 @@ Below, you can find:
         <% end %>
       </td>
       <td style="text-align: left"><%= project.user.pi.split(",")[0] %></td>
+      <td class="status">
+        <%
+          unvetted_statuses = Array.new
+          unvetted_statuses.push("raw") if project.has_raw_data?
+          unvetted_statuses.push("signal") if project.has_wig_data?
+          unvetted_statuses.push("feature") if project.has_feature_data?
+          unvetted_status = unvetted_statuses.andjoin + " data"
+        %>
+        <%= link_to unvetted_status, :action => "download", :id => project, :root => :data %>
+      </td>
       <td class="actions">
-        <% if Project::Status::ok_next_states(project).include?(Project::Status::VALIDATING) || project.status == Project::Status::RELEASED then %>
-          Download
-          <%= link_to "Submitted Data", :action => "download", :id => project, :root => :data %>
-        <% else %>
-          No data available.
-        <% end %>
+        <% no_dcc_data = true %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::LOADING) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          |
+          <%= no_dcc_data ? "Download" : "|" %>
+          <% no_dcc_data = false %>
           <% full_path = "/" + File.join("extracted", "/#{project.id}.chadoxml") %>
           <%= link_to "ChadoXML", url_for(:action => :get_file, :id => project) + full_path %>
         <% end %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          |
+          <%= no_dcc_data ? "Download" : "|" %>
+          <% no_dcc_data = false %>
           <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>
         <% end %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          |
-          <%= link_to "Citations/Details", :action => "citation", :id => project %>
-          |
+          <%= no_dcc_data ? "Download" : "|" %>
+          <% no_dcc_data = false %>
           <%= link_to "GBrowse Stanza", :action => "get_gbrowse_stanzas", :id => project %>
         <% end %>
+        <% if no_dcc_data then %>
+          <span style="color:#AAAAAA">No generated data available.</span>
+        <% end %>
+      </td>
+      <td>
+      <%= upload_date = project.most_recent_upload_date
+          if upload_date then
+              upload_date
+            else
+              "unknown/no data"
+            end
+      %>
       </td>
       <td>
         <%= 
