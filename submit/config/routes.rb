@@ -30,5 +30,6 @@ ActionController::Routing::Routes.draw do |map|
     :controller => 'public',
     :action => 'get_file',
     :path => /.*/
+  map.connect ':controller/:action.:format'
   map.connect ':controller/:action/:id'
 end
