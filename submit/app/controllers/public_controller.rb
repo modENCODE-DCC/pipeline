@@ -222,10 +222,12 @@ class PublicController < ApplicationController
       flash[:warning] = "No data found in: #{@current_directory}"
       @current_directory = @root_directory
       redirect_to :action => :list
+      return
     end
     unless @current_directory.index(@root_directory) == 0 then
       flash[:error] = "Invalid path"
       redirect_to :action => :download
+      return
     end
 
     escape_quote = "'\\''"
