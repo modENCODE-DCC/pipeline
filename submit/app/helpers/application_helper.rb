@@ -257,6 +257,7 @@ module ApplicationHelper
   end
 
   def free_space_for_files(files)
+    # TODO: Make this function not fail when NFS mounts are broken
     df = `df -P`
     vols = Array.new
     df.to_a[1..-1].each do |line|
