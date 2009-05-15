@@ -66,9 +66,9 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
             end
       %>
   </td>
-  <td style="width: 150px; text-align: center;"><%=publish_gbrowse.empty? ? "" : publish_gbrowse.last.updated_at.strftime("%Y %b %d")%></td>
-  <td style="width: 150px; text-align: center;"><%=publish_modmine.empty? ? "" : publish_modmine.last.updated_at.strftime("%Y %b %d")%></td>
-  <td style="width: 150px; text-align: center;"><%=publish_geo.empty? ? "" : publish_geo.last.updated_at.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_gbrowse.empty? ? "" : publish_gbrowse.last.end_time.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_modmine.empty? ? "" : publish_modmine.last.end_time.strftime("%Y %b %d")%></td>
+  <td style="width: 150px; text-align: center;"><%=publish_geo.empty? ? "" : publish_geo.last.end_time.strftime("%Y %b %d")%></td>
   </tr>
 <% end %>
 <tr style="text-align: center">
