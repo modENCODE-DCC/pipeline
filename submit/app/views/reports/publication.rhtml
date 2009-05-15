@@ -89,7 +89,7 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
   time_from_first_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.first.nil? || pc.last.nil?) ? nil : (pc.last.end_time - vc.first.end_time )}.compact.delete_if{|v| v<0}
   time_from_last_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil?)  ? nil : (rc.last.end_time - vc.last.end_time) }.compact.delete_if{|v| v<0}
   time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time.nil? ? pc.last.updated_at : pc.last.end_time) - (vc.last.end_time.nil? ? vc.last.updated_at : vc.last.end_time) }.delete_if{|v| v<0}
-  time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.updated_at - rc.last.updated_at )}.compact.delete_if{|v| v<0}
+  time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time - rc.last.end_time )}.compact.delete_if{|v| v<0}
 %>
 <br/><br/>
 
@@ -106,14 +106,14 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 </tr>
 <tr style="text-align: center; background-color: <%=colors[1]%>;">
 <td>Initial validation</td>
-<td><%=((time_from_first_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%= (time_from_first_validate_to_release.count > 0) ?  "#{((time_from_first_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round.to_s } days"  : "N/A" %></td>
 <td><%=((time_from_first_validate_to_gbrowse.sum/time_from_first_validate_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
 <td>.</td>
 <td>.</td>
 </tr>
 <tr style="text-align: center; background-color: <%=colors[0]%>;">
 <td>Final validation</td>
-<td><%=((time_from_last_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%= (time_from_first_validate_to_release.count > 0) ? "#{((time_from_last_validate_to_release.sum/time_from_first_validate_to_release.count) / 60 / 60 / 24).round} days" : "N/A"%> </td>
 <td><%=((time_from_last_validate_to_gbrowse.sum/time_from_first_validate_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
 <td>.</td>
 <td>.</td>
