@@ -403,6 +403,7 @@ class TrackFinder
     @sth_get_wiggles_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT 
                    d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
+                   d.value AS data_value,
                    wiggle_data.name, 
                    wiggle_data.wiggle_data_id,
                    wiggle_data.data AS wiggle_file,
@@ -918,18 +919,6 @@ class TrackFinder
                   chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                   analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                   organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-#                  begin
-#                    TrackTag.new(
-#                      :experiment_id => experiment_id,
-#                      :name => 'Feature',
-#                      :project_id => project_id,
-#                      :track => tracknum,
-#                      :value => current_feature_hash['name'],
-#                      :cvterm => current_feature_hash['type'],
-#                      :history_depth => 0
-#                    ).save
-#                  rescue
-#                  end
                 end
 
                 # Reinitialize with the new row
@@ -984,18 +973,6 @@ class TrackFinder
                 chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                 analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                 organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-#                begin
-#                  TrackTag.new(
-#                    :experiment_id => experiment_id,
-#                    :name => 'Feature',
-#                    :project_id => project_id,
-#                    :track => tracknum,
-#                    :value => current_feature_hash['name'],
-#                    :cvterm => current_feature_hash['type'],
-#                    :history_depth => 0
-#                  ).save
-#                rescue
-#                end
               end
             end
           }
@@ -1037,18 +1014,6 @@ class TrackFinder
                     chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
                     analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
                     organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-#                    begin
-#                      TrackTag.new(
-#                        :experiment_id => experiment_id,
-#                        :name => 'Feature',
-#                        :project_id => project_id,
-#                        :track => tracknum,
-#                        :value => current_feature_hash['name'],
-#                        :cvterm => current_feature_hash['type'],
-#                        :history_depth => 0
-#                      ).save
-#                    rescue
-#                    end
                   end
 
                   # Reinitialize with the new row
@@ -1191,6 +1156,7 @@ class TrackFinder
             @sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
             @sth_get_wiggles_by_data_ids.fetch_hash { |row|
               next if seen_wiggles.include?(row["wiggle_data_id"])
+              wiggle_filename = row["data_value"]
               seen_wiggles.push row["wiggle_data_id"]
               cmd_puts "        Finding metadata for wiggle files."
               tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
@@ -1234,6 +1200,15 @@ class TrackFinder
               # Label this as a wiggle track
               TrackTag.new(
                 :experiment_id => experiment_id,
+                :name => 'Wiggle File',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => wiggle_filename,
+                :cvterm => 'wiggle_file',
+                :history_depth => 0
+              ).save
+              TrackTag.new(
+                :experiment_id => experiment_id,
                 :name => 'Track Type',
                 :project_id => project_id,
                 :track => tracknum,
@@ -1246,35 +1221,35 @@ class TrackFinder
           cmd_puts "      Done getting wiggle files."
 
           # TODO: Merge any wiggle tracks that are just one-per-chromosome
-          new_gffs = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = Array.new } }
-          gff_files.each { |gff_file|
-            f = File.new(gff_file);
-            lines = f.readlines
-            f.close
-            if lines.size == 3 then
-              tracknum = gff_file.match(/\/(\d+)_wiggle\.gff/)[1]
-              name = lines.last.match(/\tName=([^;]+)/)[1]
-              new_gffs[name]["tracknums"].push tracknum
-              new_gffs[name]["lines"].push lines.last
-              new_gffs[name]["files"].push gff_file
-              File.unlink(gff_file)
-            end
-          }
-          new_gffs.each_pair { |name, info|
-            # Delete all but one metadata
-            cmd_puts "Merging all chromosomes from tracks #{info["tracknums"].join(", ")} for #{name} into a single track: #{info["tracknums"].first}."
-            first_track_num = info["tracknums"].shift
-            info["tracknums"].each { |tracknum|
-              TrackTag.delete_all "project_id = #{project_id} AND track = #{tracknum}"
-            }
-            # Generate the new GFF
-            tracknum = first_track_num
-            gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
-            f = File.new(gff_file_path, "w")
-            f.puts "#gff-version 3"
-            f.puts ""
-            info["lines"].each { |line| f.puts line }
-          }
+#          new_gffs = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = Array.new } }
+#          gff_files.each { |gff_file|
+#            f = File.new(gff_file);
+#            lines = f.readlines
+#            f.close
+#            if lines.size == 3 then
+#              tracknum = gff_file.match(/\/(\d+)_wiggle\.gff/)[1]
+#              name = lines.last.match(/\tName=([^;]+)/)[1]
+#              new_gffs[name]["tracknums"].push tracknum
+#              new_gffs[name]["lines"].push lines.last
+#              new_gffs[name]["files"].push gff_file
+#              File.unlink(gff_file)
+#            end
+#          }
+#          new_gffs.each_pair { |name, info|
+#            # Delete all but one metadata
+#            cmd_puts "Merging all chromosomes from tracks #{info["tracknums"].join(", ")} for #{name} into a single track: #{info["tracknums"].first}."
+#            first_track_num = info["tracknums"].shift
+#            info["tracknums"].each { |tracknum|
+#              TrackTag.delete_all "project_id = #{project_id} AND track = #{tracknum}"
+#            }
+#            # Generate the new GFF
+#            tracknum = first_track_num
+#            gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
+#            f = File.new(gff_file_path, "w")
+#            f.puts "#gff-version 3"
+#            f.puts ""
+#            info["lines"].each { |line| f.puts line }
+#          }
         end
         if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 then
           cmd_puts "      There are no features or wiggle files."
@@ -1451,6 +1426,10 @@ class TrackFinder
       tracknum = matchdata[3]
 
       key = "#{project.id} #{project.name[0..10]} #{track_type}:#{tracknum}"
+      tag_wiggle_file = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'wiggle_file')
+      if tag_wiggle_file then
+        key = "#{project.id} -#{tag_wiggle_file.value}- #{track_type}:#{tracknum}"
+      end
 
       min_score = nil
       max_score = nil
