@@ -91,7 +91,8 @@
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
     samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
     external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID"]
-    modencode_ids = ["modENCODE Reference"]
+    #modencode_ids = ["modENCODE Reference"]
+    modencode_ids = ["referenced_submission"]
 
     animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
     antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
@@ -209,8 +210,10 @@
 
         if url_tag then
           link_to name_tag.value, url_tag.value
-        else
+        elsif name_tag then
           name_tag
+        else
+          tag.cvterm + ":" + name
         end
       }.uniq.join(", ") %>
       <%= ", and #{repository_records.size - @max_entries} more." if repository_records.size > @max_entries %>
@@ -224,10 +227,13 @@
   <% if modencode_records.size > 0 then %>
       <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         submission_num = tag.value.to_i 
+        begin
 	"<li><b>DCC-#{submission_num}</b>: #{Project.find(submission_num).name}</li>"
-	#"<li><b>#{submission_num}</b>: #{Project.find(submission_num).name} #{link_to "(readme)", :action => "readme", :id => @project_id, :controller => "pipeline" if Project.find(submission_num).has_readme?} #{link_to "(citation)", :action => "citation", :id => @project_id, :controller => "pipeline"} </li>"
+        rescue
+          "<li><b>DCC-#{submission_num}</b></li>"
+        end
       }.uniq.join(", ") %>
-      <%= ", and #{repository_records.size - @max_entries} more." if repository_records.size > @max_entries %>
+      <%= ", and #{modencode_records.size - @max_entries} more." if modencode_records.size > @max_entries %>
   <% end %>
   <%=
 	related_projects.uniq.map{|id|
