@@ -777,6 +777,29 @@ class TrackFinder
       sth_idf_info.finish
     }
 
+    # Any referenced submissions
+    dbh_safe {
+      sth_idf_info = @dbh.prepare "SELECT DISTINCT url FROM db WHERE description = 'modencode_submission'"
+      sth_idf_info.execute
+      rank = 0
+      sth_idf_info.fetch do |row|
+        begin
+          TrackTag.new(
+            :experiment_id => experiment_id,
+            :name => "Referenced Submission",
+            :project_id => project_id,
+            :track => tracknum,
+            :value => row['url'],
+            :cvterm => "referenced_submission",
+            :history_depth => rank
+          ).save
+        rescue
+        end
+        rank += 1
+      end
+      sth_idf_info.finish
+    }
+
     # Protocol types and names and links
     dbh_safe {
       sth_protocol_type = @dbh.prepare "SELECT p.protocol_id, p.name, a.value AS type, dbx.accession AS url FROM attribute a 
@@ -1431,6 +1454,8 @@ class TrackFinder
         key = "#{project.id} -#{tag_wiggle_file.value}- #{track_type}:#{tracknum}"
       end
 
+      track_id = tracknum
+      data_source_id = ([project.id] + (TrackTag.find_all_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'referenced_submission').map { |tt| tt.value })).join(" ")
       min_score = nil
       max_score = nil
       neg_color = nil
@@ -1530,6 +1555,8 @@ class TrackFinder
       track_defs[stanzaname][:semantic_zoom] = Hash.new if track_defs[stanzaname][:semantic_zoom].nil?
       zoomlevels.each { |zoomlevel|
         if zoomlevel.nil? then
+          track_defs[stanzaname]['track_id'] = track_id
+          track_defs[stanzaname]['data_source_id'] = data_source_id
           track_defs[stanzaname]['category'] = "Preview"
           track_defs[stanzaname]['feature'] = type
           track_defs[stanzaname]['fgcolor'] = fgcolor
