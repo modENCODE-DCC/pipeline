@@ -75,6 +75,8 @@ class PublicController < ApplicationController
           url = url_for(:action => :get_file, :id => p) + full_path
           { 
             :id => p.id,
+            :pi => p.user.pi,
+            :status => p.status,
             :deprecated => p.deprecated?,
             :replaced_by => p.deprecated? ? p.deprecated_by_project.id : nil,
             :name => p.name,
