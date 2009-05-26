@@ -21,6 +21,14 @@
     top: -12px;
   }
 </style>
+<div style="font-size: 60%">
+  Projects per page:
+  <% [25, 50, 75, 100].each do |page_size| %>
+    <%= "<b>" if session[:page_size] == page_size %>
+    <%= link_to_unless session[:page_size] == page_size, page_size, :page_size => page_size %>
+    <%= "</b>" if session[:page_size] == page_size %>
+  <% end %>
+</div>
 Select page:
 <% (1..@num_pages).each do |pagenum| %>
   <%= "<b>" if @cur_page == pagenum %>
