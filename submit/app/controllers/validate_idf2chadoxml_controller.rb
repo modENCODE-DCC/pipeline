@@ -11,7 +11,7 @@ class ValidateIdf2chadoxmlController < ValidateController
       validator = command_object.project.project_type.validator
       command_object.command = "#{URI.escape(validator)} #{URI.escape(project_type_params)} #{URI.escape(package_dir)}"
 
-      command_object.timeout = 3600*10 # 10 hours by default
+      command_object.timeout = 3600*24 # 24 hours by default
     end
   end
 
