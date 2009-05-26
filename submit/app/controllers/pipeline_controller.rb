@@ -275,7 +275,6 @@ class PipelineController < ApplicationController
       return
     end
 
-    flash.clear
     if !@project.has_readme? && !@project.has_metadata? then
       flash[:error] = "" if flash[:error].nil?
       error_msg = "This project has no README or IDF/SDRF and will not be displayed on the downloads page!<br/>Fix this now by <a href=\"" + url_for(:action => :upload_replacement, :id => @project, :replace => "README") + "\">uploading a README</a>."
@@ -776,7 +775,7 @@ class PipelineController < ApplicationController
     redirect_to :action => 'show', :id => @project
   end
 
-  def _load
+  def _load # should be def load, but Rails uses that function name already
     begin
       @project = Project.find(params[:id])
     rescue
@@ -801,6 +800,25 @@ class PipelineController < ApplicationController
     end
 
     do_load(@project)
+
+    redirect_to :action => :show, :id => @project
+  end 
+
+  def build_report
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::REPORTING) then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    do_report(@project)
 
     redirect_to :action => :show, :id => @project
   end 
@@ -1058,6 +1076,116 @@ class PipelineController < ApplicationController
     @stanza_options = STANZA_OPTIONS
   end
       
+  def configure_geo
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    unless @project.report_generated? then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+    if @project.report_tarball_generated? then
+      flash[:notice] = "GEO tarball already generated, you must rebuild if you want to edit."
+    end
+    @report_command = @project.commands.all.find_all { |cmd| cmd.is_a?(Report) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    geo_dir = @report_command.command.split(" ")[2]
+    if !File.exists?(geo_dir) then
+      flash[:error] = "Can't find a GEO package; please regenerate the GEO report"
+      redirect_to :action => :show, :id => @project
+      return
+    end
+
+
+    if params[:commit_to_tarball] then
+      soft_filename = File.join(geo_dir, "modencode_#{@project.id}.soft")
+      tarball = File.join(geo_dir, "modencode_#{@project.id}.tar")
+      run_command = "tar Af \"#{tarball}\" \"#{soft_filename}\" 2>&1"
+      (reporter, command_params, package_dir, make_tarball) = @report_command.command.split(/ /)
+      make_tarball = "1"
+      @report_command.command = [reporter, command_params, package_dir, make_tarball].join(" ")
+      @report_command.save
+      @report_command.controller.queue
+      redirect_to :action => :show, :id => @project
+      return
+    end
+
+    if params[:send_to_geo] then
+      tarball = File.join(geo_dir, "modencode_#{@project.id}.tar")
+      (reporter, command_params, package_dir, make_tarball, send_to_geo) = @report_command.command.split(/ /)
+      send_to_geo = "1"
+      @report_command.command = [reporter, command_params, package_dir, make_tarball, send_to_geo].join(" ")
+      @report_command.save
+      @report_command.controller.queue
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    @listing = Array.new
+    Find.find(geo_dir) do |path|
+      next if File.basename(path) == File.basename(geo_dir)
+      relative_path = path[geo_dir.length..-1]
+      if File.directory? path
+        @listing.push [ :folder, relative_path, Array.new, 0 ]
+        Find.prune
+        next
+      end
+      size = File.size(path)
+      if size.to_f >= (1024**2) then 
+        size = "#{(size.to_f / 1024**2).round(1)}M"
+      elsif size.to_f >= (1024) then
+        size = "#{(size.to_f / 1024).round(1)}K"
+      end
+      @listing.push [ :file, relative_path, nil, size ]
+    end
+    @listing.sort! { |l1, l2| (l1[0] == :folder ? "0#{l1[1]}" : "1#{l1[1]}") <=> (l2[0] == :folder ? "0#{l2[1]}" : "1#{l2[1]}") }
+  end
+
+  def edit_soft
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    unless @project.report_generated? then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+    @report_command = @project.commands.all.find_all { |cmd| cmd.is_a?(Report) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    geo_dir = @report_command.command.split(" ")[2]
+    unless File.exists?(File.join(geo_dir, "modencode_#{@project.id}.soft")) then
+      redirect_to :action => :configure_geo, :id => @project
+    end
+    soft_filename = File.join(geo_dir, "modencode_#{@project.id}.soft")
+
+    if params[:commit] then
+      # Trying to update
+      new_lines_hash = params[:line]
+      new_lines = Array.new
+      new_lines_hash.each_pair { |k, v|
+        new_lines[k.to_i] = "#{v["0"]} = #{v["1"]}"
+      }
+      require 'pp'
+      File.open(soft_filename, "w") do |f|
+        new_lines.each { |l| l.sub!(/\s*$/, '') }
+        f.puts new_lines.join("\n")
+      end
+      redirect_to :action => :edit_soft, :id => @project.id
+      return
+    end
+    
+    @lines = Array.new
+    File.open(soft_filename) do |f|
+      @lines = f.lines.reject { |line| line =~ /^\s*$/ }.map { |line| line.split(" = ") }
+    end
+
+  end
+
   def async_update_track_location
 
     begin
@@ -1572,6 +1700,34 @@ class PipelineController < ApplicationController
     load_controller = load_controller_class.new(:project => project)
     options[:user] = current_user
     load_controller.queue options
+  end
+
+  def do_report(project, options = {})
+    # Get the *Controller class to be used to do reporting
+    begin
+      report_class = getProjectType(project).reporter_wrapper_class.singularize.camelize.constantize
+    rescue
+      report_class = Report
+    end
+
+    if report_class.ancestors.map { |a| a.name == 'CommandController' }.find { |a| a } then
+      report_controller_class = report_class
+    else
+      # Command.is_a? Command
+      if report_class.ancestors.map { |a| a.name == 'Command' }.find { |a| a } then
+        begin
+          report_controller_class = (report_class.name + "Controller").camelize.constantize
+        rescue
+          report_controller_class = ReportController
+        end
+      else
+        throw :expecting_subclass_of_command_or_command_controller
+      end
+    end
+
+    report_controller = report_controller_class.new(:project => project)
+    options[:user] = current_user
+    report_controller.queue options
   end
 
   def do_unload(project, options = {})
