@@ -8,24 +8,17 @@
     padding-right: 15px;
   }
 </style>
+
 <div style="float:right; text-align: center; width: 25%">
-  <!--
-  <b>Tickle Self</b><br/>
-  <%= link_to "#{Socket.gethostname}", url_for(:action => :tickle_here) %>
-  <br />
-  -->
   <b>Tickle Worker</b><br/>
   <% @all_workers.each do |worker| %>
-  <!--
-  <%= link_to_remote "#{worker.name}", :url => { :action => :tickle_target, :worker_name => worker.name, :worker_address => worker.ip} %>
-  -->
   <%= link_to "#{worker.name}", url_for(:action => :tickle_target, :worker_name => worker.name, :worker_address => worker.ip) %>
   <% end %>
   <br />
-  <b>Free Space</b><br/>
-  <% free_space_for_files(@files).each do |volume| %>
-    <%= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
-  <% end %>
+  <%# <b>Free Space</b><br/> %>
+  <%# free_space_for_files(@files).each do |volume| %>
+    <%#= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
+  <%# end %>
   <b>Webserver CPU Usage</b><br/>
   <%= google_ometer_chart(get_cpu_usage_of_self) %>
 </div>
@@ -117,5 +110,3 @@
     <%= button_to "Show All #{@commands.size} Commands", {} , :name => "show_all", :method => "get" %>
   <% end %>
 </div>
-
-
