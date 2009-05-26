@@ -5,7 +5,7 @@ class AddReporterAndReporterParamsToProjectTypes < ActiveRecord::Migration
 
     ProjectType.all.each { |pt|
       pt.reporter = "/srv/www/pipeline/submit/script/reporters/modencode/chado2GEO.pl"
-      pt.reporter_params = "-config /srv/www/pipeline/submit/script/reporters/modencode/chado2GEO.ini -make_tarball 1"
+      pt.reporter_params = "-config /srv/www/pipeline/submit/script/reporters/modencode/chado2GEO.ini"
       pt.save
     }
   end
