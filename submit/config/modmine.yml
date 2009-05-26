@@ -1,0 +1,3 @@
+loaded_ids_url: "http://intermine.modencode.org/query/service/template/results?name=getSubmissions&constraint1=Submission.title&op1=eq&value1=*"
+link_template: "http://intermine.modencode.org/query/portal.do?class=Submission&externalid=%d"
+cache_file: "tmp/modmine_loaded_ids.tsv"
