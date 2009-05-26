@@ -1,3 +1,4 @@
+require 'open-uri'
 require 'open3'
 require 'find'
 class PublicController < ApplicationController
@@ -40,6 +41,9 @@ class PublicController < ApplicationController
     @projects.delete_if { |p| p.deprecated? } unless session[:show_deprecated]
     @projects.delete_if { |p| !p.released? && !p.has_metadata? && !p.has_readme? } unless session[:show_noreadme]
 
+    @modmine_ids = loaded_modmine_ids
+    @modmine_link_template = modmine_link_template
+
     @pis = User.all.map { |u| u.pi }.uniq
     @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
     if params[:sort] then
@@ -66,6 +70,7 @@ class PublicController < ApplicationController
     else
       @projects = @projects.sort { |p1, p2| p2.id <=> p1.id }
     end
+    @organisms_by_pi = organisms_by_pi
 
     respond_to do |format|
       format.html # Behave normally
@@ -415,6 +420,38 @@ class PublicController < ApplicationController
     else
       redirect_to :action => "list"
       return false
+    end
+  end
+
+  def loaded_modmine_ids
+      ids = Array.new
+      loaded_ids_url = open("#{RAILS_ROOT}/config/modmine.yml") { |f| YAML.load(f.read) }["loaded_ids_url"]
+      cache_file = open("#{RAILS_ROOT}/config/modmine.yml") { |f| YAML.load(f.read) }["cache_file"]
+      cache_file = File.join(RAILS_ROOT, cache_file) unless (cache_file =~ /^\//)
+
+      modtime = Time.new - 84001 # By default, it's out of date
+      modtime = File.mtime(cache_file) if File.exists?(cache_file)
+      if Time.new - modtime > 84000 then
+        OpenURI.open_uri(loaded_ids_url) { |result|
+          File.open(cache_file, "w") { |f| f.puts result.read }
+        }
+      end
+      File.open(cache_file) { |f| ids = f.read.split.map { |n| n.to_i } }
+
+      return ids
+  end
+  def modmine_link_template
+    if File.exists? "#{RAILS_ROOT}/config/modmine.yml" then
+      open("#{RAILS_ROOT}/config/modmine.yml") { |f| YAML.load(f.read) }["link_template"]
+    else
+      ""
+    end
+  end
+  def organisms_by_pi
+    if File.exists? "#{RAILS_ROOT}/config/pi_organisms.yml" then
+      open("#{RAILS_ROOT}/config/pi_organisms.yml") { |f| YAML.load(f.read) }
+    else
+      {}
     end
   end
 

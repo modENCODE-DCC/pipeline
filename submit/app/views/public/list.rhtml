@@ -115,7 +115,22 @@ Below, you can find:
           <%= project.released? ? "vetted and released" : "unvetted" %>
         <% end %>
       </td>
-      <td style="text-align: left"><%= project.user.pi.split(",")[0] %></td>
+      <td style="text-align: left">
+        <div style="width: 18px; float: left">
+          <%=
+            o = project.released_organism
+            o = @organisms_by_pi[project.pi] if o.nil?
+            if o =~ /C.* elegans/ then
+              image_tag "worm.png", :alt => o
+            elsif o =~ /D.* melanogaster/ then
+              image_tag "fly.png", :alt => o
+            else
+              "?"
+            end
+          %>
+        </div>
+        <%= project.user.pi.split(",")[0] %>
+      </td>
       <td class="status">
         <%
           unvetted_statuses = Array.new
@@ -125,6 +140,10 @@ Below, you can find:
           unvetted_status = unvetted_statuses.andjoin + " data"
         %>
         <%= link_to unvetted_status, :action => "download", :id => project, :root => :data %>
+        <% if @modmine_ids.include?(project.id) then %>
+          <br/>
+          <span style="font-size: 80%">[<%= link_to "view in ModMine", @modmine_link_template % project.id %>]</span>
+        <% end %>
       </td>
       <td class="actions">
         <% no_dcc_data = true %>
