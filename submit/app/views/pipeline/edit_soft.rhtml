@@ -1,0 +1,29 @@
+<style type="text/css">
+  TABLE.soft INPUT { font-size: 10pt; font-family: Courier }
+  TABLE.soft TEXTAREA { font-size: 10pt; font-family: Courier }
+  TABLE.soft TR.blue { background-color: #EEEEFF }
+  TABLE.soft TR.grey { background-color: #EEEEEE }
+  TABLE.soft TD { vertical-align: top }
+</style>
+<%= link_to "Back to GEO report directory", :action => :configure_geo, :id => @project %>
+<% form_tag :action => :edit_soft, :id => @project.id do |f| %>
+  <%= submit_tag "Submit changes" %>
+  <table border="0" class="soft">
+  <% @lines.each_index do |idx| %>
+    <% line = @lines[idx] %>
+    <tr class="<%= idx % 2 == 0 ? "blue" : "grey" %>">
+      <td><%= line[0] %></td>
+      <td>
+        <% if line[1].length > 60 then %>
+          <%= text_area_tag "line[#{idx}][1]", line[1], :cols => 60, :rows => ((line[1].length/60)+1) %>
+        <% else %>
+          <%= text_field_tag "line[#{idx}][1]", line[1], :size => 60 %>
+        <% end %>
+
+        <%= hidden_field_tag "line[#{idx}][0]", line[0] %>
+      </td>
+    </tr>
+  <% end %>
+  </table>
+  <%= submit_tag "Submit changes" %>
+<% end %>

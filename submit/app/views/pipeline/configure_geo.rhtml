@@ -1,0 +1,45 @@
+<%
+  folder_img = "/submit/images/dir.png"
+  file_img = "/submit/images/text.png"
+  up_img = "/submit/images/folder.open.png"
+%>
+<% require 'pp' %>
+<style type="text/css">
+  DIV.entry IMG { width: 16px; height: 16px; border: 1px; padding-right: 8px; padding-top: 0px }
+  .highlight { background-color: #EEEE55; padding: 2px }
+  .highlightbright { background-color: #FFFF55; }
+</style>
+<%= button_to "Generate tarball", :commit_to_tarball => "commit_to_tarball" %>
+<div style="margin-left: 16px">
+  <% @listing.each do |file| %>
+    <% 
+      (type, path, children, size) = file
+      formatted_name = File.basename(path) 
+    %>
+    <% if children.is_a? Array %>
+      <div class="entry file" style="clear: both; padding: 0 0 0 0">
+        <div style="float: left; width: 40%" class="entry folder">
+          <%= image_tag(folder_img, :alt => "\_") + formatted_name %>
+        </div>
+      </div>
+    <% else %>
+      <div class="entry file" style="clear: both; padding: 0 0 0 0">
+        <% 
+          full_path = "/" + path
+          if params[:root] && params[:root].length > 0 then
+            full_path = "/" + File.join(params[:root] == "tracks" ? "tracks" : "extracted", path) 
+          end 
+        %>
+        <% if File.basename(path) == "modencode_#{@project.id}.soft" %>
+          <div style="float: left; width: 40%">
+            <%= image_tag(file_img, :alt => "*") + link_to("(EDIT)", :action => :edit_soft, :id => @project.id) %>
+          <%= formatted_name %>
+          </div>
+        <% else %>
+          <div style="float: left; width: 40%"><%= image_tag(file_img, :alt => "*") + formatted_name %></div>
+        <% end %>
+        <%= size %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
