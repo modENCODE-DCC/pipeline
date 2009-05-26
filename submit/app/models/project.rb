@@ -16,6 +16,7 @@ class Project < ActiveRecord::Base
   validates_presence_of :user_id
   validates_uniqueness_of   :name, :unless => :deprecated?, :scope => :deprecated_project_id
 
+  # Helper accessors
   def deprecated?
     !self.deprecated_project_id.nil?
   end
@@ -25,11 +26,30 @@ class Project < ActiveRecord::Base
   def pi
     self.user.pi unless self.user.nil?
   end
+  def report_generated?
+    if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      return true if self.report_tarball_generated? || self.reported?
+      return cmd.status == Project::Status::REPORT_GENERATED unless cmd.nil?
+    end
+  end
+  def report_tarball_generated?
+    if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      return true if self.reported?
+      return cmd.status == Project::Status::REPORT_TARBALL_GENERATED unless cmd.nil?
+    end
+  end
+  def reported?
+    if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      return cmd.status == Project::Status::REPORTED unless cmd.nil?
+    end
+  end
 
   def has_readme?
     return (self.readme_project_file.nil?) ? false : true
   end
-
   def readme_project_file
     #the readme file must have the name README
     files = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten
@@ -56,6 +76,11 @@ class Project < ActiveRecord::Base
     else
       return "Readme not extracted!"
     end
+  end
+
+  def released_organism
+    tt = TrackTag.find_by_project_id_and_cvterm(self.id, "organism")
+    return tt.value if tt
   end
 
   def has_raw_data?
@@ -158,6 +183,7 @@ class Project < ActiveRecord::Base
     include Release::Status
     include Publish::Status
     include Delete::Status
+    include Report::Status
     # Status constants
     NEW = "new"
     CONFIGURING = "configuring tracks"
@@ -180,7 +206,7 @@ class Project < ActiveRecord::Base
         4 => [VALIDATED, LOADING, LOAD_FAILED, UNLOADING, UNLOADED, UNLOAD_FAILED],
         5 => [LOADED, FINDING, FINDING_FAILED],
         6 => [FOUND, CONFIGURING],
-        7 => [CONFIGURED, AWAITING_RELEASE, RELEASE_REJECTED, DCC_RELEASED, USER_RELEASED],
+        7 => [CONFIGURED, REPORTING, REPORTED, REPORT_GENERATED, REPORT_TARBALL_GENERATED, REPORTING_FAILED, AWAITING_RELEASE, RELEASE_REJECTED, DCC_RELEASED, USER_RELEASED],
         8 => [RELEASED, PUBLISHING],
         9 => [PUBLISHED]
       }
@@ -199,7 +225,8 @@ class Project < ActiveRecord::Base
         Unload::Status::UNLOADING,
         Upload::Status::UPLOADING,
         Validate::Status::VALIDATING,
-        FindTracks::Status::FINDING
+        FindTracks::Status::FINDING,
+        Report::Status::REPORTING
       ]
       return active_states.include?(state)
     end
@@ -214,6 +241,7 @@ class Project < ActiveRecord::Base
         Release::Status::RELEASE_REJECTED,
         Delete::Status::DELETE_FAILED,
         Unload::Status::UNLOAD_FAILED,
+        Report::Status::REPORTING_FAILED,
       ]
       return failed_states.include?(state)
     end
@@ -228,6 +256,9 @@ class Project < ActiveRecord::Base
         Release::Status::RELEASED,
         Delete::Status::DELETED,
         Unload::Status::UNLOADED,
+        Report::Status::REPORTED,
+        Report::Status::REPORT_TARBALL_GENERATED,
+        Report::Status::REPORT_GENERATED,
       ]
       return failed_states.include?(state)
     end
@@ -242,8 +273,8 @@ class Project < ActiveRecord::Base
         Project::Status::UNLOADING, Project::Status::UNLOAD_FAILED, Project::Status::UNLOADED, Project::Status::FINDING,
         Project::Status::FINDING_FAILED, Project::Status::FOUND, Project::Status::CONFIGURING, Project::Status::CONFIGURED,
         Project::Status::AWAITING_RELEASE, Project::Status::RELEASE_REJECTED, Project::Status::USER_RELEASED, Project::Status::DCC_RELEASED,
-        Project::Status::RELEASED, Project::Status::QUEUED, Project::Status::PAUSED, Project::Status::DELETING,
-        Project::Status::DELETE_FAILED, Project::Status::DELETED 
+        Project::Status::RELEASED, Project::Status::REPORT_GENERATED, Project::Status::REPORT_TARBALL_GENERATED, Project::Status::REPORTED, 
+        Project::Status::QUEUED, Project::Status::PAUSED, Project::Status::DELETING, Project::Status::DELETE_FAILED, Project::Status::DELETED 
       ]
       pos = ordered_status.index(state)
       pos.nil? ? 0 : pos
@@ -280,17 +311,25 @@ class Project < ActiveRecord::Base
       when FOUND
         ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING ]
       when CONFIGURED
-        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
       when AWAITING_RELEASE
-        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
+      when REPORTING_FAILED
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
+      when REPORT_GENERATED
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
+      when REPORT_TARBALL_GENERATED
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
+      when REPORTED
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
       when USER_RELEASED
-        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
       when DCC_RELEASED
-        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+        ok = [ UPLOADING, DELETING, PREVIEWING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
       when RELEASED
         ok = [ PUBLISHING ]
       when RELEASE_REJECTED
-        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, AWAITING_RELEASE ]
+        ok = [ UPLOADING, DELETING, VALIDATING, LOADING, FINDING, CONFIGURING, REPORTING, AWAITING_RELEASE ]
       when FAILED
         ok = [ UPLOADING, DELETING ]
         ok.push VALIDATING if project.project_archives.find_all { |pa| pa.is_active }.size > 0
