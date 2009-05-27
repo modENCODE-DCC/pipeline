@@ -148,18 +148,18 @@ Below, you can find:
       <td class="actions">
         <% no_dcc_data = true %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::LOADING) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          <%= no_dcc_data ? "Download" : "|" %>
+          <%= no_dcc_data ? "" : "|" %>
           <% no_dcc_data = false %>
           <% full_path = "/" + File.join("extracted", "/#{project.id}.chadoxml") %>
           <%= link_to "ChadoXML", url_for(:action => :get_file, :id => project) + full_path %>
         <% end %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::CONFIGURING) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          <%= no_dcc_data ? "Download" : "|" %>
+          <%= no_dcc_data ? "" : "|" %>
           <% no_dcc_data = false %>
           <%= link_to "Tracks", :action => "download", :id => project, :root => :tracks %>
         <% end %>
         <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == project.user.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-          <%= no_dcc_data ? "Download" : "|" %>
+          <%= no_dcc_data ? "" : "|" %>
           <% no_dcc_data = false %>
           <%= link_to "GBrowse Stanza", :action => "get_gbrowse_stanzas", :id => project %>
         <% end %>
