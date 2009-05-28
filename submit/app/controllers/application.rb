@@ -6,8 +6,10 @@ class ApplicationController < ActionController::Base
 
   include AuthenticatedSystem
 
+  self.mod_porter_secret = "sekritsquirrelsaresavingfiles"
+
   before_filter { |ctrl| 
-    if ctrl.request.subdomains.first != "submit" then
+    if ctrl.request.subdomains.first != "submit" && ctrl.request.subdomains.first != "smaug" then
       unless ctrl.request.remote_ip =~ /^131.243/ then
         new_url = ctrl.request.url.sub("#{ctrl.request.subdomains.first}.lbl.gov", "submit.modencode.org")
         ctrl.send(:redirect_to, new_url)
