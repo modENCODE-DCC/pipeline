@@ -6,7 +6,7 @@ class ApplicationController < ActionController::Base
 
   include AuthenticatedSystem
 
-  self.mod_porter_secret = "sekritsquirrelsaresavingfiles"
+  self.mod_porter_secret = "sekritsquirrelsaresavingfiles" if defined?(self.mod_porter_secret)
 
   before_filter { |ctrl| 
     if ctrl.request.subdomains.first != "submit" && ctrl.request.subdomains.first != "smaug" then
