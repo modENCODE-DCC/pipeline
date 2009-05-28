@@ -1,5 +1,12 @@
 require 'find'
 include Spawn
+module ModPorter
+  class UploadedFile
+    def local_path
+      @path
+    end
+  end
+end
 class PipelineController < ApplicationController
 
   # TODO: move some stuff into the private area so it can't be called by URL-hackers
