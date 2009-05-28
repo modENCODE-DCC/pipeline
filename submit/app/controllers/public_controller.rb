@@ -98,7 +98,9 @@ class PublicController < ApplicationController
             p.id,
             p.deprecated?,
             p.deprecated? ? p.deprecated_by_project.id : nil,
-            url 
+            url,
+            p.name,
+            p.pi
           ].join("\t")
         }
         render :text => text_objs.join("\n")
