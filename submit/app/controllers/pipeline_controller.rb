@@ -1062,9 +1062,9 @@ class PipelineController < ApplicationController
           session[:generating_track_stanza] = nil
           session.close
         end
+        session.close
+        redirect_to :action => :configure_tracks, :id => @project
       end
-      session.close
-      redirect_to :action => :configure_tracks, :id => @project
     else
       @ts_user = ts.user
       @track_defs = ts.stanza
