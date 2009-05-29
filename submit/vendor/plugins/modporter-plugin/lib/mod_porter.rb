@@ -33,7 +33,6 @@ module ModPorter
     def normalize_mod_porters
       logger.info("Starting ModPorter processing.")
 
-      require 'pp'; $stderr.puts params.pretty_inspect
       return if request.headers["X-Uploads"].blank?
 
       porter_params = request.headers["X-Uploads"].split(",").uniq
@@ -82,7 +81,6 @@ module ModPorter
     end
 
     def check_signature!(options)
-      require 'pp'; $stderr.puts options.pretty_inspect
       expected_digest = Digest::SHA1.digest("#{options[:path]}#{self.class.mod_porter_secret}")
       base64_encoded_digest = ActiveSupport::Base64.encode64(expected_digest).chomp
     
