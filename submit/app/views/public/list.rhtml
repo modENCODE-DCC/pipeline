@@ -44,6 +44,32 @@ Below, you can find:
         <% if current_user.is_a?(Moderator) %>$('show_noreadme_form').reset();<% end %>
       </script>
   </td></tr>
+  <tr>
+    <br/>
+    <td colspan="8" style="text-align: left">
+      <div style="font-size: 60%">
+        Projects per page:
+        <% [25, 50, 75, 100].each do |page_size| %>
+          <%= "<b>" if session[:page_size] == page_size %>
+          <%= link_to_unless session[:page_size] == page_size, page_size, :page_size => page_size %>
+          <%= "</b>" if session[:page_size] == page_size %>
+        <% end %>
+      </div>
+      Select page:
+      <% (1..@num_pages).each do |pagenum| %>
+        <%= "<b>" if @cur_page == pagenum %>
+          <%= link_to_unless @cur_page == pagenum, pagenum, :page => pagenum %>
+        <%= "</b>" if @cur_page == pagenum %>
+      <% end %>
+      <br/>
+      <%= link_to_if @has_prev_page, "&lt; previous", :page => @cur_page-1 %>
+      |
+      <%= link_to_if @has_next_page, "next &gt;", :page => @cur_page+1 %>
+      <br/>
+
+
+    </td>
+  </tr>
   <tr><th colspan="8" class="tophr">&nbsp;</td></tr>
   <tr class="titles">
     <% refresh_action_name = :list -%>
