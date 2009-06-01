@@ -73,30 +73,28 @@ class PublicController < ApplicationController
     end
     @organisms_by_pi = organisms_by_pi
 
-    if params[:page_size] then
-      begin
-        session[:public_list_page_size] = params[:page_size].to_i
-      rescue
-      end
-    end
-    session[:public_list_page_size] = 25 if session[:public_list_page_size].nil?
-    page_size = session[:public_list_page_size]
-    page_offset = 0
-    if params[:page] then
-      page_offset = [(params[:page].to_i-1), 0].max * page_size
-    end
-    page_end = (page_offset + page_size)
-    @cur_page = (page_offset / page_size) + 1
-    @num_pages = @projects.size / page_size
-    @num_pages += 1 if @projects.size % page_size != 0
-    @has_next_page = @cur_page != @num_pages
-    @has_prev_page = @cur_page != 1
-    @projects = @projects[page_offset...page_end]
-
-
-
     respond_to do |format|
-      format.html # Behave normally
+      format.html {
+        if params[:page_size] then
+          begin
+            session[:public_list_page_size] = params[:page_size].to_i
+          rescue
+          end
+        end
+        session[:public_list_page_size] = 25 if session[:public_list_page_size].nil?
+        page_size = session[:public_list_page_size]
+        page_offset = 0
+        if params[:page] then
+          page_offset = [(params[:page].to_i-1), 0].max * page_size
+        end
+        page_end = (page_offset + page_size)
+        @cur_page = (page_offset / page_size) + 1
+        @num_pages = @projects.size / page_size
+        @num_pages += 1 if @projects.size % page_size != 0
+        @has_next_page = @cur_page != @num_pages
+        @has_prev_page = @cur_page != 1
+        @projects = @projects[page_offset...page_end]
+      }
       format.xml {
         xml_objs = Project.all.map { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
