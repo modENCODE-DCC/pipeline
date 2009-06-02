@@ -923,6 +923,25 @@ class PipelineController < ApplicationController
     redirect_to :action => :show, :id => @project
   end
 
+  def preview
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::GENERATING_PREVIEW) then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    do_preview(@project)
+
+    redirect_to :action => :show, :id => @project
+  end
+
+
   def get_gbrowse_config
     begin
       @project = Project.find(params[:id])
@@ -1671,6 +1690,13 @@ class PipelineController < ApplicationController
 
   def project=(proj)
     @project = proj
+  end
+
+  def do_preview(project, options = {})
+    # Get the *Controller class to be used to do track finding
+    preview_controller = PreviewBrowserController.new(:project => project, :current_status => project.status)
+    options[:user] = current_user
+    preview_controller.queue options
   end
 
   def do_find_tracks(project, options = {})
