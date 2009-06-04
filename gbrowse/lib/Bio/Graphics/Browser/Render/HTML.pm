@@ -33,24 +33,54 @@ sub render_html_start {
 sub render_top {
     my $self = shift;
     my ($title,$features) = @_;
-    my $html =  $self->render_user_header;
-    $html   .=  $self->render_title($title,$self->state->{name} && @$features == 0);
+    my $err  =  $self->render_error_div;
+    my $html = '';
+    $html   .=  $self->render_user_header;
+    $html   .=  $self->render_title($title,$self->state->{name} 
+				    && @$features == 0);
     $html   .=  $self->html_frag('html1',$self->state);
     $html   .=  $self->render_instructions;
-    return  $self->toggle({nodiv=>1},'banner','',$html)
+    return  $err
+	  . $self->toggle({nodiv=>1},'banner','',$html)
 	  . $self->render_links;
+}
+
+sub render_error_div {
+    my $self   = shift;
+    my $button = button({-onClick=>'Controller.hide_error()',
+			 -name=>'Ok'});
+    return div({-class=>'errorpanel',
+		-style=>'display:none',
+		-id=>'errordiv'},
+	       table(
+		   TR(
+		       td(span({-id=>'errormsg'},'no error')),
+		       td({-align=>'right'},$button)
+		   ),
+	       ),
+	       div({-class=>'errorpanel',
+		    -style=>'display:none;margin: 6px 6px 6px 6px',
+		    -id   =>'errordetails'},
+		   'no details'
+	       )
+	);
 }
 
 sub render_user_header {
     my $self = shift;
     my $settings = $self->state;
-    return $settings->{head} ? $self->data_source->global_setting('header') : '';
+    return '' unless $settings->{head};
+    my $a = $self->data_source->global_setting('header');
+    return $a->(@_) if ref $a eq 'CODE';
+    return $a || '';
 }
 
 sub render_bottom {
   my $self = shift;
   my $features = shift; # not used
-  return $self->data_source->global_setting('footer').end_html();
+  my $a   = $self->data_source->global_setting('footer');
+  my $val = (ref $a eq 'CODE' ? $a->(@_) : $a) || '';
+  return $a.end_html();
 }
 
 sub render_navbar {
@@ -162,12 +192,27 @@ sub render_search_form_objects {
     my $self     = shift;
     my $settings = $self->state;
 
-    return textfield(
+    # avoid exposing the internal database ids to the public
+    my $search_value = $settings->{name} =~ /^id:/ && $self->region->features 
+	                ? eval{$self->region->features->[0]->display_name}
+			: $settings->{name};
+    my $html = textfield(
         -name    => 'name',
         -id      => 'landmark_search_field',
         -size    => 25,
-        -default => $settings->{name}
-    ) . submit( -name => $self->tr('Search') );
+        -default => $search_value,
+	-override=>1,
+    );
+    if ($self->setting('autocomplete')) {
+	$html .= <<END
+<span id="indicator1" style="display: none">
+  <img src="/gbrowse2/images/spinner.gif" alt="Working..." />
+</span>
+<div id="autocomplete_choices" class="autocomplete"></div>
+END
+    }
+    $html .= submit( -name => $self->tr('Search') );
+    return $html;
 }
 
 sub render_html_head {
@@ -190,7 +235,7 @@ sub render_html_head {
 
  if ($self->setting('autocomplete')) {
     push @scripts,{src=>"$js/$_"}
-      foreach qw(connection.js autocomplete.js);
+      foreach qw(controls.js autocomplete.js);
   }
 
   # our own javascript
@@ -211,15 +256,15 @@ sub render_html_head {
     );
 
   # pick stylesheets;
-  my @css_links;
+  my @extra_headers;
   my @style = shellwords($self->setting('stylesheet') || '/gbrowse/gbrowse.css');
   for my $s (@style) {
       my ($url,$media) = $s =~ /^([^(]+)(?:\((.+)\))?/;
       $media ||= 'all';
-      push @css_links,CGI::Link({-rel=>'stylesheet',
-				 -type=>'text/css',
-				 -href=>$self->globals->resolve_path($url,'url'),
-				 -media=>$media});
+      push @extra_headers,CGI::Link({-rel=>'stylesheet',
+				     -type=>'text/css',
+				     -href=>$self->globals->resolve_path($url,'url'),
+				     -media=>$media});
   }
 
 
@@ -239,16 +284,18 @@ sub render_html_head {
       $set_dragcolors = "set_dragcolors('$fill');";
   }
 
+  push @extra_headers,$self->setting('head')  if $self->setting('head');
+
   # put them all together
   my @args = (-title    => $title,
               -style    => \@stylesheets,
               -encoding => $self->tr('CHARSET'),
 	      -script   => \@scripts,
-	      -head     => \@css_links,
+	      -head     => \@extra_headers,
 	     );
-  push @args,(-head=>$self->setting('head'))    if $self->setting('head');
   push @args,(-lang=>($self->language_code)[0]) if $self->language_code;
-  push @args,(-onLoad=>"initialize_page();$set_dragcolors");
+  my $autocomplete = ''; # $self->setting('autocomplete') ? 'initAutocomplete()' : '';
+  push @args,(-onLoad=>"initialize_page();$set_dragcolors;$autocomplete");
 
   return start_html(@args);
 }
@@ -273,23 +320,34 @@ sub render_balloon_settings {
 var GBubble = new Balloon;
 BalloonConfig(GBubble,'GBubble');
 GBubble.images = "$balloon_images/GBubble";
+GBubble.allowEventHandlers = true;
+GBubble.opacity = 1;
+GBubble.fontFamily = 'sans-serif';
 
 // A simpler popup balloon style
 var GPlain = new Balloon;
 BalloonConfig(GPlain,'GPlain');
 GPlain.images = "$balloon_images/GPlain";
+GPlain.allowEventHandlers = true;
+GPlain.opacity = 1;
+GPlain.fontFamily = 'sans-serif';
 
 // Like GBubble but fades in
 var GFade = new Balloon;
 BalloonConfig(GFade,'GFade');
 GFade.images = "$balloon_images/GBubble";
-GFade.opacity = 100;
+GFade.opacity = 1;
+GFade.allowEventHandlers = true;
+GFade.fontFamily = 'sans-serif';
 
 // A formatted box
 // Note: Box is a subclass of Balloon
 var GBox = new Box;
 BalloonConfig(GBox,'GBox');
-GBox.images = "$balloon_images/GBox";
+GBox.images = "$balloon_images/GBubble";
+GBox.allowEventHandlers = true;
+GBox.opacity = 1;
+GBox.fontFamily = 'sans-serif';
 END
 ;
     							   
@@ -418,10 +476,15 @@ sub render_links {
   my $image_link   = a({-href=>'?make_image=GD',-target=>'_blank'},   '['.$self->tr('IMAGE_LINK').']');
   my $rand         = substr(md5_hex(rand),0,5);
 
+  my $debug_link   = a({-href    => 'javascript:void(0)',
+			-onClick => 'Controller.show_error("This is a test of an error message.","A stitch in time saves nine.")'},
+		       'Make an Error');
+
 
   my @standard_links        = (
       $help_link,
-      $reset_link
+      $reset_link,
+      $debug_link,
       );
 
   my @segment_showing_links =(
@@ -478,7 +541,11 @@ sub galaxy_form {
     return '' unless $galaxy_url;
 
     my $URL  = $source->global_setting('galaxy incoming');
-    $URL    ||= url(-full=>1,-path_info=>1);
+    if (!$URL) {
+	$URL = url(-full=>1,-path_info=>1);
+    } else {
+      $URL .= "/".$source->name;
+    }
 
     my $action = $galaxy_url =~ /\?/ ? "$galaxy_url&URL=$URL" : "$galaxy_url?URL=$URL";
     
@@ -495,6 +562,7 @@ sub galaxy_form {
 		      
     $html .= hidden(-name=>'dbkey',-value=>$dbkey);
     $html .= hidden(-name=>'gbgff',-value=>1);
+    $html .= hidden(-name=>'id',   -value=>$settings->{userid});
     $html .= hidden(-name=>'q',-value=>$seg);
     $html .= hidden(-name=>'t',-value=>$labels);
     $html .= hidden(-name=>'s',-value=>'off');
@@ -502,20 +570,47 @@ sub galaxy_form {
     $html .= hidden(-name=>'m',-value=>'application/x-gff3');
     $html .= endform();
 
-# Copied from gbrowse 1.69 -- not sure if still appropriate
-#   my $plugin_action = param('plugin_action');
-#   if ($plugin_action eq $CONFIG->tr('Go') && param('plugin') eq 'invoke_galaxy') {
-#     $html .= script('document.galaxyform.submit()');
-#   }
-
   return $html;
 }
 
+sub render_track_filter {
+    my $self   = shift;
+    my $plugin = shift;
+
+    my $form         = $plugin->configure_form();
+    my $plugin_type  = $plugin->type;
+    my $action       = $self->tr('Configure_plugin');
+    my $name         = 'plugin:'.$plugin->name;
+
+    return
+ 	p({-id=>'track select'},
+	  start_form({-id      => 'track_filterform',
+		      -name    => 'configure_plugin',
+		      -onSubmit=> 'return false'}),
+	  $form,
+	  button(
+	      -name    => 'plugin_button',
+	      -value   => $self->tr('Configure_plugin'),
+	      -onClick => 'doPluginUpdate()',
+	  ),
+	  end_form(),
+	  script({-type=>'text/javascript'},
+		 "function doPluginUpdate() { Controller.reconfigure_plugin('$action',null,null,'$plugin_type',\$('track_filterform')) }")
+	);
+}
 
 # This surrounds the track table with a toggle
 sub render_toggle_track_table {
   my $self     = shift;
-  return $self->toggle('Tracks', $self->render_track_table());
+  my $html;
+
+  if (my $filter = $self->track_filter_plugin) {
+      $html .= $self->toggle({tight=>1},'track_select',div({class=>'searchtitle',
+							    style=>"text-indent:2em"},$self->render_track_filter($filter)));
+  }
+  $html .= $self->toggle('Tracks',$self->render_track_table);
+
+  return $html;
 }
 
 # this draws the various config options
@@ -529,8 +624,15 @@ sub render_track_table {
   # tracks beginning with "_" are special, and should not appear in the
   # track table.
   my @labels     = $self->potential_tracks;
+
+  warn "potential tracks = @labels" if DEBUG;
   my %labels     = map {$_ => $self->label2key($_)}              @labels;
   my @defaults   = grep {$settings->{features}{$_}{visible}  }   @labels;
+
+  if (my $filter = $self->track_filter_plugin) {
+      eval {@labels    = $filter->filter_tracks(\@labels,$source)};
+      warn $@ if $@;
+  }
 
   # Sort the tracks into categories:
   # Overview tracks
@@ -570,7 +672,8 @@ sub render_track_table {
     next if $seenit{$category}++;
     my $table;
     my $id = "${category}_section";
-    my $category_title   = (split m/:/,$category)[-1];
+    my $category_title   = (split m/(?<!\\):/,$category)[-1];
+    $category_title      =~ s/\\//g;
 
     if ($category eq $self->tr('REGION') 
 	&& !$self->setting('region segment')) {
@@ -585,11 +688,14 @@ sub render_track_table {
       @track_labels = sort {lc ($labels{$a}) cmp lc ($labels{$b})} @track_labels
         if ($settings->{sk} eq "sorted");
 
+      my %ids        = map {$_=>{id=>"${_}_check"}} @track_labels;
+
       my @checkboxes = checkbox_group(-name       => 'label',
 				      -values     => \@track_labels,
 				      -labels     => \%labels,
 				      -defaults   => \@defaults,
 				      -onClick    => "gbTurnOff('$id');gbToggleTrack(this)",
+				      -attributes => \%ids,
 				      -override   => 1,
 				     );
       $table = $self->tableize(\@checkboxes);
@@ -633,10 +739,14 @@ sub indent_categories {
     my ($contents,$categories) = @_;
 
     my $category_hash = {};
+    my %sort_order;
+    my $sort_index = 0;
 
     for my $category (@$categories) {
 	my $cont   = $contents->{$category} || '';
-	my @parts  = split m/:/,$category;
+
+	my @parts  = map {s/\\//g; $_} split m/(?<!\\):/,$category;
+	$sort_order{$_} = $sort_index++ foreach @parts;
 
 	my $i      = $category_hash;
 
@@ -651,7 +761,6 @@ sub indent_categories {
 	}
     }
     my $i               = 1;
-    my %sort_order      = map {$_=>$i++} map {split m/:/} @$categories;
     my $nested_sections =  $self->nest_toggles($category_hash,\%sort_order);
 }
 
@@ -664,7 +773,7 @@ sub nest_toggles {
 
     my $result = '';
     for my $key (sort { 
-	           $sort->{$a}<=>$sort->{$b} || $a cmp $b
+	           ($sort->{$a}||0)<=>($sort->{$b}||0) || $a cmp $b
 		      }  keys %$hash) {
 	if ($key eq '__contents__') {
 	    $result .= $hash->{$key}."\n";
@@ -724,7 +833,7 @@ sub render_global_config {
     my $content
         = start_form( -name => 'display_settings', -id => 'display_settings' )
         . div( {-class=>'searchbody'},
-	       table ({-border => 0, -cellspacing=>0},
+	       table ({-border => 0, -cellspacing=>0, -width=>'100%'},
 		      TR( { -class => 'searchtitle' },
 			  td( b(  checkbox(
 				      -name     => 'grid',
@@ -757,7 +866,7 @@ sub render_global_config {
 				      -override => 1,
 				      -onChange => 'Controller.set_display_option(this.name,this.value)', 
 				  ),
-				  a({-href=>'#',
+				  a({-href=>'javascript:void(0)',
 				     -onClick=>'Controller.set_display_option("h_feat","_clear_");$("h_feat").value=""'},
 				    $self->tr('CLEAR_HIGHLIGHTING'))
 			      ),
@@ -791,7 +900,7 @@ sub render_global_config {
 				      -override => 1,
 				      -onChange    => 'Controller.set_display_option(this.name,this.value)', 
 				  ),
-				  a({-href=>'#',
+				  a({-href=>'javascript:void(0)',
 				     -onClick=>'Controller.set_display_option("h_region","_clear_");$("h_region").value=""'
 				    },
 				    $self->tr('CLEAR_HIGHLIGHTING'))
@@ -1034,9 +1143,14 @@ sub das_table {
       }
   }
 
+  my $url_help = $self->tr('Remote_url_help')||'';
   push @rows,
-    th({-align=>'right',-width=>'20%'},
-		$self->tr('Remote_url')).
+    th({-align=>'right',
+	-width      =>'20%',
+	-onMouseOver=>"GBubble.showTooltip(event,'$url_help')",
+	-style      => 'cursor:pointer',
+       },
+       $self->tr('Remote_url')).
     td(textfield(-name=>'eurl',-id=>'eurl',-size=>80,-value=>'',-override=>1),
        $presets,
        button(
@@ -1112,7 +1226,7 @@ sub edit_uploaded_file {
             td( $self->tr('Edit_instructions') ),
         ),
         TR( { -class => 'searchbody' },
-            td( a(  { -href => "?help=annotation#format", -target => 'help' },
+            td( a(  { -href => $self->annotation_help().'#format', -target => 'help' },
                     b( '[' . $self->tr('Help_format') . ']' )
                 )
             ),
@@ -1156,9 +1270,10 @@ sub plugin_menu {
   my $settings = $self->state;
   my $plugins  = $self->plugins;
 
-  my $labels = $plugins->menu_labels;
+  my $labels   = $plugins->menu_labels;
 
-  my @plugins = sort {$labels->{$a} cmp $labels->{$b}} keys %$labels;
+  my @plugins  = grep {$plugins->plugin($_)->type ne 'trackfilter'}  # track filter gets its own special position
+                 sort {$labels->{$a} cmp $labels->{$b}} keys %$labels;
 
   # Add plugin types as attribute so the javascript controller knows what to do
   # with each plug-in
@@ -1390,7 +1505,8 @@ sub slidertable {
   my $fine_zoom  = $self->get_zoomincrement();
 
   my @lines =
-    (image_button(-src     => "$buttonsDir/green_l2.gif",-name=>"left $full",
+    (image_button(-src     => "$buttonsDir/green_l2.gif",
+		  -name=>"left $full",
 		  -title   => "left $full_title",
 		  -onClick => "Controller.update_coordinates(this.name)"
      ),
@@ -1636,7 +1752,7 @@ END
                     -style   => 'background:pink',
                     -name    => $self->tr('Revert'),
                     -onClick => $reset_js
-	      ),
+	      ), br, 
 	      button(
 		  -name    => $self->tr('Cancel'),
 		  -onClick => 'Balloon.prototype.hideTooltip(1)'
@@ -1657,6 +1773,46 @@ END
 
     $return_html
         .= table( TR( td( { -valign => 'top' }, [ $citation, $form ] ) ) );
+    $return_html .= end_html();
+    return $return_html;
+}
+
+# this is the content of the popup balloon that allows the user to select
+# individual features by source or name
+sub select_subtracks {
+    my $self  = shift;
+    my $label = shift;
+
+    my $state       = $self->state();
+    my $data_source = $self->data_source();
+
+    my $select_options = $data_source->setting($label=>'select');
+    my ($method,@values) = shellwords($select_options);
+
+    my $filter = $state->{features}{$label}{filter};
+
+    unless (exists $filter->{method} && $filter->{method} eq $method) {
+	$filter->{method} = $method;
+	$filter->{values} = { map {$_=>1} @values }; # all on
+    }
+
+    my @turned_on = grep {$filter->{values}{$_}} @values;
+
+    my $return_html = start_html();
+    $return_html   .= start_form(-name => 'subtrack_select_form',
+				 -id   => 'subtrack_select_form');
+    $return_html   .= p($self->language->tr('SHOW_SUBTRACKS')
+			||'Show subtracks');
+    $return_html   .= checkbox_group(-name      => "select",
+				     -values    => \@values,
+				     -linebreak => 1,
+				     -defaults  => \@turned_on);
+    $return_html .= button(-name    => 
+			      $self->tr('Change'),
+			   -onClick => 
+			      "Controller.filter_subtrack('$label',\$('subtrack_select_form'))"
+	);
+    $return_html .= end_form();
     $return_html .= end_html();
     return $return_html;
 }
@@ -1687,13 +1843,14 @@ sub share_track {
     my $segment = $label =~  /:region$/   ? '$region'
                  :$label =~  /:overview$/ ? '$overview'
                  :'$segment';
+    my $upload_id = $state->{uploadid} || $state->{userid};
     if ( $label =~ /^(http|ftp):/ ) {    # reexporting and imported track!
         $gbgff = $label;
     }
     else {
         $gbgff = url( -full => 1, -path_info => 1 );
         $gbgff .= "?gbgff=1;q=$segment;t=$labels";
-        $gbgff .= ";id=" . $state->{id} if $labels =~ /file:/;
+        $gbgff .= ";id=$upload_id" if $labels =~ /file(:|%3A)/;
     }
 
     my $das_types = join( ';',
@@ -1807,6 +1964,11 @@ sub toggle_section {
 
   my $visible = $config{on};
 
+  # IE hack
+  my $agent      = CGI->user_agent || '';
+  my $ie         = $agent =~ /MSIE/;
+  $config{tight} = undef if $ie;
+
   my $buttons = $self->globals->button_url;
   my $plus  = "$buttons/plus.png";
   my $minus = "$buttons/minus.png";
@@ -1830,8 +1992,10 @@ sub toggle_section {
 		      -style=>$visible ? 'display:inline' : 'display:none',
 		      -class => 'el_visible'},
 		     @section_body);
-  my @result =  $config{nodiv} ? (div({-style=>'float:left'},$show_ctl.$hide_ctl),$content)
-                :$config{tight}? (div({-style=>'float:left'},$show_ctl.$hide_ctl).$break,$content)
+  my @result =  $config{nodiv} ? (div({-style=>'float:left'},
+				      $show_ctl.$hide_ctl),$content)
+                :$config{tight}? (div({-style=>'float:left;position:absolute;z-index:10'},
+				      $show_ctl.$hide_ctl).$break,$content)
                 : div($show_ctl.$hide_ctl,$content);
   return wantarray ? @result : "@result";
 }
@@ -1865,6 +2029,24 @@ sub can_generate_pdf {
 	    );
 	return $CAN_PDF=0;
     }
+}
+
+sub format_autocomplete {
+    my $self     = shift;
+    my $features = shift;
+    my $partial  = shift;
+    my %names;
+    for my $f (@$features) {
+	my $name = $f->display_name or next;
+	$names{$name}++;
+    }
+    my $html = "<ul>\n";
+    for my $n (sort keys %names) {
+	$n =~ s/($partial)/<b>$1<\/b>/i;
+	$html .= "<li>$n</li>\n";
+    }
+    $html .= "</ul>\n";
+    return $html;
 }
 
 1;

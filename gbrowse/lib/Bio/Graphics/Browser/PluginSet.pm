@@ -1,7 +1,7 @@
 package Bio::Graphics::Browser::PluginSet;
 # API for using plugins
 
-#  $Id: PluginSet.pm,v 1.9 2008/09/30 21:17:58 lstein Exp $
+#  $Id: PluginSet.pm,v 1.12 2009/05/20 20:36:20 lstein Exp $
 
 use strict;
 use Bio::Graphics::Browser;
@@ -19,7 +19,6 @@ sub new {
   warn "initializing plugins with $config..." if DEBUG;
   my @plugins = shellwords($config->plugins);
   warn "PLUGINS = @plugins" if DEBUG;
-
 
  PLUGIN:
   for my $plugin (@plugins) {
@@ -94,13 +93,11 @@ sub configure {
 
       # and tell the plugin about it
       $p->configuration($config);
-      $p->filter if ($p->type eq 'filter');
 
       # if there are any CGI parameters from the
       # plugin's configuration screen, set it here
       if (my @params = grep {/^$name\./} param()) {
 	  $p->reconfigure unless param('plugin_action') eq $language->tr('Cancel');
-	  $p->filter if ($p->type eq 'filter');
 
 	  # turn the plugin on
 	  my $setting_name = 'plugin:'.$p->name;
@@ -110,13 +107,43 @@ sub configure {
 
     warn "$name: $@" if $@;
   }
+
+
+  $self->set_filters();  # allow filter plugins to adjust the data source
+}
+
+sub set_filters {
+    my $self   = shift;
+    my $source = $self->config;
+
+    my @labels = grep {!/^_/} $source->labels;
+    for my $p ($self->plugins) {
+	next unless $p->type eq 'filter';
+	for my $l (@labels) {
+	    $self->{'.ok'}{$l}    ||= $source->setting($l,'key');    # remember this!
+	    $self->{'.of'}{$l}    ||= $source->setting($l,'filter'); # remember this!
+	    
+	    if (my ($filter,$new_key) = $p->filter($l,$self->{'.ok'}{$l})) {
+		$source->set($l, filter => $filter);
+		$source->set($l, key    => $new_key);
+	    }
+	    else {
+		$source->set($l, key    => $self->{'.ok'}{$l}) if exists $self->{'.ok'}{$l};
+		$source->set($l, filter => $self->{'.of'}{$l}) if exists $self->{'.of'}{$l};
+	    }
+	}
+    }
 }
 
 sub annotate {
   my $self = shift;
-  my $segment       = shift;
-  my $feature_files = shift || {};
-  my $coordinate_mapper = shift;
+  my $segment                = shift;
+  my $feature_files          = shift || {};
+  my $fast_mapper            = shift;  # fast mapper filters out features that are outside cur segment
+  my $slow_mapper            = shift;  # slow mapper doesn't
+  my $max_segment            = shift;  # ignored
+  my $whole_segment          = shift;
+  my $region_segment         = shift;
 
   my @plugins = $self->plugins;
 
@@ -125,9 +152,13 @@ sub annotate {
     my $name = "plugin:".$p->name;
     next unless $p->page_settings && $p->page_settings->{features}{$name}{visible};
     warn "Plugin $name is visible, so running it on segment $segment" if DEBUG;
-    my $features = $p->annotate($segment,$coordinate_mapper) or next;
-    $features->name($name);
-    $feature_files->{$name} = $features;
+    if ($max_segment < $segment->length+1) {
+	$feature_files->{$name} = Bio::Graphics::FeatureFile->new();  # empty
+    } else {
+	my $features = $p->annotate($segment,$fast_mapper) or next;
+	$features->name($name);
+	$feature_files->{$name} = $features;
+    }
   }
 }
 
@@ -166,7 +197,9 @@ sub menu_labels {
   my %verbs = (dumper       => $lang->tr('Dump'),
 	       finder       => $lang->tr('Find'),
 	       highlighter  => $lang->tr('Highlight'),
-	       annotator    => $lang->tr('Annotate'));
+	       annotator    => $lang->tr('Annotate'),
+	       filter       => $lang->tr('Filter'),
+      );
   my %labels = ();
 
   # Adjust plugin menu labels
@@ -182,9 +215,7 @@ sub menu_labels {
       $labels{$_} = $verbs{$plugins->{$_}->type} ||
         ucfirst $plugins->{$_}->type;
     }
-    my $name = $plugins->{$_}->type eq 'filter' ?  
-               $config->setting($plugins->{$_}->name => 'key') : 
-               $plugins->{$_}->name;
+    my $name = $plugins->{$_}->name;
     $labels{$_} .= " $name";
     $labels{$_} =~ s/^\s+//;
   }

@@ -52,11 +52,13 @@ sub new {
     return $CONFIG_CACHE{$config_file_path}{object};
   }
 
-  my $self = $class->SUPER::new(-file=>$config_file_path,-safe=>1);
+  my $self = $class->SUPER::new(-file=>$config_file_path,
+				-safe=>1);
   $self->name($name);
   $self->description($description);
   $self->globals($globals);
   $self->dir(dirname($config_file_path));
+  $self->config_file($config_file_path);
   $self->add_scale_tracks();
   $CONFIG_CACHE{$config_file_path}{object} = $self;
   $CONFIG_CACHE{$config_file_path}{mtime}  = $mtime;
@@ -69,6 +71,7 @@ sub name {
   $self->{name} = shift if @_;
   $d;
 }
+
 sub description {
   my $self = shift;
   my $d    = $self->{description};
@@ -83,6 +86,13 @@ sub dir {
   $d;
 }
 
+sub config_file {
+  my $self = shift;
+  my $d    = $self->{config_file};
+  $self->{config_file} = shift if @_;
+  $d;
+}
+
 sub globals {
   my $self = shift;
   my $d    = $self->{globals};
@@ -93,6 +103,27 @@ sub globals {
 sub clear_cached_dbids {
     my $self = shift;
     delete $self->{feature2dbid};
+}
+
+sub clear_cached_config {
+    my $self             = shift;
+    delete $CONFIG_CACHE{$self->config_file};
+}
+
+=head2 userdata()
+
+  $path = $source->userdata(@path_components)
+
+  Returns a path to somewhere in the tmp file system for the 
+  indicated userdata.
+
+=cut
+
+sub userdata {
+    my $self = shift;
+    my @path = @_;
+    my $globals = $self->globals;
+    return $globals->user_dir($self->name,@path);
 }
 
 =head2 global_setting()
@@ -131,22 +162,7 @@ sub global_time {
 
     my $time = $self->global_setting($option);
     return unless defined($time);
-
-    $time =~ s/\s*#.*$//; # strip comments
-
-    my(%mult) = ('s'=>1,
-                 'm'=>60,
-                 'h'=>60*60,
-                 'd'=>60*60*24,
-                 'M'=>60*60*24*30,
-                 'y'=>60*60*24*365);
-    my $offset = $time;
-    if (!$time || (lc($time) eq 'now')) {
-	$offset = 0;
-    } elsif ($time=~/^([+-]?(?:\d+|\d*\.\d*))([smhdMy])/) {
-	$offset = ($mult{$2} || 1)*$1;
-    }
-    return $offset;
+    return $self->globals->time2sec($time);
 }
 
 sub cache_time {
@@ -155,10 +171,9 @@ sub cache_time {
         $self->{cache_time} = shift;
     }
     return $self->{cache_time} if exists $self->{cache_time};
-    my ($ct) = $self->global_time('cache time');
-    $ct = 1 unless defined $ct;    # cache one hour by default
-    return $self->{cache_time}
-        = $ct / 3600;    # global times are in seconds, we want hours
+    my $globals = $self->globals;
+    my $ct = $globals->time2sec($globals->cache_time);
+    return $self->{cache_time} = $ct;
 }
 
 # this method is for compatibility with some plugins
@@ -209,46 +224,6 @@ sub commas {
 #  my $self = shift;
 #  return 1.0;   # for now
 #}
-
-#copied from lib/ .. / Browser.pm
-sub gd_cache_path {
-  my $self = shift;
-  my ($cache_name,@keys) = @_;
-  return unless $self->setting(general=>$cache_name);
-  my $signature = md5_hex(@keys);
-  my ($uri,$path) = $self->globals->tmpdir($self->source.'/cache_overview');
-  my $extension   = 'gd';
-  return "$path/$signature.$extension";
-}
-
-sub gd_cache_check {
-  my $self = shift;
-  my ($cache_name,$path) = @_;
-  return if param('nocache');
-  my $cache_file_mtime   = (stat($path))[9] || 0;
-  my $conf_file_mtime    = $self->mtime;
-  my $cache_expiry       = $self->config->setting(general=>$cache_name) 
-                               * 60*60;  # express expiry time as seconds
-  if ($cache_file_mtime 
-      && ($cache_file_mtime > $conf_file_mtime) 
-      && (time() - $cache_file_mtime < $cache_expiry)) {
-    my $gd = GD::Image->newFromGd($path);
-    return $gd;
-  }
-  else {
-    return;
-  }
-}
-
-
-sub gd_cache_write {
-  my $self = shift;
-  my $path = shift or return;
-  my $gd   = shift;
-  my $file = IO::File->new(">$path") or return;
-  print $file $gd->gd;
-  close $file;
-}
 
 sub overview_bgcolor { shift->global_setting('overview bgcolor')         }
 sub detailed_bgcolor { shift->global_setting('detailed bgcolor')         }
@@ -382,7 +357,8 @@ sub plugin_setting {
   my $caller_package = caller();
   my ($last_name)    = $caller_package =~ /(\w+)$/;
   my $option_name    = "${last_name}:plugin";
-  $self->setting($option_name => @_);
+  return $self->label_options($option_name) unless @_;
+  return $self->setting($option_name => @_);
 }
 
 sub karyotype_setting {
@@ -626,6 +602,8 @@ sub db_settings {
 
   if ($track =~ /:database$/) {
       $section = $symbolic_db_name = $track;
+  } elsif ($self->setting($track=>'db_adaptor')) {
+      $section = $track;
   } else {
       $symbolic_db_name   = $self->setting($track => 'database');
       $symbolic_db_name ||= $self->fallback_setting('TRACK DEFAULTS' => 'database');
@@ -767,6 +745,12 @@ sub generate_image {
   my $self   = shift;
   my $image  = shift;
 
+  if ($self->global_setting('truecolor') 
+      && $image->can('saveAlpha')) {
+      $image->trueColor(1);
+      $image->saveAlpha(1);
+  }
+
   my $extension = $image->can('png') ? 'png' : 'gif';
   my $data      = $image->can('png') ? $image->png : $image->gif;
   my $signature = md5_hex($data);
@@ -825,6 +809,63 @@ sub add_dbid_to_feature {
     }
 }
 
+
+=head2 @labels = $source->data_source_to_label(@data_sources)
+
+Search through all stanzas for those with a matching "data source"
+option. Data sources look like this:
+
+ [stanzaLabel1]
+ data source = FlyBase
+
+ [stanzaLabel2]
+ data source = FlyBase
+
+Now searching for $source->data_source_to_label('FlyBase') will return
+"stanzaLabel1" and "stanzaLabel2" along with others that match. A
+track may have several data sources, separated by spaces.
+
+=cut
+
+
+sub data_source_to_label {
+    my $self = shift;
+    return $self->_secondary_key_to_label('data source',@_);
+}
+
+=head2 @labels = $source->track_source_to_label(@track_sources)
+
+Search through all stanzas for those with a matching "track source"
+option. Track sources look like this:
+
+ [stanzaLabel]
+ track source = UCSC EBI NCBI
+
+Now searching for $source->track_source_to_label('UCSC','EBI') will
+return "stanzaLabel" along with others that match. A track may have
+several space-delimited track sources.
+
+=cut
+sub track_source_to_label {
+    my $self = shift;
+    return $self->_secondary_key_to_label('track source',@_);
+}
+
+sub _secondary_key_to_label {
+    my $self   = shift;
+    my $field  = shift;
+    my $index  = $self->{'.secondary_key'};
+    if (!exists $index->{$field}) {
+	for my $label ($self->labels) {
+	    my @sources = shellwords $self->setting($label=>$field) or next;
+	    push @{$index->{$field}{lc $_}},$label foreach @sources;
+	}
+    }
+
+    my %seenit;
+    return grep {!$seenit{$_}++} 
+           map  {exists $index->{$field}{lc $_} ? @{$index->{$field}{lc $_}} : () } @_;
+}
 
 1;
 

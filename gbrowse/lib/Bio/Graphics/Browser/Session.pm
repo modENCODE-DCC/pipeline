@@ -1,56 +1,165 @@
 package Bio::Graphics::Browser::Session;
 
-# $Id: Session.pm,v 1.9 2008/12/17 19:56:56 lstein Exp $
+# $Id: Session.pm,v 1.15 2009/05/04 05:19:40 lstein Exp $
 
 use strict;
 use warnings;
 
 use CGI::Session;
-use Fcntl 'LOCK_EX';
+use Fcntl 'LOCK_EX','LOCK_SH';
 use File::Spec;
 use File::Path 'mkpath';
 
+my $HAS_NFSLOCK;
+my $HAS_MYSQL;
+
+BEGIN {
+    # Prevent CGI::Session from autoflushing. Only flush when we say to.
+    undef *CGI::Session::DESTROY;
+    $HAS_NFSLOCK = eval {require File::NFSLock;1           };
+    $HAS_MYSQL   = eval {require DBI; require DBD::mysql; 1};
+}
+
 use constant DEBUG => 0;
+use constant DEBUG_LOCK => DEBUG || 0;
 
 sub new {
   my $class    = shift;
   my %args     = @_;
-  my ($driver,$id,$session_args,$default_source,$lockdir) 
-      = @args{'driver','id','args','source','lockdir'};
+  my ($driver,$id,$session_args,$default_source,$lockdir,$locktype,$expire_time) 
+      = @args{'driver','id','args','source','lockdir','locktype','expires'};
 
-  $CGI::Session::NAME = 'gbrowse_sess';
+  $CGI::Session::NAME = 'gbrowse_sess';     # custom cookie
+  $CGI::Session::Driver::file::NoFlock = 1; # flocking unnecessary because we roll our own
+
   $id               ||= CGI->cookie($CGI::Session::NAME);
-  my $self            = bless {lockdir=>$lockdir},$class;
+  my $self            = bless {
+      lockdir  => $lockdir,
+      locktype => $locktype,
+  },$class;
+  $self->lock_ex($id) if $id;
 
-  $self->lock($id) if $id;
   $self->{session}    = CGI::Session->new($driver,$id,$session_args);
-  $self->lock($self->{session}->id) unless $id;  # if we have a newly-created ID, then lock now
+  $self->{session}->expire($expire_time) 
+      if defined $expire_time;
+
+  warn "[$$] session fetch for ",$self->id if DEBUG;
   $self->source($default_source) unless defined $self->source;
+  $self->{pid} = $$;
   $self;
 }
 
+sub session_argv {
+    my $self = shift;
+    if (@_) {
+	$self->{session_argv} = \@_;
+    } else {
+	return unless $self->{session_argv};
+	return @{$self->{session_argv}};
+    }
+}
+
+sub locktype {
+    my $self = shift;
+    if ($self->{locktype} eq 'default') {
+	return 'nfs' if $HAS_NFSLOCK;
+	return 'flock';
+    }
+    return 'nfs'   if $self->{locktype} eq 'nfs'        && $HAS_NFSLOCK;
+    return 'mysql' if $self->{locktype} =~ /^(dbi:mysql:|mysql):/    && $HAS_MYSQL;
+    return 'flock' if $self->{locktype} eq 'flock';
+}
+
 sub lock {
-    my $self     = shift;
-    my $id       = shift;
+    my $self    = shift;
+    my $type    = shift;
+    my $id      = shift || $self->id;
+
+    my $locktype = $self->locktype;
+
+    warn "[$$] waiting on session lock..." if DEBUG_LOCK;
+
+    if ($locktype eq 'flock') {
+	$self->lock_flock($type,$id);
+    }
+    elsif ($locktype eq 'nfs') {
+	$self->lock_nfs($type,$id);
+    }
+    elsif ($locktype eq 'mysql') {
+	$self->lock_mysql($type,$id);
+    }
+    else {
+	die "unknown lock type $locktype";
+    }
+    warn "[$$] ...got session lock" if DEBUG_LOCK;
+}
+
+sub lock_flock {
+    my $self = shift;
+    my ($type,$id) = @_;
+
+    my $mode  = $type eq 'exclusive' ? LOCK_EX : LOCK_SH;
+
     my ($lockdir,$lockfile)
 	= $self->lockfile($id);
+
     mkpath($lockdir) unless -e $lockdir;
     my $lockpath = File::Spec->catfile($lockdir,$lockfile);
-    my $mode     = -e $lockpath ? "<" : ">";
+    my $o_mode   = -e $lockpath ? "<" : ">";
 
-    open my $fh,$mode,$lockpath 
+    open my $fh,$o_mode,$lockpath 
 	or die "Couldn't open lockfile $lockpath: $!";
-    warn "[$$] waiting on session lock..." if DEBUG;
-    flock ($fh,LOCK_EX);
-    warn "[$$] ...got session lock" if DEBUG;
-    $self->lockfh($fh);
+    flock ($fh,$mode);
+    $self->lockobj($fh);
+}
+
+sub lock_nfs {
+    my $self = shift;
+    my ($type,$id) = @_;
+    my ($lockdir,$lockfile) = $self->lockfile($id);
+    mkpath($lockdir) unless -e $lockdir;
+    my $lockpath = File::Spec->catfile($lockdir,$lockfile);
+    my $lock     = File::NFSLock->new(
+	{file               => $lockpath,
+	 lock_type          => $type eq 'exclusive' ? LOCK_EX : LOCK_SH,
+	 blocking_timeout   => 10, # 10 sec
+	 stale_lock_timeout => 60, # 1 min
+	});
+    warn  "[$$] ...timeout waiting for lock" unless $lock;
+    $self->lockobj($lock);
+}
+
+sub lock_mysql {
+    my $self = shift;
+    my ($type,$id) = @_;
+    my $lock_name  = $self->mysql_lock_name($id);
+    (my $dsn       = $self->{locktype}) =~ s/^mysql://;
+    my $dbh        = $self->{mysql} ||= DBI->connect($dsn)
+                     or die "Session has no dbh handle!";
+    my $result     = $dbh->selectrow_arrayref("SELECT GET_LOCK('$lock_name',10)");
+    warn "Could not get my lock on $id" unless $result->[0];
+    $self->lockobj($dbh);
+}
+
+sub lock_sh {
+    shift->lock('shared',@_);
+}
+sub lock_ex {
+    shift->lock('exclusive',@_);
 }
 
 sub unlock {
     my $self     = shift;
-    return unless $self->lockfh;
-    close $self->lockfh;
-    $self->lockfh(undef);
+    my $lock = $self->lockobj or return;
+    warn "[$$] session unlock" if DEBUG;
+    if ($lock->isa('DBI::db')) {
+	my $lock_name = $self->mysql_lock_name($self->id);
+	$lock->do("SELECT RELEASE_LOCK('$lock_name')");
+    } else {
+	$self->lockobj(undef);
+	unlink File::Spec->catfile($self->lockfile($self->id))
+	    if $self->locktype eq 'flock';
+    }
 }
 
 sub lockfile {
@@ -61,9 +170,20 @@ sub lockfile {
 	    $id);
 }
 
+sub mysql_lock_name {
+    my $self = shift;
+    my $id   = shift;
+    return "gbrowse_session_lock.$id";
+}
+
 sub flush {
   my $self = shift;
+  return unless $$ == $self->{pid};
+  warn "[$$] session flush for ",$self->id, " ($self)" if DEBUG;
   $self->{session}->flush if $self->{session};
+  $self->unlock;
+  warn "[$$] SESSION FLUSH ERROR: ",$self->{session}->errstr 
+      if $self->{session}->errstr;
 }
 
 sub modified {
@@ -71,10 +191,10 @@ sub modified {
   $self->{session}->_set_status(CGI::Session::STATUS_MODIFIED());
 }
 
-sub lockfh {
+sub lockobj {
     my $self = shift;
-    my $d    = $self->{lockfh};
-    $self->{lockfh} = shift if @_;
+    my $d    = $self->{lockobj};
+    $self->{lockobj} = shift if @_;
     return $d;
 }
 
@@ -86,7 +206,7 @@ sub session { shift->{session} }
 
 sub page_settings {
   my $self        = shift;
-  my $hash                 = $self->config_hash;
+  my $hash        = $self->config_hash;
   $hash->{page_settings} ||= {};
   $hash->{page_settings}{userid} = $self->id;     # store the id in our state
   return $hash->{page_settings};
@@ -110,16 +230,19 @@ sub source {
 
 sub config_hash {
   my $self = shift;
-  my $source = $self->source;
+  my $source  = $self->source;
   my $session = $self->{session};
   $session->param($source=>{}) unless $session->param($source);
   return $session->param($source);
 }
 
-sub DESTROY {
-    my $self = shift;
-    $self->flush;
-    $self->unlock;
-}
+# problem with explicit DESTROY is that it gets called in all child
+# processes. Better to have the unlock happen when filehandle is truly
+# destroyed.
+#sub DESTROY {
+#    my $self = shift;
+#    $self->flush;
+#    $self->unlock;
+#}
 
 1;

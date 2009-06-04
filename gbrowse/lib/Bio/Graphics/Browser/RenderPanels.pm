@@ -119,7 +119,7 @@ sub request_panels {
   my ($local_labels,
       $remote_labels) = $self->sort_local_remote($data_destinations);
 
-  warn "request_panels(): section = $args->{section}; local labels = @$local_labels, remote labels = @$remote_labels" if DEBUG;
+  warn "[$$] request_panels(): section = $args->{section}; local labels = @$local_labels, remote labels = @$remote_labels" if DEBUG;
 
   # If we don't call clone_databases early, then we can have
   # a race condition where the parent hits the DB before the child
@@ -138,33 +138,23 @@ sub request_panels {
   if ($args->{deferred}) {
       $SIG{CHLD} = 'IGNORE';
 
-      # need to prepare modperl for the fork
-      Bio::Graphics::Browser::Render->prepare_modperl_for_fork();
-      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('starting');
-
-      my $child = fork();
-      die "Couldn't fork: $!" unless defined $child;
+      my $child = Bio::Graphics::Browser::Render->fork();
 
       if ($child) {
-	  Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('parent');
 	  return $data_destinations;
       }
-
-      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('child');
-      Bio::Graphics::Browser::DataBase->clone_databases();
 
       open STDIN, "</dev/null" or die "Couldn't reopen stdin";
       open STDOUT,">/dev/null" or die "Couldn't reopen stdout";
       POSIX::setsid()          or die "Couldn't start new session";
 
       if ( $do_local && $do_remote ) {
-          if ( fork() ) {
-              $self->run_local_requests( $data_destinations, 
+          if ( Bio::Graphics::Browser::Render->fork() ) {
+              $self->run_local_requests( $data_destinations,
 					 $args,
 					 $local_labels );
           }
           else {
-	      Bio::Graphics::Browser::DataBase->clone_databases(); # yes, again!
               $self->run_remote_requests( $data_destinations, 
 					  $args,
 					  $remote_labels );
@@ -181,10 +171,11 @@ sub request_panels {
       CORE::exit 0;
   }
 
-  
-  $self->run_local_requests($data_destinations,$args,$local_labels);  
-  $self->run_remote_requests($data_destinations,$args,$remote_labels);
-  return $data_destinations;
+  else { # not deferred
+      $self->run_local_requests($data_destinations,$args,$local_labels);  
+      $self->run_remote_requests($data_destinations,$args,$remote_labels);
+      return $data_destinations;
+  }
 }
 
 sub render_panels {
@@ -211,7 +202,8 @@ sub render_track_images {
 	    next if $data->status eq 'PENDING';
 	    next if $data->status eq 'EMPTY';
 	    if ($data->status eq 'AVAILABLE') {
-		$results{$label} = eval{$data->gd};
+		my $gd = eval{$data->gd};
+		$results{$label} = $gd;
 	    }
 	    delete $still_pending{$label};
 	}
@@ -228,6 +220,7 @@ sub make_requests {
     my $self   = shift;
     my $args   = shift;
     my $source = $self->source;
+    my $settings=$self->settings;
 
     my $feature_files  = $args->{external_features};
     my $labels         = $args->{labels};
@@ -240,7 +233,10 @@ sub make_requests {
     my %d;
     foreach my $label ( @{ $labels || [] } ) {
         my @track_args = $self->create_track_args( $label, $args );
-	my @extra_args = ();
+	my (@filter_args,@featurefile_args);
+
+	my $filter     = $settings->{features}{$label}{filter};
+	@filter_args   = %{$filter->{values}} if $filter->{values};
 	my $ff_error;
 
         # get config data from the feature files
@@ -254,6 +250,7 @@ sub make_requests {
 		    -cache_base => $base,
 		    -panel_args => \@panel_args,
 		    -track_args => \@track_args,
+		    -extra_args => [ @cache_extra, @filter_args, @featurefile_args, $label ],
 		    );
 		$cache_object->flag_error("Could not fetch data for $track");
 		$d{$track} = $cache_object;
@@ -261,18 +258,21 @@ sub make_requests {
 	    }
 
 	    next unless $label =~ /:$args->{section}$/;
-	    @extra_args =  eval {
+	    @featurefile_args =  eval {
 		$feature_file->types, $feature_file->mtime;
 	    };
 	}
+
 	warn "[$$] creating CachedTrack for $label" if DEBUG;
         my $cache_object = Bio::Graphics::Browser::CachedTrack->new(
             -cache_base => $base,
             -panel_args => \@panel_args,
             -track_args => \@track_args,
-            -extra_args => [ @cache_extra, @extra_args, $label ],
+            -extra_args => [ @cache_extra, @filter_args, @featurefile_args, $label ],
+	    -cache_time => $settings->{cache} 
+			    ? $source->cache_time 
+			    : 0
         );
-        $cache_object->cache_time( $source->cache_time * 60 );
         $d{$label} = $cache_object;
     }
     return \%d;
@@ -355,6 +355,7 @@ sub wrap_rendered_track {
     my $buttons = $self->source->globals->button_url;
     my $plus    = "$buttons/plus.png";
     my $minus   = "$buttons/minus.png";
+    my $kill    = "$buttons/ex.png";
     my $share   = "$buttons/share.png";
     my $help    = "$buttons/query.png";
 
@@ -363,18 +364,23 @@ sub wrap_rendered_track {
 
     my $collapsed = $settings->{track_collapsed}{$label};
     my $img_style = $collapsed ? "display:none" : "display:inline";
-#    $img_style .= ";filter:alpha(opacity=100);moz-opacity:1";
 
     # commented out alt because it interferes with balloon tooltips is IE
+    my $map_id = "${label}_map";
+
+    # Work around bug in google chrome which is manifested by the <area> link information
+    # on all EVEN reloads of the element by ajax calls. Weird.
+    my $agent  = CGI->user_agent || '';
+    $map_id   .= "_".int(rand(1000)) if $agent =~ /chrome/i;  
+
     my $img = img(
         {   -src    => $url,
-            -usemap => "#${label}_map",
+            -usemap => "#${map_id}",
             -width  => $width,
             -id     => "${label}_image",
             -height => $height,
             -border => 0,
             -name   => $label,
-            #-alt    => $label,
             -style  => $img_style
         }
     );
@@ -382,6 +388,8 @@ sub wrap_rendered_track {
     my $icon = $collapsed ? $plus : $minus;
     my $show_or_hide = $self->language->tr('SHOW_OR_HIDE_TRACK')
         || "Show or Hide";
+    my $kill_this_track = $self->language->tr('KILL_THIS_TRACK')
+	|| "Turn off this track.";
     my $share_this_track = $self->language->tr('SHARE_THIS_TRACK')
         || "Share This Track";
     my $citation = $self->plain_citation( $label, 512 );
@@ -430,42 +438,58 @@ sub wrap_rendered_track {
     $title =~ s/:(overview|region|detail)$//;
 
     my $balloon_style = $source->global_setting('balloon style') || 'GBubble'; 
-    my $titlebar = span(
-        {   -class => $collapsed ? 'titlebar_inactive' : 'titlebar',
-            -id => "${label}_title"
-        },
-        img({   -src         => $icon,
+    my @images = (
+	img({   -src         => $icon,
                 -id          => "${label}_icon",
                 -onClick     => "collapse('$label')",
                 -style       => 'cursor:pointer',
                 -onMouseOver => "$balloon_style.showTooltip(event,'$show_or_hide')",
             }
         ),
+	img({   -src         => $kill,
+                -id          => "${label}_kill",
+		-onClick     => "ShowHideTrack('$label',false)",
+                -style       => 'cursor:pointer',
+                -onMouseOver => "$balloon_style.showTooltip(event,'$kill_this_track')",
+            }
+        ),
         img({   -src   => $share,
                 -style => 'cursor:pointer',
                 -onMouseOver =>
                     "$balloon_style.showTooltip(event,'$share_this_track')",
-                -onMousedown =>
+		    -onMousedown =>
                     "GBox.showTooltip(event,'url:?share_track=$escaped_label',1,500,500)",
             }
         ),
 
         img({   -src         => $help,
                 -style       => 'cursor:pointer',
-                -onmousedown => "$config_click",
+                -onmousedown => $config_click,
                 -onMouseOver =>
-                    "$balloon_style.showTooltip(event,'$configure_this_track')",
+	    "$balloon_style.showTooltip(event,'$configure_this_track')",
 		    
             }
-        ),
+        )
+	);
+
+    # modify the title if it is a track with subtracks
+    $self->select_features_menu($label,\$title);
+
+    my $titlebar = span(
+        {   -class => $collapsed ? 'titlebar_inactive' : 'titlebar',
+            -id => "${label}_title"
+        },
+	@images,
 	$title
     );
 
     my $show_titlebar
         = ( ( $source->setting( $label => 'key' ) || '' ) ne 'none' );
-    $show_titlebar &&= $label !~ /scale/i;
+    my $is_scalebar = $label =~ /scale/i;
+    my $is_detail   = $label !~ /overview|region/i;
+    $show_titlebar &&= !$is_scalebar;
 
-    my $map_html = $self->map_html($map);
+    my $map_html = $self->map_html($map,$map_id);
 
     # the padding is a little bit of empty track that is displayed only
     # when the track is collapsed. Otherwise the track labels get moved
@@ -485,8 +509,42 @@ sub wrap_rendered_track {
     );
 
 
-    return div({-class=>'centered_block',-style=>"width:${width}px"},
-        ( $show_titlebar ? $titlebar : '' ) . $img . $pad_img )
+    # Add arrows for pannning to details scalebar panel
+    if ($is_scalebar && $is_detail) {
+	my $style    = 'opacity:0.35;position:absolute;border:none;cursor:pointer';
+	$style      .= ';filter:alpha(opacity=70);moz-opacity:0.35';
+        my $pan_left   =  img({
+	    -style   => $style . ';left:10px',
+	    -class   => 'panleft',
+	    -src     => "$buttons/panleft.png",
+	    -onClick => "Controller.scroll('left',0.5)"
+			      },
+	    );
+	my $pan_left2  =  img({
+            -style   => $style . ';left:-3px',
+            -class   => 'panleft',
+            -src     => "$buttons/panleft2.png",
+            -onClick => "Controller.scroll('left',1)",
+                              },
+            );
+	my $pan_right  = img({ -style   => $style . ';right:10px',
+			       -class   => 'panright',
+			       -src     => "$buttons/panright.png",
+			       -onClick => "Controller.scroll('right',0.5)",
+			     }
+	    );
+        my $pan_right2  = img({ -style   => $style . ';right:-3px',
+                               -class   => 'panright',
+                               -src     => "$buttons/panright2.png",
+                               -onClick => "Controller.scroll('right',1)",
+                             }
+            );
+
+	$img = $pan_left2 . $pan_left . $img . $pan_right . $pan_right2;
+    }
+    return div({-class=>'centered_block',
+		-style=>"width:${width}px;position:relative"},
+	       ( $show_titlebar ? $titlebar : '' ) . $img . $pad_img )
         . ( $map_html || '' );
 
 }
@@ -525,7 +583,7 @@ sub run_remote_requests {
   my $source     = $self->source;
   my $settings   = $self->settings;
   my $lang       = $self->language;
-  my %env        = map {$_=>$ENV{$_}}    grep /^GBROWSE/,keys %ENV;
+  my %env        = map {$_=>$ENV{$_}}    grep /^(GBROWSE|HTTP)/,keys %ENV;
   my %args       = map {$_=>$args->{$_}} grep /^-/,keys %$args;
 
   $args{$_}  = $args->{$_} foreach ('section','image_class','cache_extra');
@@ -566,20 +624,10 @@ sub run_remote_requests {
 
   for my $url (keys %renderers) {
 
-      Bio::Graphics::Browser::Render->prepare_modperl_for_fork();
-      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('starting');
-
-      my $child   = fork();
-
-      die "Couldn't fork: $!" unless defined $child;
-      if ($child) {
-	  Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('parent');
-	  next;
-      }
+      my $child   = Bio::Graphics::Browser::Render->fork();
+      next if $child;
 
       # THIS PART IS IN THE CHILD
-      Bio::Graphics::Browser::Render->prepare_fcgi_for_fork('child');
-      Bio::Graphics::Browser::DataBase->clone_databases();
       my @labels   = keys %{$renderers{$url}};
       my $s_track  = Storable::nfreeze(\@labels);
 
@@ -918,8 +966,14 @@ sub make_map {
 	$mousedown = $balloonclick =~ /^(http|ftp):/
 	    ? "$balloon_ct.showTooltip(event,'<iframe width='+$balloon_ct.maxWidth+' height=$height " .
 	      "frameborder=0 src=$balloonclick></iframe>',$stick,$balloon_ct.maxWidth)"
-	    : "$balloon_ct.showTooltip(event,'$balloonclick',$stick)";
-	undef $href;
+	      : "$balloon_ct.showTooltip(event,'$balloonclick',$stick)";
+	undef $target;
+	# workarounds to accomodate observation that some browsers don't respect cursor:pointer styles in
+	# <area> tags unless there is an href defined
+	my $agent =  CGI->user_agent || '';
+	$href     =  $agent =~ /msie/i    ? undef
+                     : $agent =~ /firefox/i ? undef
+                     : 'javascript:void(0)';
       }
     }
     my %attributes = (
@@ -928,7 +982,7 @@ sub make_map {
 		      target      => $target,
 		      onmouseover => $mouseover,
 		      onmousedown => $mousedown,
-		      style       => $style
+		      style       => $style,
 		      );
 
     my $ftype = $box->[0]->primary_tag || 'feature';
@@ -1028,6 +1082,8 @@ sub run_local_requests {
     my $args     = shift;
     my $labels   = shift;
 
+    warn "[$$] run_local_requests" if DEBUG;
+
     $labels    ||= [keys %$requests];
 
     my $noscale        = $args->{noscale};
@@ -1067,25 +1123,25 @@ sub run_local_requests {
     my @ordinary_tracks    = grep {!$feature_files->{$_}} @labels_to_generate;
     my @feature_tracks     = grep {$feature_files->{$_} } @labels_to_generate;
 
+    # create all the feature filters for each track
+    my $filters = $self->generate_filters($settings,$source,\@labels_to_generate);
+
     # == create whichever panels are not already cached ==
-    my %filters = map {
-	my %conf =  $source->style($_);
-	$conf{'-filter'} ? ($_ => $conf{'-filter'})
-	               : ()
-    } @labels_to_generate;
-
-
     for my $label (@labels_to_generate) {
 
         # this shouldn't happen, but let's be paranoid
         next if $seenit{$label}++;
 
-	my $multiple_tracks = $label =~ /^(http|ftp|file|das|plugin):/ ;
+	(my $base = $label) =~ s/:(overview|region|details?)$//;
+	warn "label=$label, base=$base, file=$feature_files->{$base}" if DEBUG;
+
+	my $multiple_tracks = $base =~ /^(http|ftp|file|das|plugin):/ 
+	    || $source->code_setting($base=>'remote feature');
 
         my @keystyle = ( -key_style => 'between' )
             if $multiple_tracks;
 
-	my $key = $source->setting( $label => 'key' ) || '' ;
+	my $key = $source->setting( $base => 'key' ) || '' ;
 	my @nopad = (($key eq '') || ($key eq 'none')) 
 	    && !$multiple_tracks
              ? (-pad_top => 0)
@@ -1096,9 +1152,6 @@ sub run_local_requests {
             = Bio::Graphics::Panel->new( @$panel_args, @keystyle, @nopad );
 
         my %trackmap;
-
-	(my $base = $label) =~ s/:(overview|region|details?)$//;
-	warn "label=$label, base=$base, file=$feature_files->{$base}" if DEBUG;
 
         if ( my $file = ($feature_files->{$base}) ) {
 
@@ -1119,17 +1172,17 @@ sub run_local_requests {
         }
         else {
 
-        my $track_args = $requests->{$label}->track_args;
-        my $track      = $panel->add_track(@$track_args);
-            # == populate the tracks with feature data ==
-            $self->add_features_to_track(
-                -labels    => [ $label, ],
-                -tracks    => { $label => $track },
-                -filters   => \%filters,
-                -segment   => $segment,
-                -fsettings => $settings->{features},
-            );
-	%trackmap = ($track=>$label);
+	    my $track_args = $requests->{$label}->track_args;
+	    my $track      = $panel->add_track(@$track_args);
+	    # == populate the tracks with feature data ==
+	    $self->add_features_to_track(
+		-labels    => [ $label, ],
+		-tracks    => { $label => $track },
+		-filters   => $filters,
+		-segment   => $segment,
+		-fsettings => $settings->{features},
+		);
+	    %trackmap = ($track=>$label);
         }
 
         # == generate the maps ==
@@ -1146,6 +1199,110 @@ sub run_local_requests {
     }
 }
 
+# this method is a little unconventional; it modifies the title in-place
+sub select_features_menu {
+    my $self     = shift;
+    my $label    = shift;
+    my $titleref = shift;
+
+    my $source = $self->source;
+    my $settings=$self->settings;
+
+    my ($method,@values) = shellwords $source->setting($label=>'select');
+    return unless @values;
+
+    my $buttons = $self->source->globals->button_url;
+    my $escaped_label = CGI::escape($label);
+
+    my $filter = $settings->{features}{$label}{filter};
+
+    $filter->{values} ||= {map {$_=>1} @values};
+    $filter->{method} ||= $method;
+
+
+    my @showing = grep {
+ 	$filter->{values}{$_}
+    } @values;
+
+    my @hidden = grep {
+	!$filter->{values}{$_}
+    } @values;
+
+    my $showing = @showing;
+    my $total   = @showing+@hidden;
+
+    my $select_features = $self->language->tr('SUBTRACKS_SHOWN');
+    $select_features   .= ul({-style=>'list-style: none;margin:0,0,0,0'},
+			      map {$filter->{values}{$_} ? li($_)
+				                         : li({-style=>'color: gray'},$_)
+			      } @values);
+				 
+
+    $select_features   .= $self->language->tr('SELECT_SUBTRACKS');
+
+    my $balloon_style = $source->global_setting('balloon style') || 'GBubble'; 
+
+    my $select_features_click
+	= "GBox.showTooltip(event,'url:?select_subtracks=$escaped_label',1,500,500)";
+    my $select_features_over = "$balloon_style.showTooltip(event,'$select_features')";
+
+    # modify the title to show that some subtracks are hidden
+    $$titleref .= " ".a({-href       => 'javascript:void(0)',
+			 -onClick    => $select_features_click,
+			 -onMouseOver=> $select_features_over
+			},
+			$self->language->tr('SHOWING_SUBTRACKS',$showing,$total)
+    );
+}
+
+sub generate_filters {
+    my $self     = shift;
+    my ($settings,$source,$label_list) = @_;
+    my %filters;
+    for my $l (@$label_list) {
+	my %conf =  $source->style($l);
+
+	if (my $filter = $conf{'-filter'}) {
+	    $filters{$l} = $filter;
+	}
+
+	else {
+	    $filters{$l} = $self->subtrack_select_filter($settings,$l);
+	}
+    }
+    return \%filters;
+}
+
+sub subtrack_select_filter {
+    my $self     = shift;
+    my ($settings,$label) = @_;
+
+    my $filter   = $settings->{features}{$label}{filter} or return;
+    my $method   = $filter->{method};
+    return unless $method;
+
+    my $code;
+    my @values = grep {$filter->{values}{$_}} keys %{$filter->{values}};
+    if (@values) {
+	my $regex  = join '|',@values;
+	$code .= "return 1 if \$f->$method =~ /($regex)/i;\n";
+    } else {
+	$code .= "return;\n";
+    }
+    return unless $code;
+    my $sub = <<END;
+sub {
+    my \$f = shift;
+    $code;
+    return;
+}
+END
+
+    my $cref = eval $sub;
+    warn "failed compiling $sub: ",$@ if $@;
+    return $cref;
+}
+
 sub add_features_to_track {
   my $self = shift;
   my %args = @_;
@@ -1155,6 +1312,8 @@ sub add_features_to_track {
   my $tracks          = $args{-tracks}    or die "programming error";
   my $filters         = $args{-filters}   or die "programming error";
   my $fsettings       = $args{-fsettings} or die "programming error";
+
+  warn "[$$] add_features_to_track @{$args{-labels}}" if DEBUG;
 
   my $max_labels      = $self->label_density;
   my $max_bump        = $self->bump_density;
@@ -1204,7 +1363,8 @@ sub add_features_to_track {
 
       for my $l (@labels) {
 
-        $l =~ s/:.*//; # Seems necessary to properly handle semantic zooms that switch from GFF to wiggle?
+	$l =~ s/:\d+//;  # get rid of semantic zooming tag
+
 	my $track = $tracks->{$l}  or next;
 
 	$filters->{$l}->($feature) or next if $filters->{$l};
@@ -1220,12 +1380,17 @@ sub add_features_to_track {
 	}
 
 	# Handle generic grouping (needed for GFF3 database)
- 	$group_field{$l} = $source->code_setting($l => 'group_on') unless exists $group_field{$l};
+ 	$group_field{$l} = $source->code_setting($l => 'group_on') 
+	    unless exists $group_field{$l};
 	
 	if (my $pattern = $group_pattern{$l}) {
 	  my $name = $feature->name or next;
 	  (my $base = $name) =~ s/$pattern//i;
-	  $groups{$l}{$base} ||= Bio::Graphics::Feature->new(-type   => 'group');
+	  $groups{$l}{$base} 
+	    ||= Bio::Graphics::Feature->new(-type   => 'group',
+					    -name   => $feature->display_name,
+					    -strand => $feature->strand,
+	      );
 	  $groups{$l}{$base}->add_segment($feature);
 	  next;
 	}
@@ -1233,7 +1398,8 @@ sub add_features_to_track {
 	if (my $field = $group_field{$l}) {
 	  my $base = eval{$feature->$field};
 	  if (defined $base) {
-	    $groups{$l}{$base} ||= Bio::Graphics::Feature->new(-start  => $feature->start,
+	    $groups{$l}{$base} ||= Bio::Graphics::Feature->new(-name   => $feature->display_name,
+							       -start  => $feature->start,
 							       -end    => $feature->end,
 							       -strand => $feature->strand,
 							       -type   => $feature->primary_tag);
@@ -1341,7 +1507,7 @@ sub get_iterator {
   # and then to query the segment! This is a problem, because it
   # means that the reference sequence (e.g. the chromosome) is
   # repeated in each database, even if it isn't the primary one :-(
-  if ($db->isa('Bio::DB::SeqFeature::Store')) {
+  if ($db->can('get_seq_stream')) {
       my @args = (-type   => $feature_types,
 		  -seq_id => $segment->seq_id,
 		  -start  => $segment->start,
@@ -1382,6 +1548,8 @@ sub add_feature_file {
   my $name = $file->name || '';
   $options->{$name}      ||= 0;
 
+  warn "render $file" if DEBUG;
+  
   eval {
     $file->render(
 		  $args{panel},
@@ -1598,12 +1766,14 @@ sub get_cache_base {
 sub map_html {
   my $self = shift;
   my $map  = shift;
+  my $id   = shift;
 
   my @data = @$map;
 
   my $name = shift @data or return '';
+  $id    ||= "${name}_map";
 
-  my $html  = qq(\n<map name="${name}_map" id="${name}_map">\n);
+  my $html  = qq(\n<map name="$id" id="$id">\n);
   for (@data) {
     my (undef,$x1,$y1,$x2,$y2,%atts) = split "\t";
     $x1 or next;
@@ -1778,7 +1948,7 @@ sub make_title {
   my ($title,$key) = ('','');
 
  TRY: {
-    if ($label && $label->isa('Bio::Graphics::FeatureFile')) {
+    if ($label && eval { $label->isa('Bio::Graphics::FeatureFile') }) {
       $key = $label->name;
       $title = $label->make_title($feature) or last TRY;
       return $title;
@@ -1814,7 +1984,9 @@ sub make_title {
     } else {
       my ($start,$end) = ($feature->start,$feature->end);
       ($start,$end)    = ($end,$start) if $feature->strand < 0;
-      my $name         = $feature->can('display_name') ? $feature->display_name : $feature->info;
+      my $name         = $feature->can('info') 
+	                 ? $feature->info
+			 : $feature->display_name;
       my $result;
       $result .= "$key "  if defined $key;
       $result .= "$name " if defined $name;
@@ -1902,8 +2074,7 @@ sub make_postgrid_callback {
 
 sub plain_citation {
     my ( $self, $label, $truncate ) = @_;
-    my $text = citation( $self->source(), $label, $self->language )
-        || $self->language->tr('NO_CITATION');
+    my $text = citation( $self->source(), $label, $self->language ) || '';
     $text =~ s/\<a/<span/gi;
     $text =~ s/\<\/a/\<\/span/gi;
     if ($truncate) {

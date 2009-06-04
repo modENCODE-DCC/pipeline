@@ -14,20 +14,54 @@ sub new {
     my ($source,$db,$state,$searchopts) 
 	= @{$args}{'source','db','state','searchopts'};
 
-    $searchopts ||= 'name search, keyword search, chromosome heuristics';
+    $searchopts ||= 'default';
 
     return bless {
-	source => $source,
-	db     => $db,
-	state  => $state,
-	searchopts => $searchopts,
+	source     => $source,
+	db         => $db,
+	state      => $state,
+	searchopts => $self->parse_searchopts($searchopts),
     },ref($self) || $self;
 }
 
 sub source     { shift->{source} }
 sub state      { shift->{state}  }
 sub db         { shift->{db}     }
-sub searchopts { shift->{searchopts}     }
+sub searchopts { shift->{searchopts}  }
+
+sub parse_searchopts {
+    my $self      = shift;
+    my $optstring = shift;
+    my @default   = qw(exact wildcard stem fulltext heuristic);
+    my %all       = map {$_=>1} qw(exact wildcard stem fulltext heuristic autocomplete);
+
+    my %opts;
+    my @tokens    = split /[\s,]+/,lc $optstring;
+    for my $t (@tokens) {
+	my ($sign,$token) = $t =~ /([+-]?)(\w+)/;
+
+	if ($token eq 'all') {
+	    $opts{$_}++ foreach keys %all;
+	    next;
+	}
+	
+	if ($token eq 'none') {
+	    %opts = ();
+	    next;
+	}
+
+	if ($token eq 'default') {
+	    $opts{$_}++ foreach @default;
+	    next;
+	}
+	
+	next unless $all{$token};
+	$opts{$token}++ if $sign eq '+' or !$sign;
+
+	delete $opts{$token} if $sign eq '-';
+    }
+    return \%opts;
+}
 
 sub feature_count { 
     my $self = shift;
@@ -125,9 +159,11 @@ sub features2segments {
       map {
 	  my $version = $_->can('version') ? $_->version : undef;
 	  $db->segment(-class    => $refclass,
-		       -name     => $_->ref,
+		       -seq_id   => $_->seq_id,
+		       -name     => $_->seq_id,  # to avoid breakage due to sloppy API
 		       -start    => $_->start,
-		       -stop     => $_->end,
+		       -end      => $_->end,
+		       -stop     => $_->end,     # to avoid breakage due to sloppy API
 		       -absolute => 1,
 		       defined $version ? (-version => $version) : ())
   } grep {
@@ -171,6 +207,8 @@ sub lookup_features {
   my ($name,$start,$stop,$class,$literal_name,$id) = @_;
   my $source = $self->source;
 
+  warn "lookup_features($name)" if DEBUG;
+
   my $refclass = $source->global_setting('reference class') || 'Sequence';
 
   my $db      = $self->db;
@@ -182,30 +220,40 @@ sub lookup_features {
   my @classes = $class ? ($class) 
                        : (split /\s+/,$source->global_setting('automatic classes')||'');
 
+  if (defined $id && $db->can('get_feature_by_id')) { # this overrides everything else
+      my $f = $db->get_feature_by_id($id);
+      return $f ? [$f] : [];
+  }
+
   my $features = [];
 
-  if (defined $id && $db->can('get_feature_by_id')) { # this overrides everything else
-      return [$db->get_feature_by_id($id)];
-  }
+  my $searchopts = $self->searchopts;
 
  SEARCHING:
   {
-      last SEARCHING unless $self->searchopts =~ /name search/;
+      last SEARCHING unless %$searchopts;
 
       for my $n ([$name,$class,$start,$stop],
 		 [$literal_name,$refclass,undef,undef]) {
 
 	  my ($name_to_try,$class_to_try,$start_to_try,$stop_to_try) = @$n;
 
-	  # first try the non-heuristic search
-	  $features  = $self->_feature_get($db,
-					   $name_to_try,$class_to_try,
-					   $start_to_try,$stop_to_try);
-	  last SEARCHING if @$features;
+	  $name_to_try =~ s/([*?])/\\$1/g 
+	      unless $searchopts->{wildcard};
+
+	  if ($searchopts->{exact}) {
+
+	      # first try the non-heuristic search
+	      $features  = $self->_feature_get($db,
+					       $name_to_try,$class_to_try,
+					       $start_to_try,$stop_to_try);
+	      last SEARCHING if @$features;
+	  }
 
 	  # heuristic fetch. Try various abbreviations and wildcards
-	  my @sloppy_names = $name_to_try;
-	  if ($self->searchopts =~ /chromosome heuristics/ &&
+	  my @sloppy_names = ();
+
+	  if ($searchopts->{heuristics} &&
 	      $name_to_try =~ /^([\dIVXA-F]+)$/) {
 	      my $id = $1;
 	      foreach (qw(CHROMOSOME_ Chr chr)) {
@@ -215,22 +263,18 @@ sub lookup_features {
 	  }
 
 	  # try to remove the chr CHROMOSOME_I
-	  if ($self->searchopts =~ /chromosome heuristics/ &&
-	      $name_to_try =~ /^(chromosome_?|chr)/i) {
-	      (my $chr = $name_to_try) =~ s/^(chromosome_?|chr)//i;
+	  if ($searchopts->{heuristics} &&
+	      (my $chr = $name_to_try) =~ s/^(chromosome_?|chr)//i) {
 	      push @sloppy_names,$chr;
 	  }
 
-	  # try the wildcard  version, but only if the name is of 
-	  # significant length;
-
-	  # IMPORTANT CHANGE: we used to put stars at the beginning 
-	  # and end, but this killed performance!
-	  push @sloppy_names,"$name_to_try*" 
-	      if length $name_to_try > 3 and $name_to_try !~ /\*$/;
+	  if ($searchopts->{stem}) {
+	      push @sloppy_names,"$name_to_try*" 
+		  if length $name_to_try >= 3 and $name_to_try !~ /\*$/;
+	  }
 
 	  for my $n (@sloppy_names) {
-	      for my $c (@classes) {
+	      for my $c ('',@classes) {
 		  $features = $self->_feature_get($db,$n,$c,$start_to_try,$stop_to_try);
 		  last SEARCHING if @$features;
 	      }
@@ -239,12 +283,11 @@ sub lookup_features {
       }
   }
 
-  if (!@$features && $self->searchopts =~ /keyword search/) {
-    # if we get here, try the keyword search
+  if (!@$features && $searchopts->{fulltext}) {
       warn "try a keyword search for $literal_name" if DEBUG;
       $features = $self->_feature_keyword_search($literal_name);
   }
-
+  
   return $features;
 }
 
@@ -253,7 +296,6 @@ sub _feature_get {
   my ($db,$name,$class,$start,$stop) = @_;
 
   my $refclass = $self->source->global_setting('reference class') || 'Sequence';
-  $class     ||= '';
 
   my @argv = (-name  => $name);
   push @argv,(-class => $class) if defined $class;
@@ -264,11 +306,14 @@ sub _feature_get {
   @features  = grep {$_->length} $db->get_feature_by_name(@argv)   
       if !defined($start) && !defined($stop);
 
+
   @features  = grep {$_->length} $db->get_features_by_alias(@argv) 
       if !@features
       && !defined($start) 
       && !defined($stop) 
       && $db->can('get_features_by_alias');
+
+#  warn "get_feature_by_alias(@argv) => @features";
 
   @features  = grep {$_->length} $db->segment(@argv)               
       if !@features && $name !~ /[*?]/;
@@ -277,9 +322,10 @@ sub _feature_get {
 
   # Deal with multiple hits.  Winnow down to just those that
   # were mentioned in the config file.
+  $class     ||= '';  # to get rid of uninit variable warnings
   my $types = $self->source->_all_types($db);
   my @filtered = grep {
-    my $type    = $_->type;
+    my $type    = $_->primary_tag;
     my $method  = eval {$_->method} || '';
     my $fclass  = eval {$_->class}  || '';
     $type eq 'Segment'      # ugly stuff accomodates loss of "class" concept in GFF3

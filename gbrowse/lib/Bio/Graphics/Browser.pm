@@ -1,5 +1,5 @@
 package Bio::Graphics::Browser;
-# $Id: Browser.pm,v 1.227 2009/01/26 14:46:28 lstein Exp $
+# $Id: Browser.pm,v 1.237 2009/05/22 14:33:38 lstein Exp $
 # Globals and utilities for GBrowse and friends
 
 use strict;
@@ -17,8 +17,18 @@ use GBrowse::ConfigData;
 use Carp 'croak','carp';
 use CGI 'redirect','url';
 
+use constant DEFAULT_MASTER => 'GBrowse.conf';
+
 my %CONFIG_CACHE;
-our $VERSION = 1.988;
+our $VERSION = 1.994;
+
+sub open_globals {
+    my $self = shift;
+    my $conf_dir  = $self->config_base;
+    my $conf_file = $ENV{GBROWSE_MASTER} || DEFAULT_MASTER;
+    my $path      = File::Spec->catfile($conf_dir,$conf_file);
+    return $self->new($path);
+}
 
 sub new {
   my $class            = shift;
@@ -121,6 +131,13 @@ sub tmpdir {
     $self->make_path($path) unless -d $path;
     return $path;
 }
+
+sub user_dir {
+    my $self       = shift;
+    my @components = @_;
+    return $self->tmpdir('userdata',@components);
+}
+
 sub tmpimage_dir {
     my $self  = shift;
     return $self->tmpdir('images',@_);
@@ -144,6 +161,15 @@ sub session_locks {
     my $path  = File::Spec->catfile($self->tmp_base,'locks',@_);
     $self->make_path($path) unless -d $path;
     return $path;
+}
+
+# return one of
+# 'flock'  -- standard flock locking
+# 'nfs'    -- use File::NFSLock
+# 'mysql'  -- use mysql advisory locks
+sub session_locktype {
+    my $self = shift;
+    return $self->setting(general=>'session lock type') || 'default';
 }
 
 sub session_dir {
@@ -172,14 +198,15 @@ sub language_path  { shift->config_path('language_path')   }
 sub templates_path { shift->config_path('templates_path')  }
 sub moby_path      { shift->config_path('moby_path')       }
 
-sub global_timeout         { shift->setting(general=>'global_timeout')         }
-sub remember_source_time   { shift->setting(general=>'remember_source_time')   }
-sub remember_settings_time { shift->setting(general=>'remember_settings_time') }
-sub cache_time             { shift->setting(general=>'cache time')             }
+sub global_timeout         { shift->setting(general=>'global_timeout') || 60   }
+sub remember_settings_time { shift->setting(general=>'expire session') || '1M' }
+sub cache_time             { shift->setting(general=>'expire cache')   || '2h' }
+sub upload_time            { shift->setting(general=>'expire uploads') || '6w' }
 sub url_fetch_timeout      { shift->setting(general=>'url_fetch_timeout')      }
 sub url_fetch_max_size     { shift->setting(general=>'url_fetch_max_size')     }
 
-sub session_driver         { shift->setting(general=>'session driver') || 'driver:file;serializer:default' }
+sub session_driver         { shift->setting(general=>'session driver') 
+				 || 'driver:file;serializer:default' }
 sub session_args    {
   my $self = shift;
   my %args = shellwords($self->setting(general=>'session args')||'');
@@ -208,6 +235,19 @@ sub data_source_show {
 sub data_source_path {
   my $self = shift;
   my $dsn  = shift;
+  ## BEGIN ADDED BY EO ##
+  my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $dsn =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+  if ($regex_key) {
+    my $path = $self->resolve_path($self->setting("=~".$regex_key=>'path'),'config');
+    my $unescaped_key = $regex_key;
+    $unescaped_key =~ s/\\(.)/$1/g;
+    my @matches = ($dsn =~ /$unescaped_key/);
+    for (my $i = 1; $i <= scalar(@matches); $i++) {
+      $path =~ s/\$$i/$matches[$i-1]/;
+    }
+    return $self->resolve_path($path, 'config');
+  }
+  ## END ADDED BY EO ##
   $self->resolve_path($self->setting($dsn=>'path'),'config');
 }
 
@@ -215,6 +255,10 @@ sub create_data_source {
   my $self = shift;
   my $dsn  = shift;
   my $path = $self->data_source_path($dsn) or return;
+  ## BEGIN ADDED BY EO ##
+  my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $dsn =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+  if ($regex_key) { $dsn = "=~".$regex_key; }
+  ## END ADDED BY EO ##
   return Bio::Graphics::Browser::DataSource->new($path,$dsn,$self->data_source_description($dsn),$self);
 }
 
@@ -228,6 +272,15 @@ sub default_source {
 sub valid_source {
   my $self            = shift;
   my $proposed_source = shift;
+
+  ## BEGIN ADDED BY EO ##
+  if (!exists($self->{config}{$proposed_source})) {
+    my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $proposed_source =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+    my $path =  $self->data_source_path("=~" . $regex_key) or return;
+    return -e $path || $path =~ /\|\s*$/;
+  }
+  ## END ADDED BY EO ##
+
   return unless exists $self->{config}{$proposed_source};
   my $path =  $self->data_source_path($proposed_source) or return;
   return -e $path || $path =~ /\|\s*$/;
@@ -268,15 +321,38 @@ sub update_data_source {
   return $source;
 }
 
+sub time2sec {
+    my $self = shift;
+    my $time  = shift;
+    $time =~ s/\s*#.*$//; # strip comments
+
+    my(%mult) = ('s'=>1,
+                 'm'=>60,
+                 'h'=>60*60,
+                 'd'=>60*60*24,
+                 'w'=>60*60*24*7,
+                 'M'=>60*60*24*30,
+                 'y'=>60*60*24*365);
+    my $offset = $time;
+    if (!$time || (lc($time) eq 'now')) {
+	$offset = 0;
+    } elsif ($time=~/^([+-]?(?:\d+|\d*\.\d*))([smhdwMy])/) {
+	$offset = ($mult{$2} || 1)*$1;
+    }
+    return $offset;
+}
+
 ## methods for dealing with the session
 sub session {
   my $self = shift;
   my $id   = shift;
-  return Bio::Graphics::Browser::Session->new(driver  => $self->session_driver,
-					      id      => $id||undef,
-					      args    => $self->session_args,
-					      source  => $self->default_source,
-					      lockdir => $self->session_locks,
+  return Bio::Graphics::Browser::Session->new(driver   => $self->session_driver,
+					      id       => $id||undef,
+					      args     => $self->session_args,
+					      source   => $self->default_source,
+					      lockdir  => $self->session_locks,
+					      locktype => $self->session_locktype,
+					      expires  => $self->remember_settings_time,
 					     );
 }
 
