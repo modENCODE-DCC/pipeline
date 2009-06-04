@@ -4,12 +4,10 @@ D/plugins////
 D/templates////
 /enzymes.txt/1.1/Wed Dec  3 18:43:37 2008/-kb/THEAD
 /log4perl.conf/1.4/Wed Dec  3 18:43:37 2008/-kb/THEAD
-/yeast_simple.conf/1.5/Sun Jan 25 19:19:24 2009//THEAD
 /yeast_renderfarm.conf/1.10/Wed Jan 28 20:37:12 2009//THEAD
-/yeast_chr1+2.conf/1.16/Wed Jan 28 20:37:21 2009/-kb/THEAD
 /detail_select_menu.conf/1.1/Tue Dec 23 08:07:12 2008//THEAD
 /slave_preload.conf/1.2/Wed Jan 28 20:37:46 2009//THEAD
-/solid_gray_colors/1.2/Sat Jan 10 12:19:21 2009//THEAD
 /submitter_plugin.conf/1.1/Tue Dec 23 08:07:12 2008//THEAD
-/transparent_colors/1.3/Sat Jan 10 12:19:21 2009//THEAD
-/GBrowse.conf/1.43/Wed Jan 28 20:38:51 2009/-kb/THEAD
+/GBrowse.conf/1.49/Result of merge/-kb/THEAD
+/yeast_chr1+2.conf/1.18/Tue Jun  2 21:24:40 2009/-kb/THEAD
+/yeast_simple.conf/1.6/Tue Jun  2 21:24:40 2009//THEAD
