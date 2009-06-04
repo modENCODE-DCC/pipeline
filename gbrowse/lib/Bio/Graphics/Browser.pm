@@ -239,9 +239,7 @@ sub data_source_path {
   my ($regex_key) = grep { $dsn =~ /^$_$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
   if ($regex_key) {
     my $path = $self->resolve_path($self->setting("=~".$regex_key=>'path'),'config');
-    my $unescaped_key = $regex_key;
-    $unescaped_key =~ s/\\(.)/$1/g;
-    my @matches = ($dsn =~ /$unescaped_key/);
+    my @matches = ($dsn =~ /$regex_key/);
     for (my $i = 1; $i <= scalar(@matches); $i++) {
       $path =~ s/\$$i/$matches[$i-1]/;
     }
