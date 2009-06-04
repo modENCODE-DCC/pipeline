@@ -82,7 +82,7 @@ class PreviewBrowserController < CommandController
       command_object.stderr = command_object.stderr + "\n#{exitvalue}:#{errormessage}"
       command_object.save
       if (exitvalue != 0) then
-        command_object.stderr = "#{exitvalue}:#{errormessage}"
+        #command_object.stderr = "#{exitvalue}:#{errormessage}"
         command_object.status = PreviewBrowser::Status::PREVIEW_FAILED
         command_object.save
       end
