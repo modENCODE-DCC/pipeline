@@ -34,6 +34,7 @@ SelectArea.prototype.replaceImage = function(image) {
   image = this.createAndAppend('span',p,id);
   image.setAttribute('name',name);
 
+  src = src.replace(/\\/\\\\/g); // Escape backslashes because setStyle seems to unescape them...
   YAHOO.util.Dom.setStyle(image,'background', 'url('+src+') top left no-repeat');
   YAHOO.util.Dom.setStyle(image,'width', width+'px');
   YAHOO.util.Dom.setStyle(image,'height', height+'px');
