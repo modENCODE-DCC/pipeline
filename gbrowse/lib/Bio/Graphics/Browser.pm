@@ -236,7 +236,7 @@ sub data_source_path {
   my $self = shift;
   my $dsn  = shift;
   ## BEGIN ADDED BY EO ##
-  my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $dsn =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+  my ($regex_key) = grep { $dsn =~ /^$_$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
   if ($regex_key) {
     my $path = $self->resolve_path($self->setting("=~".$regex_key=>'path'),'config');
     my $unescaped_key = $regex_key;
@@ -256,7 +256,7 @@ sub create_data_source {
   my $dsn  = shift;
   my $path = $self->data_source_path($dsn) or return;
   ## BEGIN ADDED BY EO ##
-  my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $dsn =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+  my ($regex_key) = grep { $dsn =~ /^$_$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
   if ($regex_key) { $dsn = "=~".$regex_key; }
   ## END ADDED BY EO ##
   return Bio::Graphics::Browser::DataSource->new($path,$dsn,$self->data_source_description($dsn),$self);
@@ -275,7 +275,7 @@ sub valid_source {
 
   ## BEGIN ADDED BY EO ##
   if (!exists($self->{config}{$proposed_source})) {
-    my ($regex_key) = grep { my $key = $_; $key =~ s/\\(.)/$1/g; $proposed_source =~ /^$key$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
+    my ($regex_key) = grep { $proposed_source =~ /^$_$/ } map { $_ =~ s/^=~//; $_ } grep { $_ =~ /^=~/ } keys(%{$self->{config}});
     my $path =  $self->data_source_path("=~" . $regex_key) or return;
     return -e $path || $path =~ /\|\s*$/;
   }
