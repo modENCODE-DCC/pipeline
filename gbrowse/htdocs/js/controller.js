@@ -3,7 +3,7 @@
 
  Lincoln Stein <lincoln.stein@gmail.com>
  Ben Faga <ben.faga@gmail.com>
- $Id: controller.js,v 1.81 2009/01/12 22:04:25 lstein Exp $
+ $Id: controller.js,v 1.94 2009/05/22 14:33:38 lstein Exp $
 
 Indentation courtesy of Emacs javascript-mode 
 (http://mihai.bazon.net/projects/emacs-javascript-mode/javascript.el)
@@ -242,8 +242,10 @@ var GBrowseController = Class.create({
 
     var request_str = "update_sections=1" + param_str;
     for (var i = 0; i < section_names.length; i++) {
+      $(section_names[i]).innerHTML="<img src='/gbrowse2/images/spinner.gif' alt='loading...' />";
       request_str += "&section_names="+section_names[i];
     }
+
     new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: request_str,
@@ -255,6 +257,10 @@ var GBrowseController = Class.create({
           $(section_name).innerHTML = html;
 	  if (scroll_there)
 	    new Effect.ScrollTo(section_name);
+	    if ((section_name=="search_form_objects") 
+	      && ($('autocomplete_choices') != null)) {
+	    	initAutocomplete();
+	    }
         }
       }
     });
@@ -381,6 +387,12 @@ var GBrowseController = Class.create({
     }); // end Ajax.Request
 
   }, // end update_coordinates
+
+  scroll:
+  function (direction,length_units) {
+     var length = this.segment_info.detail_stop - this.segment_info.detail_start + 1;
+     this.update_coordinates(direction + ' ' + Math.round(length_units*length));
+  }, // end scroll
 
   add_track:
   function(track_name, onSuccessFunc, force) {
@@ -622,6 +634,20 @@ var GBrowseController = Class.create({
 
   },
 
+  filter_subtrack:
+  function(track_id, form_element) {
+
+    new Ajax.Request(document.URL,{
+      method:     'post',
+      parameters: form_element.serialize() +"&"+ $H({
+            filter_subtrack:  track_id,
+          }).toQueryString(),
+      onSuccess: function(transport) {
+        Balloon.prototype.hideTooltip(1);
+        Controller.rerender_track(track_id,true);
+      } // end onSuccess
+    });
+  },
 
   // Plugin Methods *************************************************
 
@@ -647,16 +673,23 @@ var GBrowseController = Class.create({
           }).toQueryString(),
 
       onSuccess: function(transport) {
-        Controller.wipe_div(pc_div_id); 
+        if (pc_div_id != null) Controller.wipe_div(pc_div_id); 
 
         if (plugin_type == 'annotator'){
 	  Controller.each_track(plugin_track_id,function(gbtrack) {
               Controller.rerender_track(gbtrack.track_id,true);
             });
         }
-        else if (plugin_type == 'filter'){
+        else if (plugin_type == 'filter') {
+          Controller.update_coordinates("reload segment");
+	  Controller.update_sections(new Array(track_listing_id),'',1);
+	}
+        else if (plugin_type == 'highlighter') {
           Controller.update_coordinates("reload segment");
         }
+	else if (plugin_type == 'trackfilter') {
+	  Controller.update_sections(new Array(track_listing_id),'',1);
+	}
       } // end onSuccess
     });
   },
@@ -810,7 +843,53 @@ var GBrowseController = Class.create({
           });
         }
     });
-  }
+  },
+
+  // Utility methods *********************************
+  show_error:
+  function (message,details) {
+      var outerdiv    = $('errordiv');
+      var innerdiv    = $('errormsg');
+      var detailsdiv  = $('errordetails');
+      if (innerdiv != null) {
+          var caption = detailsdiv.visible() ? 'Hide details' : 'Show details';
+	  innerdiv.innerHTML = message +
+                               ' <a id="detailscaption" href="javascript:void(0)" onClick="Controller.show_hide_errordetails()">'
+			       +caption
+			       +'</a>';
+      }			     
+      if (detailsdiv != null) {
+          detailsdiv.innerHTML  = details;
+      }
+      if (outerdiv != null) {
+         scroll(0,0);
+	 new Effect.BlindDown(outerdiv);
+      }
+  },
+
+  hide_error:
+  function () {
+      var outerdiv   = $('errordiv');
+      var detailsdiv = $('errordetails');
+      if (outerdiv != null)
+	  new Effect.BlindUp(outerdiv);
+      return false;
+  },
+
+ show_hide_errordetails:
+ function () {
+    var detailsdiv = $('errordetails');
+    var caption    = $('detailscaption');
+    if (detailsdiv == null) return;
+    if (caption    == null) return;
+    if (detailsdiv.visible()) {
+       caption.innerHTML="Show details";
+       detailsdiv.hide();
+    } else {
+       caption.innerHTML="Hide details";
+       detailsdiv.show();
+    }
+ }
 
 });
 
@@ -824,7 +903,7 @@ function initialize_page() {
     }
   });
   
-  Controller.first_render();
+  //  Controller.first_render(); // no longer because "left 0" will do the same
 
   // The next statement is to avoid the scalebars from being "out of sync"
   // when manually advancing the browser with its forward/backward buttons.
@@ -836,6 +915,8 @@ function initialize_page() {
   Overview.prototype.initialize();
   Region.prototype.initialize();
   Details.prototype.initialize();
+  if ($('autocomplete_choices') != null) 
+       initAutocomplete();
 }
 
 // set the colors for the rubberband regions

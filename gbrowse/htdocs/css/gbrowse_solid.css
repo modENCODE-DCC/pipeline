@@ -1,0 +1,35 @@
+@import url('gbrowse.css');
+
+/* These are frequently-changed options that provide a buttond-down
+   "gray" look */
+
+.datatitle        { background-color: khaki; }
+.databody         { background-color: lightgoldenrodyellow; }
+.multiplechoicetitle  { background-color: lightblue;
+		        font-size: small;
+}
+.searchtitle      { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.searchbody       { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+		    margin-bottom: 3px;
+}
+.settingstitle    { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.settingsbody     { background-color: #F2F6FA;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.uploadtitle      { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.uploadbody       { background-color: #F2F6FA;
+	            font-size: small;
+		    margin-left: 1em;
+}
