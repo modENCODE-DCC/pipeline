@@ -4,10 +4,9 @@ use strict;
 use Bio::Graphics::Browser;
 use Bio::Graphics::Browser::RegionSearch;
 use Bio::Graphics::Browser::Markup;
-use Bio::Graphics::Browser::Realign 'align';
 use Bio::Graphics::Glyph::generic;
 
-our $VERSION = '$Id: gbrowse_details,v 1.8 2009/01/06 07:38:24 lstein Exp $';
+our $VERSION = '$Id: gbrowse_details,v 1.13 2009/05/14 21:46:09 lstein Exp $';
 our ($INDEX,%COLORS,%URLS,%formatterCache);
 
 
@@ -43,9 +42,11 @@ exit 0;
 package DetailRenderer;
 
 use strict;
-use constant DEBUG=>0;
+use constant DEBUG   => 0;
+use constant MAX_DNA => 500_000;
 
 use CGI qw(:standard *table *TR escape);
+use Bio::Graphics::Browser::Realign 'align';
 
 sub new {
     my $package = shift;
@@ -122,7 +123,17 @@ sub run {
     } else {
 	$search_term = $name;
     }
-    my $features = $search->search_features({-search_term=>$search_term});
+    unless (defined $search_term) {
+	print header,
+	start_html('gbrowse_details error'),
+	p({-class=>'error'},
+	  'This script must be called with one or more of the parameters name, feature_id or db_id.');
+	end_html;
+	exit 0;
+    }
+
+    my $features = eval {$search->search_features({-search_term=>$search_term})} || [];
+    warn "search_features(-search_term=>$search_term): $@" if $@;
 
     warn "features = @$features" if DEBUG;
     warn "segments = ",join ' ',$features->[0]->segments if (DEBUG && @$features);
@@ -138,9 +149,12 @@ sub run {
 	print header();
 	my $css = $self->source->global_setting('stylesheet');
 	my $stylesheet = $self->globals->resolve_path($css,'url');
-	print start_html(-title => "GBrowse Details: $search_term",
-			 -style => $stylesheet);
-	print h1("$name Details");
+	{
+	    	local $^W = 0; # shut up a warning from CGI.pm
+		print start_html(-title => "GBrowse Details: $search_term",
+				 -style => $stylesheet);
+		print h1("$name Details");
+	}
 
 	if (@$features) {
 	    print $self->print_features($features);
@@ -149,6 +163,7 @@ sub run {
 	}
 	print end_html();
     }
+
 }
 
 ######################
@@ -203,22 +218,25 @@ sub print_features {
 				 "Length",
 				 $f->length);
 	
-	if ($f->can('target') && $f->target) {
+	if ($f->can('hit') && (my $hit = $f->hit)) {
 	    # try to correct for common GFF2 error of indicating a -/- alignment
-	    # using a (-) src strand and a target_start > target_end
-	    my $bug = $f->abs_strand < 0 && $f->target->abs_strand < 0;
+	    # using a (-) src strand and a hit_start > hit_end
+	    my $bug  = $f->strand < 0 && $f->hit->strand < 0;
 	    $string .= $self->print_multiple($f,
 				     $options,
-				     'Target',
-				     $f->target->seq_id);
-	    $string .= $self->print_multiple($f,
+				     'Query',
+				     $hit->seq_id);
+	    $string .= $self->print_multiple(
+		                     $f->hit,
 				     $options,
-				     "Matches",
-				     $f);
+				     'Matches',
+				     $hit->seq_id.':'.$hit->start.'..'.$hit->end.
+		                     ($hit->strand >= 0 ? ' (+)':' (-)')
+		);
 	    $string .= $self->print_multiple($f,
 				     $options,
 				     '',
-				     $self->print_matches($f,$f->target,$bug)) if $subf;
+				     $self->print_matches($f,$hit,$bug));# if $subf;
 	    
 	}
 	
@@ -228,8 +246,8 @@ sub print_features {
 				 $f->score) if $f->can('score') && defined $f->score;
 	
 	my %attributes = $f->attributes if $f->can('attributes');
-	
-	for my $a (sort grep {!/Target/} keys %attributes) {
+
+	for my $a (sort grep {!/Hit/} keys %attributes) {
 	    $string .= $self->print_multiple($f,
 				     $options,
 				     $a,
@@ -252,9 +270,9 @@ sub print_features {
 	    );
 	
 	my @subfeatures;
-	# sort features with targets so that target is in order
-	if ($f->can('target') && $f->target) {
-	    @subfeatures  = sort {$a->target->start <=> $b->target->start} $f->get_SeqFeatures;
+	# sort features with hits so that hit is in order
+	if ($f->can('hit') && $f->hit) {
+	    @subfeatures  = sort {$a->hit->start <=> $b->hit->start} $f->get_SeqFeatures;
 	} else {
 	    @subfeatures = sort {$a->start <=> $b->start} $f->get_SeqFeatures;
 	}
@@ -269,16 +287,19 @@ sub print_features {
 	$string .= CGI::end_table();
 	
 	if ($subtable or $subf==0) {
-	    my $dna = $self->get_seq($f);
-	    $dna    = $dna->seq if ref $dna;  # compensate for API changes
-	    $string .= $self->print_dna($f,
-					$dna,
-					$f->abs_start,
-					$f->strand,
-					\@subfeatures,
-					$subf+1) if $dna;
-	}
-	
+	   if ($f->length > MAX_DNA) {
+	      $string .= "<b><i>Sequence display limited to ".MAX_DNA." bases</i></b>";
+	   } else {
+	      my $dna = $self->get_seq($f);
+	      $dna    = $dna->seq if ref $dna;  # compensate for API changes
+	      $string .= $self->print_dna($f,
+	  				  $dna,
+					  $f->start,
+					  $f->strand,
+					  \@subfeatures,
+					  $subf+1) if $dna;
+	   }
+        }
     }
     return $string;
 }
@@ -356,15 +377,17 @@ sub print_matches {
     my $sdna = $src->dna or return '';
     my $tdna = $tgt->dna or return '';
 
-    my $top_label = $src->abs_ref;
-    my $bot_label = $tgt->abs_ref;
+    my $top_label = $src->seq_id;
+    my $bot_label = $tgt->seq_id;
 
-    my $src_x = $src->abs_start;
-    my $src_y = $src->abs_end;
-    my $tgt_x = $tgt->abs_start;
-    my $tgt_y = $tgt->abs_end;
+    my $src_x = $src->start;
+    my $src_y = $src->end;
+    my $tgt_x = $tgt->start;
+    my $tgt_y = $tgt->end;
     my $tdir  = $tgt->strand || +1;
     my $sdir  = $src->strand || +1;
+
+    ($tgt_x,$tgt_y) = ($tgt_y,$tgt_x) if $tgt->strand < 0;
 
     if ($bug) { # correct for buggy data files that show -/- alignments; really -/+
 	$tdir = +1;
@@ -443,16 +466,21 @@ sub print_multiple {
 	}
 
 	# for EST alignment features, create a link to get the orignal EST sequence
-	if (($label eq 'Target') && ($self->{urls}{'alignment'}) && ($obj =~ /alignment/i)){
+	if (($label eq 'Query') 
+	    && ($self->{urls}{'alignment'}) 
+	    && ($obj =~ /alignment/i)){
 	    my $name = shift @a;
 	    $LINK = $self->{urls}{'alignment'};
 	    $LINK=~ s/\$value/$name/;
 	    $LINK = "$obj : (<a href='$LINK'>Aligned Sequence</a>)";
     }
 
-	# wrap way long lines. Note : ading '" prevent this regexp from wrapping html tags
-	$obj =~ s/([^<>\s\'\"\/;&]{60})/$1 /g;  
-
+	# Wrap way long lines, but not those involving HTML tags
+	$obj = join "", 
+	map{ s/([^\s\'\"\/;&]{60})/$1 /g 
+		 unless /\</; $_ 
+	} split /(<[^>]*>)/,$obj;
+    
 	if ($isFirst) {
 	    $isFirst =0 ;
 	    $string .= join '',TR({-valign=>'top',-class=>'databody'},
@@ -481,9 +509,9 @@ sub position {
     my $simple = shift;
     my $bug    = shift; # for (-) (-) alignments
 
-    my $ref   = $f->abs_ref;
-    my $start = $f->abs_start;
-    my $end   = $f->abs_end;
+    my $ref   = $f->seq_id;
+    my $start = $f->start;
+    my $end   = $f->end;
     if ($simple) {
 	($start,$end) = ($end,$start) if $f->strand < 0;
 	return "<b>$ref</b> $start..$end";
@@ -497,7 +525,8 @@ sub position {
 
     my $src = escape($self->source->name);
     my $url = "../gbrowse/$src?name=$ref:$start..$end";
-    return a({-href=>$url},$strand ? "$ref:$start..$end ($strand strand)" : "$ref:$start..$end");
+    return a({-href=>$url},$strand ? "$ref:$start..$end ($strand strand)" 
+	                           : "$ref:$start..$end");
 }
 
 sub get_link_urls {
@@ -582,7 +611,7 @@ sub get_formatter {
 
     unless (defined $s) {
 	$s = sub {$self->format_position(@_)} if $tag eq 'Position';
-	$s = sub {$self->format_position(@_)} if $tag eq 'Matches';
+	# $s = sub {$self->format_position(@_)} if $tag eq 'Matches';
 	$s = sub {$self->format_name(@_)    } if $tag eq 'Name';
     }
     return $self->{formatterCache}{$key} = $s;
@@ -598,9 +627,9 @@ sub format_matches {
     my $self = shift;
     my (undef,undef,$feature) = @_;
     # try to correct for common GFF2 error of indicating a -/- alignment
-    # using a (-) src strand and a target_start > target_end
-    my $bug = $feature->abs_strand < 0 && $feature->target->abs_strand < 0;
-    $self->position($feature->target,undef,$bug)
+    # using a (-) src strand and a hit_start > hit_end
+    my $bug = $feature->strand < 0 && $feature->hit->strand < 0;
+    $self->position($feature->hit,undef,$bug)
 }
 
 sub format_name {

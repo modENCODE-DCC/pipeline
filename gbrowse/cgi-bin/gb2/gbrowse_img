@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: gbrowse_img,v 1.6 2009/01/20 17:57:19 lstein Exp $
+# $Id: gbrowse_img,v 1.10 2009/05/22 14:33:38 lstein Exp $
 
 use strict;
 
@@ -8,9 +8,6 @@ use Bio::Graphics::Browser;
 use Bio::Graphics::Browser::Render;
 use Bio::Graphics::Browser::Util;
 use Digest::MD5 'md5_hex';
-
-use constant DEFAULT_CONF   => '/etc/apache2/gbrowse';
-use constant DEFAULT_MASTER => 'GBrowse.conf';
 
 
 # call with following arguments:
@@ -28,15 +25,11 @@ use constant DEFAULT_MASTER => 'GBrowse.conf';
 
 umask 022;
 
-my $conf_dir  = Bio::Graphics::Browser->config_base;
-my $conf_file = $ENV{GBROWSE_MASTER} || DEFAULT_MASTER;
-my $globals = Bio::Graphics::Browser->new(File::Spec->catfile($conf_dir,$conf_file))
-    or die "Couldn't read globals";
-
 my $fcgi = Bio::Graphics::Browser::Render->fcgi_request;
 if ($fcgi) {
 
     while ($fcgi->Accept >= 0) {
+	my $globals = Bio::Graphics::Browser->open_globals;
 	CGI->initialize_globals();
 	GBrowse_img->new($globals)->run();
 	$fcgi->Finish();
@@ -45,6 +38,7 @@ if ($fcgi) {
 }
 
 else {
+    my $globals = Bio::Graphics::Browser->open_globals;
     GBrowse_img->new($globals)->run();    
 }
 
@@ -160,6 +154,7 @@ sub render_image {
     my @labels   = $render->expand_track_names($render->detail_tracks);
 
     my $format   = param('format') || 'GD';
+    my $flip     = param('flip')   || 0;
 
     warn "labels = ",join ',',@labels if DEBUG;
     unshift @labels,'_scale';
@@ -176,22 +171,26 @@ sub render_image {
 						      external_features => $external,
 						      section           => 'detail',
 						      cache_extra       => [$format],
-						      image_class      => $format,
+						      image_class       => $format,
+						      flip              => $flip,
 						      -key_style        => 'between',
 						      }
 						  );
     
     warn "returned labels = ",join ',',%$result if DEBUG;
-    my $data = $self->consolidate_images(@{$result}{grep {$result->{$_}} @labels});
+    my $data  = $self->consolidate_images(@{$result}{grep {$result->{$_}} @labels});
+
+    my $seg = $render->segment;
+    my $fname = $seg->seq_id.':'.$seg->start.'..'.$seg->end;
+
     if ($format eq 'GD') {
-	print $self->header('image/png');	
+	print $self->header(-type=>'image/png',
+			    -content_disposition => "filename=$fname.png");	
 	print $data
     } 
     elsif ($format eq 'GD::SVG' && $convert_to_pdf) {
-	my $seg = $render->segment;
 	print $self->header(-type=>'application/pdf',
-			    -content_disposition => 'filename='.$seg->seq_id.':'.$seg->start.'..'.$seg->end.".pdf"
-	    );
+			    -content_disposition => "filename=$fname.pdf");
 
 	my ($infh,$in)   = tempfile(UNLINK=>0,SUFFIX=>'.svg');
 	my ($outfh,$out) = tempfile(UNLINK=>0,SUFFIX=>'.pdf');
@@ -206,7 +205,8 @@ sub render_image {
 	unlink $in,$out;
     }
     elsif ($format eq 'GD::SVG') {
-	print $self->header('image/svg+xml');
+	print $self->header(-type => 'image/svg+xml',
+			    -content_disposition => "filename=$fname.svg");
 	print $data
     } 
     else { 
@@ -270,8 +270,8 @@ sub _consolidate_svg {
 	    if (m!</svg>!) {
 		last;
 	    }
-	    elsif (/<svg height="(\d+)"/) {
-		$current_height = $1;
+	    elsif (/<svg height="([\d.]+)"/) {
+		$current_height = int($1+0.5);
 		$svg .= qq(<g transform="translate(0,$offset)">\n);
 	    }
 	    elsif ($current_height) {
