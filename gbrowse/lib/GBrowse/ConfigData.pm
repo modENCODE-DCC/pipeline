@@ -167,9 +167,9 @@ __DATA__
 do{ my $x = [
        {
          'config_done' => 1,
-         'cgibin' => '/var/www/pipeline/gbrowse/cgi-bin',
-         'conf' => '/var/www/pipeline/gbrowse/conf',
-         'htdocs' => '/var/www/pipeline/gbrowse/htdocs'
+         'cgibin' => '/srv/www/pipeline/gbrowse/cgi-bin',
+         'conf' => '/srv/www/pipeline/gbrowse/conf',
+         'htdocs' => '/srv/www/pipeline/gbrowse/htdocs'
        },
        {},
        {}
