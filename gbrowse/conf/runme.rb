@@ -74,10 +74,14 @@ end
 all_track_defs.each { |ts|
   if !released_projects.include?(ts.project) then
     s = ts.stanza
-    s.values.each { |stanza|
-      stanza["category"] = "Unreleased: #{stanza["category"]}"
-    }
-    ts.stanza = s
+    if s then
+      s.values.each { |stanza|
+        stanza["category"] = "Unreleased: #{stanza["category"]}"
+      }
+      ts.stanza = s
+    else
+      ts.stanza = Hash.new
+    end
   elsif (ts.project.deprecated?) then
     s = ts.stanza
     s.values.each { |stanza|
