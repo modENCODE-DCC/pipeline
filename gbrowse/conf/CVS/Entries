@@ -2,12 +2,12 @@ D/MobyServices////
 D/languages////
 D/plugins////
 D/templates////
-/enzymes.txt/1.1/Wed Dec  3 18:43:37 2008/-kb/THEAD
-/log4perl.conf/1.4/Wed Dec  3 18:43:37 2008/-kb/THEAD
-/yeast_renderfarm.conf/1.10/Wed Jan 28 20:37:12 2009//THEAD
-/detail_select_menu.conf/1.1/Tue Dec 23 08:07:12 2008//THEAD
-/slave_preload.conf/1.2/Wed Jan 28 20:37:46 2009//THEAD
-/submitter_plugin.conf/1.1/Tue Dec 23 08:07:12 2008//THEAD
 /GBrowse.conf/1.49/Result of merge/-kb/THEAD
-/yeast_chr1+2.conf/1.18/Tue Jun  2 21:24:40 2009/-kb/THEAD
-/yeast_simple.conf/1.6/Tue Jun  2 21:24:40 2009//THEAD
+/detail_select_menu.conf/1.1/Wed Jan 28 22:30:45 2009//THEAD
+/enzymes.txt/1.1/Mon Dec  8 22:16:23 2008/-kb/THEAD
+/log4perl.conf/1.4/Mon Dec  8 22:16:23 2008/-kb/THEAD
+/slave_preload.conf/1.2/Wed Jan 28 22:30:45 2009//THEAD
+/submitter_plugin.conf/1.1/Wed Jan 28 22:30:45 2009//THEAD
+/yeast_chr1+2.conf/1.18/Thu Jun  4 18:13:44 2009/-kb/THEAD
+/yeast_renderfarm.conf/1.10/Wed Jan 28 22:30:45 2009//THEAD
+/yeast_simple.conf/1.6/Thu Jun  4 18:13:44 2009//THEAD
