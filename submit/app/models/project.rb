@@ -78,6 +78,11 @@ class Project < ActiveRecord::Base
     end
   end
 
+  def has_preview?
+    path = File.join(PipelineController.new.path_to_project_dir(self), "browser", "#{self.id}.conf")
+    return File.exist?(path)
+  end
+
   def released_organism
     tt = TrackTag.find_by_project_id_and_cvterm(self.id, "organism")
     return tt.value if tt
