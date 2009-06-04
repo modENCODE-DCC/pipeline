@@ -1,6 +1,5 @@
 /auto_install_databases.pl/1.6/Wed Dec  3 18:43:37 2008/-kb/THEAD
 /bp_load_gff.pl/1.1/Wed Dec  3 18:43:37 2008//THEAD
-/gbrowse_slave/1.6/Wed Dec  3 18:43:37 2008/-kb/THEAD
 /load_genbank.pl/1.1/Wed Dec  3 18:43:37 2008//THEAD
 /make_das_conf.pl/1.1/Wed Dec  3 18:43:37 2008//THEAD
 /process_gadfly.pl/1.6/Wed Dec  3 18:43:37 2008//THEAD
@@ -11,6 +10,11 @@
 /report_missing_language_tags.pl/1.1/Wed Dec  3 18:43:37 2008/-kb/THEAD
 /ucsc_genes2gff.pl/1.1/Wed Dec  3 18:43:37 2008//THEAD
 /windows_install.pl/1.2/Wed Dec  3 18:43:37 2008/-kb/THEAD
-/gbrowse_netinstall.pl/1.21/Wed Jan 28 19:23:35 2009/-kb/THEAD
 /gbrowse_netinstall2.pl/1.1/Fri Dec  5 17:53:19 2008//THEAD
+/gbrowse_clean.pl/1.1/Tue May  5 23:14:40 2009//THEAD
+/gbrowse_netinstall.pl/1.22/Tue Jun  2 21:24:40 2009/-kb/THEAD
+/gbrowse_slave/1.7/Tue Jun  2 21:24:40 2009/-kb/THEAD
+/process_bamfiles.pl/1.2/Tue Jun  2 21:01:04 2009//THEAD
+/scan_gbrowse.pl/1.1/Thu Mar  5 23:02:59 2009//THEAD
+/wiggle2gff3.pl/1.2/Fri Mar 27 02:10:07 2009//THEAD
 D

@@ -1,6 +1,6 @@
 ---
 name: GBrowse
-version: 1.987
+version: 1.994
 author:
   - 'Lincoln Stein <lincoln.stein@gmail.com>'
 abstract: The GMOD Generic Genome Browser
@@ -8,7 +8,7 @@ license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Bio::Graphics: 1.82
+  Bio::Graphics: 1.83
   Bio::Root::Version: 1.005009001
   CGI::Session: 4.02
   Digest::MD5: 0
@@ -18,6 +18,7 @@ requires:
   IO::String: 0
   JSON: 0
   LWP: 0
+  Statistics::Descriptive: 0
   Storable: 0
   perl: 5.008
 recommends:
@@ -26,37 +27,10 @@ recommends:
   DBI: 0
   DB_File::Lock: 0
   FCGI: 0
+  File::NFSLock: 0
   GD::SVG: 0
   Safe::World: 0
-  Statistics::Descriptive: 0
 provides:
-  Bio::DB::Das::BioSQL:
-    file: lib/Bio/DB/Das/BioSQL.pm
-    version: 0.02
-  Bio::DB::Das::BioSQL::BioDatabaseAdaptor:
-    file: lib/Bio/DB/Das/BioSQL/BioDatabaseAdaptor.pm
-  Bio::DB::Das::BioSQL::DBAdaptor:
-    file: lib/Bio/DB/Das/BioSQL/DBAdaptor.pm
-  Bio::DB::Das::BioSQL::Feature:
-    file: lib/Bio/DB/Das/BioSQL/Segment.pm
-  Bio::DB::Das::BioSQL::Iterator:
-    file: lib/Bio/DB/Das/BioSQL/Iterator.pm
-  Bio::DB::Das::BioSQL::PartialSeqAdaptor:
-    file: lib/Bio/DB/Das/BioSQL/PartialSeqAdaptor.pm
-  Bio::DB::Das::BioSQL::Segment:
-    file: lib/Bio/DB/Das/BioSQL/Segment.pm
-    version: 0.02
-  Bio::DB::Das::Chado:
-    file: lib/Bio/DB/Das/Chado.pm
-    version: 0.11
-  Bio::DB::Das::Chado::Segment:
-    file: lib/Bio/DB/Das/Chado/Segment.pm
-    version: 0.11
-  Bio::DB::Das::Chado::Segment::Feature:
-    file: lib/Bio/DB/Das/Chado/Segment/Feature.pm
-    version: 0.12
-  Bio::DB::Das::ChadoIterator:
-    file: lib/Bio/DB/Das/Chado.pm
   Bio::DB::GFF::Aggregator::match_gap:
     file: lib/Bio/DB/GFF/Aggregator/match_gap.pm
   Bio::DB::GFF::Aggregator::reftranscript:
@@ -82,7 +56,11 @@ provides:
     file: lib/Bio/DB/Tagger/mysql.pm
   Bio::Graphics::Browser:
     file: lib/Bio/Graphics/Browser.pm
-    version: 1.987
+    version: 1.994
+  Bio::Graphics::Browser::Admin:
+    file: lib/Bio/Graphics/Browser/Admin.pm
+  Bio::Graphics::Browser::AuthorizedFeatureFile:
+    file: lib/Bio/Graphics/Browser/AuthorizedFeatureFile.pm
   Bio::Graphics::Browser::CachedTrack:
     file: lib/Bio/Graphics/Browser/CachedTrack.pm
   Bio::Graphics::Browser::DataBase:
@@ -146,7 +124,9 @@ provides:
     file: lib/CGI/Toggle.pm
   FakeHomol:
     file: lib/Bio/Graphics/Browser/GFFhelper.pm
-generated_by: Module::Build version 0.280801
+  LRUCache:
+    file: lib/Bio/Graphics/Browser/DataBase.pm
+generated_by: Module::Build version 0.3
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

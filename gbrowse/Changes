@@ -1,6 +1,33 @@
-CVS Commits:
+1.994   * Fixed another bug in the cache expiration code that was causing session information
+	  to expire at end of user's browser session.
+        * Added abiity to tag tracks by their "track source" and "data source" and to turn them
+          on and off using this information.
+        * Added a track filtering ability via plugins.
+	* Fixed FastCGI support so that changes to GBROWSE_CONF are recognized each time
+	  the FastCGI server runs. This allows you to change GBROWSE_CONF on a per-directory
+          basis using <Location> and SetEnv.
+1.993   * Fixed bug in the cache expiration code that caused cache time to be set
+	  abnormally low and prevented cached data from being cached.
+1.992   * Added the gbrowse_clean.pl script for cleaning up stale temp files
+        * Normalized expiration and caching arguments.
+1.991   * Added a variety of different session locking mechanisms after I discovered.
+	  that flock doesn't always work across NFS-mounted file systems.
+1.990   * Fixed bug in which the hilighting of features got "stuck" on beige.
+	* Fixed bug in which changing the chromosome of a region but leaving 
+	  the coordinates the same caused redisplay of the previous region.
+1.989   * Another attempted fix of Galaxy problems. The galaxy_incoming option was not handled correctly.
+	* Fix track dumping/sharing so that uploaded files are dumped/shared correctly.
 
-$Log$
+1.988	* Fix handling of DBI databases so that various intermittent SQL errors ("server went away")
+	  no longer occur.
+	* Fixed Galaxy support to return correct MIME type. This
+          should correct problems people have had with track data not
+          loading into Galaxy.
+        * fixed bug that was causing remote tracks that didn't happen
+          to contain any features in current view to remain greyed out
+
+1.90    * server farm rearchitecture introduced
+	* big cleanup of defunct files; migrating to Module::Build
 
 1.67    * Templates now the norm, use gbrowse_not to get the "no templates" version.
 	* The das script now works (more or less) with Bio::DB::SeqFeature::Store adaptor. Not tested
