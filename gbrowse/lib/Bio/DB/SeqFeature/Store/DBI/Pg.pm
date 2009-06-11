@@ -563,7 +563,7 @@ sub _finish_bulk_update {
     my $path = $self->dump_path($table);
     $fh->close;
     my $qualified_table = $self->_qualify($table);
-    `cp $path $path.bak`;
+    #`cp $path $path.bak`;
     # Get stuff from file into STDIN so we don't have to be superuser
     open FH, $path;
     print STDERR "Loading file $path\n";
