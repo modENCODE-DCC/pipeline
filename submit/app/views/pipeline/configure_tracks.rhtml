@@ -31,15 +31,17 @@
 
   <script src="/gbrowse/js/toggle.js" type="text/javascript"></script>
   <script src="/gbrowse/js/karyotype.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/controller.js" type="text/javascript"></script>
   <script src="/gbrowse/js/rubber.js" type="text/javascript"></script>
   <script src="/gbrowse/js/overviewSelect.js" type="text/javascript"></script>
   <script src="/gbrowse/js/detailSelect.js" type="text/javascript"></script>
   <script src="/gbrowse/js/regionSelect.js" type="text/javascript"></script>
   <script src="/gbrowse/js/track.js" type="text/javascript"></script>
   <script src="/gbrowse/js/balloon.js" type="text/javascript"></script>
-
   <script src="/gbrowse/js/balloon.config.js" type="text/javascript"></script>
+
+  <script src="/gbrowse/js/GBox.js" type="text/javascript"></script>
+  <script src="/gbrowse/js/controller.js" type="text/javascript"></script>
+
 
   <script type="text/javascript">
 
@@ -228,12 +230,63 @@
       });
     }
 
+    // Garbage collection
+    Balloon.prototype.cleanup = function() {
+      var self = currentBalloonClass;
+      var body;
+      if (self) {
+        body = self.parent   ? self.parent 
+             : self.parentID ? document.getElementById(self.parentID) || document.body
+             : document.body;
+      }
+      else {
+        body = document.body;
+      }
+
+      var bubble = document.getElementById('balloon');
+      var close  = document.getElementById('closeButton');
+      var cont   = document.getElementById('container');
+      if (bubble) { body.removeChild(bubble) } 
+      if (close)  { body.removeChild(close)  }
+      //if (cont)   { body.removeChild(cont)   }  // This is the main pipeline container; don't get ride of _it_.
+    }
+
     // Set up GBrowse controller and tooltip
     Controller.set_url('/gbrowse/cgi-bin/gbrowse/<%= gbrowse_source %>/');
 
+    // Original GBrowse popup balloon style
     var GBubble = new Balloon;
     BalloonConfig(GBubble,'GBubble');
     GBubble.images = "/gbrowse/images/balloons/GBubble";
+    GBubble.allowEventHandlers = true;
+    GBubble.opacity = 1;
+    GBubble.fontFamily = 'sans-serif';
+    
+    // A simpler popup balloon style
+    var GPlain = new Balloon;
+    BalloonConfig(GPlain,'GPlain');
+    GPlain.images = "/gbrowse/images/balloons/GPlain";
+    GPlain.allowEventHandlers = true;
+    GPlain.opacity = 1;
+    GPlain.fontFamily = 'sans-serif';
+    
+    // Like GBubble but fades in
+    var GFade = new Balloon;
+    BalloonConfig(GFade,'GFade');
+    GFade.images = "/gbrowse/images/balloons/GBubble";
+    GFade.opacity = 1;
+    GFade.allowEventHandlers = true;
+    GFade.fontFamily = 'sans-serif';
+    
+    // A formatted box
+    // Note: Box is a subclass of Balloon
+    var GBox = new Box;
+    BalloonConfig(GBox,'GBox');
+    GBox.images = "/gbrowse/images/balloons/GBubble";
+    GBox.allowEventHandlers = true;
+    GBox.opacity = 1;
+    GBox.fontFamily = 'sans-serif';
+
   </script>
   <h2 style="clear:both">Configure tracks for <%= link_to "submission ##{@project.id}", { :action => :show, :id => @project } %> - <%= @project.name %><hr/></h2>
   <% if @released then %>
