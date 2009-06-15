@@ -4297,7 +4297,7 @@ CREATE TABLE wiggle_data (
     CONSTRAINT wiggle_data_color_check CHECK ((color OPERATOR(wiggle.=) wiggle.color(color))),
     CONSTRAINT wiggle_data_graphtype_check CHECK (((graphtype = 'bar'::bpchar) OR (graphtype = 'points'::bpchar))),
     CONSTRAINT wiggle_data_smoothingwindow_check CHECK (((smoothingwindow >= 1) AND (smoothingwindow <= 16))),
-    CONSTRAINT wiggle_data_type_check CHECK ((type = 'wiggle_0'::bpchar)),
+    CONSTRAINT wiggle_data_type_check CHECK ((type = 'wiggle_0'::bpchar) OR (type = 'SAM'::bpchar)),
     CONSTRAINT wiggle_data_visibility_check CHECK ((((visibility = 'full'::bpchar) OR (visibility = 'dense'::bpchar)) OR (visibility = 'hide'::bpchar))),
     CONSTRAINT wiggle_data_windowingfunction_check CHECK ((((windowingfunction = 'maximum'::bpchar) OR (windowingfunction = 'mean'::bpchar)) OR (windowingfunction = 'minimum'::bpchar)))
 );
