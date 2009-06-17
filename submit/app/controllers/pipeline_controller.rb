@@ -78,8 +78,8 @@ class PipelineController < ApplicationController
       '' => '[avg of min/max]',
     },
     'maxdepth' => :integer,
-    'show_mismatch' => [ 0, 1 ],
-    'draw_target' => [ 0, 1 ],
+    'show_mismatch' => [ "0", "1" ],
+    'draw_target' => [ "0", "1" ],
     'height' => :integer,
   }
 
