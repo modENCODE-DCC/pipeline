@@ -131,10 +131,12 @@ track_defs.each do |stanzaname, definition|
   next if database.nil?
   next if seen_dbs.include?(database)
   if database =~ /^modencode_bam_/ then
+    project_id = definition["data_source_id"]
+    bam_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", definition[:bam_file])
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::Sam\n"
     config_text << "db_args       = -fasta ../../bam_support_fasta/#{organism}.fa\n"
-    config_text << "                -bam #{definition[:bam_file]}\n"
+    config_text << "                -bam #{bam_file_path}\n"
     config_text << "                -split_splices 1\n"
     config_text << "\n"
   else

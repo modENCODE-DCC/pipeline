@@ -1306,10 +1306,18 @@ class TrackFinder
               cmd_puts "        Verifying presence of sorted BAM file."
               bam_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["sorted_bam_file"])
               if (!File.exist?(bam_file_path)) then
-                cmd_puts "          Sorted BAM \"#{bam_file_path}\" not found, skipping this SAM file."
+                cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" not found, skipping this SAM file."
                 next
               end
-              cmd_puts "          Sorted BAM \"#{bam_file_path}\" found."
+              cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" found."
+              cmd_puts "          Copying BAM file(s) to tracks dir."
+              [ row["sorted_bam_file"], "#{row["sorted_bam_file"]}.bai" ].each { |f|
+                FileUtils.cp(
+                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", f),
+                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", f)
+                )
+              }
+              cmd_puts "          Done."
               cmd_puts "        Finding metadata for SAM files."
               tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
               cmd_puts "          Using tracknum #{tracknum}"
@@ -1321,7 +1329,7 @@ class TrackFinder
                 :name => 'BAM File',
                 :project_id => project_id,
                 :track => tracknum,
-                :value => bam_file_path,
+                :value => row["sorted_bam_file"],
                 :cvterm => 'bam_file',
                 :history_depth => 0
               ).save
