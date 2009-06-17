@@ -125,17 +125,29 @@ if track_defs.nil? then
   exit
 end
 
-track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
+seen_dbs = Array.new
+track_defs.each do |stanzaname, definition| 
+  database = definition['database'] 
   next if database.nil?
-  num = database.gsub(/^modencode_preview_/, '')
-  config_text << "[#{database}:database]\n"
-  config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
-  config_text << "db_args       = -adaptor DBI::Pg\n"
-  config_text << "                -dsn     dbname=modencode_gffdb;host=heartbroken.lbl.gov\n"
-  config_text << "                -user    'db_public'\n"
-  config_text << "                -pass    'ir84#4nm'\n"
-  config_text << "                -schema  modencode_experiment_#{num}_data\n"
-  config_text << "\n"
+  next if seen_dbs.include?(database)
+  if database =~ /^modencode_bam_/ then
+    config_text << "[#{database}:database]\n"
+    config_text << "db_adaptor    = Bio::DB::Sam\n"
+    config_text << "db_args       = -fasta ../../bam_support_fasta/#{organism}.fa\n"
+    config_text << "                -bam #{definition[:bam_file]}\n"
+    config_text << "                -split_splices 1\n"
+    config_text << "\n"
+  else
+    num = database.gsub(/^modencode_preview_/, '')
+    config_text << "[#{database}:database]\n"
+    config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
+    config_text << "db_args       = -adaptor DBI::Pg\n"
+    config_text << "                -dsn     dbname=modencode_gffdb;host=heartbroken.lbl.gov\n"
+    config_text << "                -user    'db_public'\n"
+    config_text << "                -pass    'ir84#4nm'\n"
+    config_text << "                -schema  modencode_experiment_#{num}_data\n"
+    config_text << "\n"
+  end
 end
 
 config_text << "\n"
