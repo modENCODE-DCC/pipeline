@@ -303,7 +303,11 @@ class TrackFinder
         return yield
       rescue DBI::DatabaseError => e
         cmd_puts "DBI error: #{e.err} #{e.errstr}"
-        logger.error e
+        if defined? logger then
+          logger.error e
+        else
+          $stderr.puts e
+        end
         @dbh.disconnect unless @dbh.nil?
         return false
       end
@@ -333,7 +337,10 @@ class TrackFinder
                    LEFT JOIN data_wiggle_data wig ON wig.data_id = d.data_id
                    WHERE apd.applied_protocol_id = ANY(?)
                    GROUP BY d.data_id, d.heading, d.name, d.value, c.name
-                   HAVING count(wig.*) > 0 OR COUNT(df.*) > 0") 
+                   HAVING 
+                     count(wig.*) > 0 OR 
+                     COUNT(df.*) > 0 OR 
+                     c.name = 'Sequence_Alignment/Map (SAM)'") 
     }
     @sth_get_features_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT
@@ -417,6 +424,17 @@ class TrackFinder
                    ) ON cvt.cvterm_id = d.type_id
                    WHERE dwd.data_id = ANY(?)") 
     }
+    @sth_get_sam_by_data_ids = dbh_safe {
+      @dbh.prepare("SELECT
+                   d.heading || ' [' || CASE WHEN d.name IS NULL THEN '' ELSE d.name END || ']' AS data_name,
+                   d.value AS sam_file,
+                   attr_sorted_bam.value AS sorted_bam_file
+                   FROM data d
+                   INNER JOIN data_attribute da ON d.data_id = da.data_id 
+                   INNER JOIN attribute attr_sorted_bam ON da.attribute_id = attr_sorted_bam.attribute_id
+                   WHERE attr_sorted_bam.heading = 'Sorted BAM File' AND d.data_id = ANY(?)")
+    }
+
     @sth_metadata = dbh_safe {
       @dbh.prepare "SELECT
       cur_output_data.value AS data_value,
@@ -865,8 +883,9 @@ class TrackFinder
     ######## Find Features/Wiggles #######
 
     seen_wiggles = Array.new
+    seen_sams = Array.new
 
-    cmd_puts "  Finding features and wiggle files attached to tracks."
+    cmd_puts "  Finding features, wiggle files, and SAM files attached to tracks."
     usable_tracks.each do |col, set_of_tracks|
       cmd_puts "    For the protocol in column #{col}:"
       set_of_tracks.each do |applied_protocols|
@@ -875,6 +894,7 @@ class TrackFinder
 
         data_ids_with_features = Array.new
         data_ids_with_wiggles = Array.new
+        data_ids_with_sam_files = Array.new
 
         dbh_safe {
           @sth_get_data_by_applied_protocols.execute(ap_ids)
@@ -883,12 +903,14 @@ class TrackFinder
               data_ids_with_features.push row["data_id"].to_i
             elsif row['number_of_wiggles'].to_i > 0 then
               data_ids_with_wiggles.push row["data_id"].to_i
+            elsif row['type'] == "Sequence_Alignment/Map (SAM)" then
+              data_ids_with_sam_files.push row["data_id"]
             end
           end
         }
 
         # No need to continue if there isn't anything to make tracks of
-        next unless data_ids_with_features.size > 0 || data_ids_with_wiggles.size > 0
+        next unless data_ids_with_features.size > 0 || data_ids_with_wiggles.size > 0 || data_ids_with_sam_files.size > 0
 
         if data_ids_with_features.size > 0 then
           # Get any features associated with this track's data objects
@@ -1274,8 +1296,50 @@ class TrackFinder
 #            info["lines"].each { |line| f.puts line }
 #          }
         end
-        if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 then
-          cmd_puts "      There are no features or wiggle files."
+        if data_ids_with_sam_files.size > 0 then
+          cmd_puts "      Getting SAM files."
+          dbh_safe {
+            @sth_get_sam_by_data_ids.execute data_ids_with_sam_files.uniq
+            @sth_get_sam_by_data_ids.fetch_hash { |row|
+              next if seen_sams.include?(row["sam_file"])
+              seen_sams.push(row["sam_file"])
+              cmd_puts "        Verifying presence of sorted BAM file."
+              bam_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["sorted_bam_file"])
+              if (!File.exist?(bam_file_path)) then
+                cmd_puts "          Sorted BAM \"#{bam_file_path}\" not found, skipping this SAM file."
+                next
+              end
+              cmd_puts "          Sorted BAM \"#{bam_file_path}\" found."
+              cmd_puts "        Finding metadata for SAM files."
+              tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+              cmd_puts "          Using tracknum #{tracknum}"
+              cmd_puts "        Done."
+
+              # Label this as a SAM track
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'BAM File',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => bam_file_path,
+                :cvterm => 'bam_file',
+                :history_depth => 0
+              ).save
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'Track Type',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => 'bam',
+                :cvterm => 'track_type',
+                :history_depth => 0
+              ).save
+            }
+          }
+          cmd_puts "      Done getting SAM files."
+        end
+        if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 && data_ids_with_sam_files.size <= 0 then
+          cmd_puts "      There are no features, wiggle files, or SAM files."
         end
       end
     end
@@ -1419,16 +1483,25 @@ class TrackFinder
 
     tracknums = tags.map { |t| t.track }.uniq
 
-    return {} if dbh_safe { gff_dbh.execute("SET search_path = #{schema}") } === false
-    sth_get_types = dbh_safe { gff_dbh.prepare("SELECT tag FROM typelist WHERE tag LIKE '%:' || ? OR tag LIKE '%:' || ? || '_details'") }
     types = Array.new
-    tracknums.each do |tracknum|
-      sth_get_types.execute(tracknum, tracknum)
-      sth_get_types.fetch do |row|
-        types.push row[0]
+    if dbh_safe { gff_dbh.execute("SET search_path = #{schema}") } != false
+      sth_get_types = dbh_safe { gff_dbh.prepare("SELECT tag FROM typelist WHERE tag LIKE '%:' || ? OR tag LIKE '%:' || ? || '_details'") }
+      tracknums.each do |tracknum|
+        sth_get_types.execute(tracknum, tracknum)
+        sth_get_types.fetch do |row|
+          types.push row[0]
+        end
       end
+      dbh_safe { sth_get_types.finish }
     end
-    dbh_safe { sth_get_types.finish }
+
+    type_tags = TrackTag.find_all_by_project_id_and_cvterm_and_name(project_id, "track_type", "Track Type")
+    sam_tag = type_tags.find { |tt| tt.value == "bam" }
+    if sam_tag then
+      types.push "read_pair:#{sam_tag.track}"
+    end
+
+    return {} if types.size == 0
 
     track_defs = Hash.new
 
@@ -1438,10 +1511,12 @@ class TrackFinder
     types.each do |type|
       puts "Testing type #{type}" if @debug
 
-      # Make sure this feature type is located to a chromosome
-      sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
-      count = sth_get_num_located_types.fetch[0]
-      next unless count > 0
+      track_type = track_source = tracknum = nil;
+      if type !~ /^read_pair/ then
+        # Make sure this feature type is located to a chromosome
+        sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
+        next unless sth_get_num_located_types.fetch[0] > 0
+      end
 
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
       track_type = matchdata[1]
@@ -1471,7 +1546,17 @@ class TrackFinder
       connector = "solid"
       connector_color = "solid"
       group_on = nil
+      draw_target = nil
+      show_mismatch = nil
+      height = nil
+      label_density = nil
+      bump = nil
+      maxdepth = nil
+      bam_file = nil
+      fasta_file = nil
+      database = "modencode_preview_#{project.id}"
       zoomlevels = [ nil ]
+      feature = type
       case track_type
       when "match" then
         glyph = "box"
@@ -1507,6 +1592,20 @@ class TrackFinder
         label = ''
       when "gene" then
         glyph = "gene"
+      when "read_pair" then
+        feature = "read_pair"
+        glyph = "segments"
+        label = "sub { return shift->display_name; }"
+        draw_target = 1
+        show_mismatch = 1
+        bgcolor = "blue"
+        fgcolor = "blue"
+        height = 10
+        label_density = 50
+        bump = "fast"
+        maxdepth = 2
+        database = "modencode_bam_#{project.id}_#{tracknum}"
+        bam_file = TrackTag.find_by_project_id_and_name_and_cvterm(project.id, "BAM File", "bam_file").value
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
@@ -1558,13 +1657,13 @@ class TrackFinder
           track_defs[stanzaname]['track_id'] = track_id
           track_defs[stanzaname]['data_source_id'] = data_source_id
           track_defs[stanzaname]['category'] = "Preview"
-          track_defs[stanzaname]['feature'] = type
+          track_defs[stanzaname]['feature'] = feature
           track_defs[stanzaname]['fgcolor'] = fgcolor
           track_defs[stanzaname]['bgcolor'] = bgcolor
           track_defs[stanzaname]['stranded'] = 0
           track_defs[stanzaname]['group_on'] = group_on
           track_defs[stanzaname]['label_transcripts'] = label_transcripts
-          track_defs[stanzaname]['database'] = "modencode_preview_#{project.id}"
+          track_defs[stanzaname]['database'] = database
           track_defs[stanzaname]['key'] = key
           track_defs[stanzaname]['citation'] = citation_text
           track_defs[stanzaname]['label'] = label
@@ -1584,6 +1683,15 @@ class TrackFinder
           track_defs[stanzaname]['bicolor_pivot'] = bicolor_pivot unless bicolor_pivot.nil?
           track_defs[stanzaname]['glyph select'] = glyph_select  unless glyph_select .nil?
           track_defs[stanzaname]['sort_order'] = sort_order unless sort_order.nil?
+
+          # SAM-only stuff
+          track_defs[stanzaname]['draw_target'] = draw_target unless draw_target.nil?
+          track_defs[stanzaname]['show_mismatch'] = show_mismatch unless show_mismatch.nil?
+          track_defs[stanzaname]['height'] = height unless height.nil?
+          track_defs[stanzaname]['label_density'] = label_density unless label_density.nil?
+          track_defs[stanzaname]['bump'] = bump unless bump.nil?
+          track_defs[stanzaname]['maxdepth'] = maxdepth unless maxdepth.nil?
+          track_defs[stanzaname][:bam_file] = bam_file unless bam_file.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type
