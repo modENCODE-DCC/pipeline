@@ -1549,7 +1549,7 @@ class TrackFinder
       draw_target = nil
       show_mismatch = nil
       height = nil
-      label_density = nil
+      label_density = 100
       bump = nil
       maxdepth = nil
       bam_file = nil
@@ -1668,7 +1668,7 @@ class TrackFinder
           track_defs[stanzaname]['citation'] = citation_text
           track_defs[stanzaname]['label'] = label
           track_defs[stanzaname]['bump density'] = 250
-          track_defs[stanzaname]['label density'] = 100
+          track_defs[stanzaname]['label density'] = label_density
           track_defs[stanzaname]['glyph'] = glyph
           track_defs[stanzaname]['connector'] = connector
           track_defs[stanzaname][:unique_analyses] = unique_analyses unless unique_analyses.nil?
@@ -1688,7 +1688,6 @@ class TrackFinder
           track_defs[stanzaname]['draw_target'] = draw_target unless draw_target.nil?
           track_defs[stanzaname]['show_mismatch'] = show_mismatch unless show_mismatch.nil?
           track_defs[stanzaname]['height'] = height unless height.nil?
-          track_defs[stanzaname]['label_density'] = label_density unless label_density.nil?
           track_defs[stanzaname]['bump'] = bump unless bump.nil?
           track_defs[stanzaname]['maxdepth'] = maxdepth unless maxdepth.nil?
           track_defs[stanzaname][:bam_file] = bam_file unless bam_file.nil?

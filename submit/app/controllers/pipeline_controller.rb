@@ -31,6 +31,8 @@ class PipelineController < ApplicationController
       '' => " [No label]",
       'sub { return shift->name; }'                                              => "[Feature Name (for individual features)]", 
       'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->name }; }' => "[Feature Name (for groups)]",
+      'sub { return shift->display_name; }'                                      => "[Feature Display Name (for individual features)]", 
+      'sub { return eval { [ eval { shift->get_SeqFeatures; } ]->[0]->display_name }; }' => "[Feature Display Name (for groups)]",
       'sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for groups)]",
       'sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }' => "[Target Name (for individual features)]",
       'sub { my ($type) = (shift->type =~ m/(.*):\d*/); return $type; }'         => "[Track Type]",
@@ -75,6 +77,10 @@ class PipelineController < ApplicationController
       'mean' => 'mean',
       '' => '[avg of min/max]',
     },
+    'maxdepth' => :integer,
+    'show_mismatch' => [ 0, 1 ],
+    'draw_target' => [ 0, 1 ],
+    'height' => :integer,
   }
 
   before_filter :login_required, :except => [ :get_gbrowse_config ]
