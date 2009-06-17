@@ -154,15 +154,40 @@ class PublicController < ApplicationController
     track_defs = Hash.new
     all_track_defs.each { |td| track_defs.merge! td.stanza }
 
-    track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
-      num = database.gsub(/^modencode_preview_/, '')
-      config_text << "[#{database}:database]\n"
-      config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
-      config_text << "db_args       = -adaptor DBI::Pg\n"
-      config_text << "                -dsn     dbname=modencode_gffdb;host=localhost\n"
-      config_text << "                -user    '????????'\n"
-      config_text << "                -pass    '????????'\n"
-      config_text << "\n"
+#    track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
+#      num = database.gsub(/^modencode_preview_/, '')
+#      config_text << "[#{database}:database]\n"
+#      config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
+#      config_text << "db_args       = -adaptor DBI::Pg\n"
+#      config_text << "                -dsn     dbname=modencode_gffdb;host=localhost\n"
+#      config_text << "                -user    '????????'\n"
+#      config_text << "                -pass    '????????'\n"
+#      config_text << "\n"
+#    end
+    seen_dbs = Array.new
+    track_defs.each do |stanzaname, definition| 
+      database = definition['database'] 
+      next if database.nil?
+      next if seen_dbs.include?(database)
+      if database =~ /^modencode_bam_/ then
+        project_id = definition["data_source_id"]
+        config_text << "[#{database}:database]\n"
+        config_text << "db_adaptor    = Bio::DB::Sam\n"
+        config_text << "db_args       = -fasta ???source_organism???.fa\n"
+        config_text << "                -bam #{definition[:bam_file]}\n"
+        config_text << "                -split_splices 1\n"
+        config_text << "\n"
+      else
+        num = database.gsub(/^modencode_preview_/, '')
+        config_text << "[#{database}:database]\n"
+        config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
+        config_text << "db_args       = -adaptor DBI::Pg\n"
+        config_text << "                -dsn     dbname=modencode_gffdb;host=smaug.lbl.gov\n"
+        config_text << "                -user    '?????????\n"
+        config_text << "                -pass    '?????????\n"
+        config_text << "                -schema  modencode_experiment_#{num}_data\n"
+        config_text << "\n"
+      end
     end
 
     track_defs.each do |stanzaname, definition|
@@ -214,7 +239,8 @@ class PublicController < ApplicationController
     if released_configs.size > 0 then
       track_defs = released_configs.first.stanza
       track_defs.each { |stanzaname, definition|
-        tracknum = definition["feature"].match(/.*:(\d+)(_details)?$/)[1].to_i
+        tracknum = definition["track_id"].to_i
+        tracknum = definition["feature"].match(/.*:(\d+)(_details)?$/)[1].to_i unless tracknum
         citation = definition["citation"]
         @citations[citation] = Array.new unless @citations[citation]
         @citations[citation].push [ stanzaname, tracknum ]
