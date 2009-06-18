@@ -1504,8 +1504,8 @@ class TrackFinder
     end
 
     type_tags = TrackTag.find_all_by_project_id_and_cvterm_and_name(project_id, "track_type", "Track Type")
-    sam_tag = type_tags.find { |tt| tt.value == "bam" }
-    if sam_tag then
+    sam_tags = type_tags.find_all { |tt| tt.value == "bam" }
+    sam_tags.each do |sam_tag|
       types.push "read_pair:#{sam_tag.track}"
     end
 
@@ -1613,7 +1613,7 @@ class TrackFinder
         bump = "fast"
         maxdepth = 2
         database = "modencode_bam_#{project.id}_#{tracknum}"
-        bam_file = TrackTag.find_by_project_id_and_name_and_cvterm(project.id, "BAM File", "bam_file").value
+        bam_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BAM File", "bam_file", tracknum).value
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
