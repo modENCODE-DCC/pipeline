@@ -1604,8 +1604,8 @@ class TrackFinder
         feature = "read_pair"
         glyph = "segments"
         label = "sub { return shift->display_name; }"
-        draw_target = 1
-        show_mismatch = 1
+        draw_target = "1"
+        show_mismatch = "1"
         bgcolor = "blue"
         fgcolor = "blue"
         height = 10
