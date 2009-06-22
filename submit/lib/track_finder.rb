@@ -1643,6 +1643,7 @@ class TrackFinder
           smoothing = "mean"
           smoothing_window = 10
           bicolor_pivot = "zero"
+          height = 30
           sort_order = 'sub ($$) {shift->feature->name cmp shift->feature->name}'
         else
           # GFF-only
