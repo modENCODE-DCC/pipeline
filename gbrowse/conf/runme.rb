@@ -144,7 +144,7 @@ track_defs.each do |stanzaname, definition|
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
     config_text << "db_args       = -adaptor DBI::Pg\n"
-    config_text << "                -dsn     dbname=modencode_gffdb;host=heartbroken.lbl.gov\n"
+    config_text << "                -dsn     dbname=modencode_gffdb;host=localhost\n"
     config_text << "                -user    'db_public'\n"
     config_text << "                -pass    'ir84#4nm'\n"
     config_text << "                -schema  modencode_experiment_#{num}_data\n"
@@ -154,6 +154,7 @@ end
 
 config_text << "\n"
 track_defs.each do |stanzaname, definition|
+  next if definition['key'].nil?
   semantic_configs = definition[:semantic_zoom]
 
   config_text << "[#{stanzaname}]\n"

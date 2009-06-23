@@ -349,7 +349,7 @@
         chr = definition[:chr] || default_chr
         fmax = definition[:fmax] || default_fmax
         fmin = definition[:fmin] || default_fmin
-        semantic_configs = definition[:semantic_zoom]
+        semantic_configs = definition[:semantic_zoom] || []
       %>
       <% definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
         <% next if option.is_a? Symbol %>
@@ -490,23 +490,27 @@
           <% end %>
         <% end %>
 
-      <div id="trackcontainer_<%= stanzaname %>">
-        <input 
-          type="text" value="<%=chr%>" name="chr" id="chr_<%= stanzaname %>" size="5"/>:<input 
-          type="text" value="<%=fmin%>" name="fmin" id="fmin_<%= stanzaname %>" size="5"/>..<input 
-          type="text" value="<%=fmax%>" name="fmax" id="fmax_<%= stanzaname %>" size="5"/>
+        <% if definition['key'] then %>
+          <div id="trackcontainer_<%= stanzaname %>">
+            <input 
+            type="text" value="<%=chr%>" name="chr" id="chr_<%= stanzaname %>" size="5"/>:<input 
+            type="text" value="<%=fmin%>" name="fmin" id="fmin_<%= stanzaname %>" size="5"/>..<input 
+            type="text" value="<%=fmax%>" name="fmax" id="fmax_<%= stanzaname %>" size="5"/>
 
-        <script type="text/javascript">
-          Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictText);
-          Event.observe($('fmin_<%=stanzaname%>'), 'keypress', restrictNumeric);
-          Event.observe($('fmax_<%=stanzaname%>'), 'keypress', restrictNumeric);
-        </script>
-        <%= submit_tag "Update" %>
-      </div>
+            <script type="text/javascript">
+              Event.observe($('chr_<%=stanzaname%>'), 'keypress', restrictText);
+              Event.observe($('fmin_<%=stanzaname%>'), 'keypress', restrictNumeric);
+              Event.observe($('fmax_<%=stanzaname%>'), 'keypress', restrictNumeric);
+            </script>
+            <%= submit_tag "Update" %>
+          </div>
+        <% end %>
     </form>
     <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
     <%= button_to "Remove semantic zoom configuration(s) from #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_semantic_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." if semantic_configs.size > 0 %>
-    <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
+    <% if definition['key'] then %>
+      <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
+    <% end %>
     <script type="text/javascript">
       $('form_<%=stanzaname%>').reset();
       var gbtrack_<%= stanzaname.gsub(/[^a-zA-Z0-9]/, "_") %> = new GBrowseTrack('<%= stanzaname %>', 'notype', 'detail');

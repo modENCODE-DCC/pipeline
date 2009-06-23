@@ -153,6 +153,7 @@ class PublicController < ApplicationController
 
     track_defs = Hash.new
     all_track_defs.each { |td| track_defs.merge! td.stanza }
+    track_defs.delete_if { |stanzaname, definition| definition['key'].nil? }
 
 #    track_defs.map { |stanzaname, definition| definition['database'] }.uniq.each do |database|
 #      num = database.gsub(/^modencode_preview_/, '')

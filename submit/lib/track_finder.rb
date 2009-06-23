@@ -886,8 +886,9 @@ class TrackFinder
     seen_sams = Array.new
 
     cmd_puts "  Finding features, wiggle files, and SAM files attached to tracks."
+    found_any_tracks = false
     usable_tracks.each do |col, set_of_tracks|
-      cmd_puts "    For the protocol in column #{col}:"
+      cmd_puts "    For the protocol in column #{col}, with #{set_of_tracks.size} possible tracks:"
       set_of_tracks.each do |applied_protocols|
         # Get the data objects for the applied protocol
         ap_ids = applied_protocols.map { |ap| ap.applied_protocol_id }
@@ -910,7 +911,11 @@ class TrackFinder
         }
 
         # No need to continue if there isn't anything to make tracks of
-        next unless data_ids_with_features.size > 0 || data_ids_with_wiggles.size > 0 || data_ids_with_sam_files.size > 0
+        if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 && data_ids_with_sam_files.size <= 0 then
+          cmd_puts "      There are no features, wiggle files, or SAM files for this potential track."
+          next
+        end
+        found_any_tracks = true
 
         if data_ids_with_features.size > 0 then
           # Get any features associated with this track's data objects
@@ -1346,13 +1351,29 @@ class TrackFinder
           }
           cmd_puts "      Done getting SAM files."
         end
-        if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 && data_ids_with_sam_files.size <= 0 then
-          cmd_puts "      There are no features, wiggle files, or SAM files."
-        end
       end
+    end
+    unless found_any_tracks then
+      # Generate a citation even though we didn't find any tracks
+      cmd_puts "    No tracks found for this submission; generating generic metadata for citation."
+      ap_ids = usable_tracks.map { |col, set_of_tracks| set_of_tracks.map { |aps| aps.map { |ap| ap.applied_protocol_id } }.flatten }.flatten
+      tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+      cmd_puts "      Using tracknum #{tracknum}"
+      TrackTag.new(
+        :experiment_id => experiment_id,
+        :name => 'Track Type',
+        :project_id => project_id,
+        :track => tracknum,
+        :value => 'placeholder',
+        :cvterm => 'track_type',
+        :history_depth => 0
+      ).save
+      cmd_puts "    Done."
     end
     cmd_puts "  Done."
     ####### /Find Features/Wiggles #######
+
+    # Didn't find anything? Still need a citation?
   end
   def recursive_output(seen_feature_ids, sth_get_gff, gff_file, parent_id = nil)
     if !parent_id.nil? then
@@ -1509,9 +1530,19 @@ class TrackFinder
       types.push "read_pair:#{sam_tag.track}"
     end
 
-    return {} if types.size == 0
-
     track_defs = Hash.new
+
+
+    # Handle projects with no tracks (generate placeholder citation)
+    if types.size == 0 then
+      stanzaname = "metadata_description"
+      c = Citation.new(project_id)
+      citation_text = c.build
+      track_defs[stanzaname] = { 'citation' => citation_text }
+      return track_defs
+    end
+
+
 
     sth_get_num_located_types = dbh_safe { gff_dbh.prepare("SELECT COUNT(*) FROM locationlist l INNER JOIN feature f ON l.id = f.seqid INNER JOIN typelist tl ON f.typeid = tl.id WHERE tl.tag = ? AND l.seqname = ANY(?)") }
 
