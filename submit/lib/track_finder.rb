@@ -1731,6 +1731,7 @@ class TrackFinder
           track_defs[stanzaname]['bump'] = bump unless bump.nil?
           track_defs[stanzaname]['maxdepth'] = maxdepth unless maxdepth.nil?
           track_defs[stanzaname][:bam_file] = bam_file unless bam_file.nil?
+          track_defs[stanzaname]['bam_file_path'] = bam_file unless bam_file.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type
