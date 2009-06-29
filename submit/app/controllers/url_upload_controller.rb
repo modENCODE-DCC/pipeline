@@ -73,11 +73,14 @@ class UrlUploadController < UploadController
               project_archive = command_object.project.project_archives.all.find { |pa| File.basename(pa.file_name) == File.basename(destfile) }
               (source, dest, rest) = command_object.command.split(" to ")
 
-              dest = File.join(File.dirname(URI.unescape(destfile)), File.basename(content_disposition_file))
+              logger.debug "Getting prefix for #{dest}"
+              prefix = File.basename(destfile).match(/^\d+_/)
+              prefix = prefix.nil? ? "" : prefix[0]
+              dest = File.join(File.dirname(URI.unescape(destfile)), prefix + File.basename(content_disposition_file))
               logger.debug "Using content-disposition filename #{dest} instead of #{destfile}"
 
               unless project_archive.nil? then
-                project_archive.file_name = content_disposition_file
+                project_archive.file_name = File.basename(dest)
                 project_archive.save
               end
 
@@ -95,6 +98,7 @@ class UrlUploadController < UploadController
     rescue Exception => e
       logger.warn "Rescued upload exception #{e}"
       logger.error e
+      logger.error e.backtrace
       command_object.status = Upload::Status::UPLOAD_FAILED 
       command_object.save
       raise CommandFailException.new("Failed to fetch URL #{upurl}")
