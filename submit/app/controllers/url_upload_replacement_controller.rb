@@ -65,5 +65,45 @@ class UrlUploadReplacementController < UrlUploadController
     command_object.save
     return do_after(:destfile => absolute_desttgz)
   end
+  def get_contents(upurl, destfile)
+    begin
+      upurl = URI.escape(upurl)
+      OpenURI.open_uri( upurl, :no_verify_peer => true, :content_length_proc => proc { |len| command_object.content_length = len; command_object.save }, :progress_proc => proc { |prog| self.update_uploader_progress_with_save = prog }
+          ) { |result|
+            content_disposition_file = result.meta["content-disposition"]
+            content_disposition_file = content_disposition_file.split(";").find { |h| h =~ /^\s*filename=/ } unless content_disposition_file.nil?
+            content_disposition_file = content_disposition_file.split("=").last unless content_disposition_file.nil?
+            if !content_disposition_file.nil? && content_disposition_file.length > 0 then
+              project_archive = command_object.project.project_archives.all.find { |pa| File.basename(pa.file_name) == File.basename(destfile) }
+              (source, dest, rest) = command_object.command.split(" to ")
+
+              dest = File.join(File.dirname(URI.unescape(destfile)), File.basename(content_disposition_file))
+              logger.debug "Using content-disposition filename #{dest} instead of #{destfile}"
+
+              unless project_archive.nil? then
+                project_archive.file_name = content_disposition_file
+                project_archive.save
+              end
+
+              rest = [] if rest.nil?
+              command_object.command = ([source, URI.escape(dest)] + rest).join(" to ")
+              command_object.save
+
+              destfile = dest
+            end
+
+            ::File.open(destfile, "w") { |dfile|
+              dfile.write(result.read)
+            }
+          }
+    rescue Exception => e
+      logger.warn "Rescued upload exception #{e}"
+      logger.error e
+      command_object.status = Upload::Status::UPLOAD_FAILED 
+      command_object.save
+      raise CommandFailException.new("Failed to fetch URL #{upurl}")
+    end
+  end
+
 
 end
