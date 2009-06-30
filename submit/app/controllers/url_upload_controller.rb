@@ -69,6 +69,7 @@ class UrlUploadController < UploadController
             content_disposition_file = result.meta["content-disposition"]
             content_disposition_file = content_disposition_file.split(";").find { |h| h =~ /^\s*filename=/ } unless content_disposition_file.nil?
             content_disposition_file = content_disposition_file.split("=").last unless content_disposition_file.nil?
+            content_disposition_file.gsub!(/^"|"$/, "")
             if !content_disposition_file.nil? && content_disposition_file.length > 0 then
               project_archive = command_object.project.project_archives.all.find { |pa| File.basename(pa.file_name) == File.basename(destfile) }
               (source, dest, rest) = command_object.command.split(" to ")
@@ -76,7 +77,7 @@ class UrlUploadController < UploadController
               logger.debug "Getting prefix for #{dest}"
               prefix = File.basename(destfile).match(/^\d+_/)
               prefix = prefix.nil? ? "" : prefix[0]
-              dest = File.join(File.dirname(URI.unescape(destfile)), prefix + File.basename(content_disposition_file))
+              dest = File.join(File.dirname(URI.unescape(destfile)), "#{prefix}#{File.basename(content_disposition_file)}")
               logger.debug "Using content-disposition filename #{dest} instead of #{destfile}"
 
               unless project_archive.nil? then
