@@ -415,9 +415,16 @@ class PublicController < ApplicationController
       return
     end
     unless File.file?(file) then
-      flash[:error] = "Invalid path #{file}"
-      redirect_to :action => :download, :id => params[:id], :root => params[:root] 
-      return
+      # Try to see if there's a base directory from the archive
+      # (e.g. extracted/MySubmission/...)
+      curdir = File.dirname(file)
+      subdirs = Dir.entries(curdir).reject { |entry| entry =~ /^\./ }.find_all { |entry| File.directory?(File.join(curdir, entry)) }
+      file = File.join(curdir, subdirs[0], File.basename(file)) if subdirs.size == 1
+      unless File.file?(file) then
+        flash[:error] = "File does not exist #{file}"
+        redirect_to :action => :download, :id => params[:id], :root => params[:root] 
+        return
+      end
     end
 
     last_modified = File.mtime(file)
