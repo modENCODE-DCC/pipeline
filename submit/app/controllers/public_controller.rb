@@ -45,6 +45,7 @@ class PublicController < ApplicationController
     @modmine_ids = loaded_modmine_ids
     @modmine_link_template = modmine_link_template
 
+    @organisms_by_pi = organisms_by_pi
     @pis = User.all.map { |u| u.pi }.uniq
     @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
     if params[:sort] then
@@ -58,7 +59,17 @@ class PublicController < ApplicationController
     end
     @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
     if params[:pi] && params[:pi].length > 0 then
-      @projects.reject! { |p| p.user.pi != params[:pi] }
+      if params[:pi] =~ /^All / then
+        organism = params[:pi].match(/^All (.*)$/)[1]
+        @projects.reject! { |p| 
+          o = p.released_organism
+          o = @organisms_by_pi[p.pi] if o.nil?
+          o = "" if o.nil?
+          organism.sub(/^(.).+ /, '\1. ').downcase != o.sub(/^(.).+ /, '\1. ').downcase
+        }
+      else
+        @projects.reject! { |p| p.user.pi != params[:pi] }
+      end
     end
     if session[:sort_list] then
       sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
@@ -71,7 +82,6 @@ class PublicController < ApplicationController
     else
       @projects = @projects.sort { |p1, p2| p2.id <=> p1.id }
     end
-    @organisms_by_pi = organisms_by_pi
 
     respond_to do |format|
       format.html {
