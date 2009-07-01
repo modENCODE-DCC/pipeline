@@ -1645,6 +1645,7 @@ class TrackFinder
         maxdepth = 2
         database = "modencode_bam_#{project.id}_#{tracknum}"
         bam_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BAM File", "bam_file", tracknum).value
+        zoomlevels = [ nil, 1000 ]
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
@@ -1731,7 +1732,7 @@ class TrackFinder
           track_defs[stanzaname]['bump'] = bump unless bump.nil?
           track_defs[stanzaname]['maxdepth'] = maxdepth unless maxdepth.nil?
           track_defs[stanzaname][:bam_file] = bam_file unless bam_file.nil?
-          track_defs[stanzaname]['bam_file_path'] = bam_file unless bam_file.nil?
+          track_defs[stanzaname]['bam_file_path'] = File.basename(bam_file) unless bam_file.nil?
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type
@@ -1745,6 +1746,12 @@ class TrackFinder
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['max_score'] = max_score unless max_score.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['neg_color'] = neg_color unless neg_color.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['pos_color'] = pos_color unless pos_color.nil?
+          
+          if type =~ /read_pair:/ then
+            # Special case for zoomed-out SAM
+            track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = "coverage"
+            track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = "wiggle_xyplot"
+          end
         end
       }
     end
