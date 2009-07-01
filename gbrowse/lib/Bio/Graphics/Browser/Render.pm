@@ -2472,10 +2472,12 @@ sub asynchronous_update_coordinates {
             $state->{'flip'} = 0;
         }
     }
+    # BEGIN ADDED BY EO
     if ( $action =~ /name/) {
         $self->move_to_name($state, $action);
         $position_updated++;
     }
+    # END ADDED BY EO
 
     if ($position_updated) { # clip and update param
 	if (defined $whole_segment_start && $state->{start} < $whole_segment_start) {
@@ -2521,6 +2523,7 @@ sub zoom_to_span {
   $state->{stop }   = $state->{start} + $span - 1;
 }
 
+# BEGIN ADDED BY EO
 sub move_to_name {
   my $self = shift;
   my ( $state, $new_name ) = @_;
@@ -2536,6 +2539,7 @@ sub move_to_name {
     $self->background_track_render();
   }
 }
+# END ADDED BY EO
 
 sub move_segment {
   my $self = shift;
@@ -2975,6 +2979,7 @@ sub featurefile_sections {
 sub _featurefile_sections {
     my $self = shift;
     my $ff   = shift;
+    return 'detail' if $ff->isa('Bio::Das::Segment');
 
     my %sections;
 
@@ -3559,8 +3564,13 @@ sub svg_link {
 sub fcgi_request {
     my $self = shift;
     return $FCGI_REQUEST if defined $FCGI_REQUEST;
-    my $request   = eval "require FCGI; FCGI::Request()";
-    $FCGI_REQUEST = $request && $request->IsFastCGI ? $request : 0;
+
+    unless (eval 'require FCGI;1') {
+	return $FCGI_REQUEST = 0;
+    }
+
+    my $request  = FCGI::Request(\*STDIN,\*STDOUT,\*STDERR,\%ENV,0,FCGI::FAIL_ACCEPT_ON_INTR());
+    return $FCGI_REQUEST = ($request && $request->IsFastCGI ? $request : 0);
 }
 
 sub fork {
