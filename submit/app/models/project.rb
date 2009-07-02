@@ -23,9 +23,6 @@ class Project < ActiveRecord::Base
   def released?
     self.status == Project::Status::RELEASED
   end
-  def pi
-    self.user.pi unless self.user.nil?
-  end
   def report_generated?
     if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
       cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last

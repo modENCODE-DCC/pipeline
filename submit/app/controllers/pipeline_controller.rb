@@ -141,6 +141,49 @@ class PipelineController < ApplicationController
       end
     end
   end
+
+  def edit_lab_project
+    begin
+      @project = Project.find(params[:id])
+      return false unless check_user_can_write @project
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    pis = Hash.new
+    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+      pis = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      pis = pis.first unless pis.nil?
+    end
+    pis = Hash.new if pis.nil?
+
+    user_pi = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }.first
+
+    unless current_user.is_a? Moderator then
+      pis.delete_if { |k, v| k != user_pi }
+    end
+    @acceptable_labs = pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{k}"]] ] }
+
+    if params[:commit] then
+      # Update the project!
+      (pi, lab) = params[:project_pi_and_lab].split("/")
+      unless pis.to_a.flatten.include?(pi) && pis.to_a.flatten.include?(lab) then
+        flash[:error] = "Invalid PI/Lab: #{pi}/#{lab}"
+        redirect_to :action => "edit_lab_project", :id => @project.id
+        return
+      end
+      @project.pi = pi
+      @project.lab = lab
+      if @project.save then
+        redirect_to :action => 'show', :id => @project
+      else
+        flash[:error] = "Couldn't save project #{$!}."
+      end
+    end
+  end
+
   
   def status_table
     begin
@@ -267,9 +310,32 @@ class PipelineController < ApplicationController
     end
     @projectTypes = getProjectTypes
 
+    pis = Hash.new
+    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+      pis = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      pis = pis.first unless pis.nil?
+    end
+    pis = Hash.new if pis.nil?
+
+    user_pi = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }.first
+
+    unless current_user.is_a? Moderator then
+      pis.delete_if { |k, v| k != user_pi }
+    end
+    @acceptable_labs = pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{k}"]] ] }
+
     if params[:commit] then
       @project.user_id = current_user.id 
       @project.status = Project::Status::NEW
+
+      (pi, lab) = params[:project_pi_and_lab].split("/")
+      unless pis.to_a.flatten.include?(pi) && pis.to_a.flatten.include?(lab) then
+        flash[:error] = "Invalid PI/Lab: #{pi}/#{lab}"
+        return
+      end
+      @project.pi = pi
+      @project.lab = lab
+
       if @project.save
         redirect_to :action => 'upload', :id => @project.id
         log_project_status
@@ -1935,7 +2001,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || project.user.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
+    unless project.user_id == current_user.id || project.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
       flash[:error] = "This project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => 'show', :id => project unless options[:skip_redirect] == true 
       return false
@@ -1979,7 +2045,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || project.user.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
+    unless project.user_id == current_user.id || project.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => "list" unless options[:skip_redirect] == true 
       return false
@@ -2253,7 +2319,7 @@ private
     @my_groups_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
     @my_active_projects_by_status = Hash.new {|hash,status| hash[status] = 0 }
     @projects.each { |p|
-      @all_projects_by_status[@status_names[p.status]] += 1 unless @pis.index(p.user.pi.split(",")[0]).nil?
+      @all_projects_by_status[@status_names[p.status]] += 1 unless @pis.index(p.pi.split(",")[0]).nil?
       @my_projects_by_status[@status_names[p.status]] += 1 if p.user_id == user_to_view.id
       @my_groups_projects_by_status[@status_names[p.status]] += 1 if same_group_users.index(p.user_id).nil?
       @my_active_projects_by_status[@status_names[p.status]] += 1 if p.user_id == user_to_view.id && @status_names.keys[0..6].include?(p.status)

@@ -48,7 +48,7 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
   <tr style="background-color: <%= color %>">
   <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
   <td class="name hardwrap">
-        <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.user.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
+        <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
           <%= link_to p.name, :action => 'citation', :id => p, :controller => 'public' %>
         <% elsif p.has_readme? then %>
           <%= link_to p.name, :action => 'readme', :id => p.id, :controller => 'public' %>
@@ -56,7 +56,7 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
           <%= link_to p.name, { :action => 'show', :id => p.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
 	  <% end %>
   </td>
-  <td style="width: 100px; text-align: center;"><%=p.user.pi.split(",")[0]%></td>
+  <td style="width: 100px; text-align: center;"><%=p.pi.split(",")[0]%></td>
   <td style="width: 150px; text-align: center;">
   <%= release_date = released.last
           if release_date then

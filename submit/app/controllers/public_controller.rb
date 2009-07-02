@@ -68,7 +68,7 @@ class PublicController < ApplicationController
           organism.sub(/^(.).+ /, '\1. ').downcase != o.sub(/^(.).+ /, '\1. ').downcase
         }
       else
-        @projects.reject! { |p| p.user.pi != params[:pi] }
+        @projects.reject! { |p| p.pi != params[:pi] }
       end
     end
     if session[:sort_list] then
@@ -111,7 +111,7 @@ class PublicController < ApplicationController
           url = url_for(:action => :get_file, :id => p) + full_path
           { 
             :id => p.id,
-            :pi => p.user.pi,
+            :pi => p.pi,
             :status => p.status,
             :deprecated => p.deprecated?,
             :replaced_by => p.deprecated? ? p.deprecated_by_project.id : nil,
@@ -481,7 +481,7 @@ class PublicController < ApplicationController
     if (project.status == Project::Status::RELEASED) then
       return true
     elsif (current_user.is_a? User) then
-      if current_user.is_a?(Reviewer) || project.user.pi == current_user.pi then
+      if current_user.is_a?(Reviewer) || project.pi == current_user.pi then
         return true
       end
       return false

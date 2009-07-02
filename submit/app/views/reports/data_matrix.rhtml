@@ -1,5 +1,5 @@
 <% projects = Project.all
-   headers = ["ID", "Name"]
+   headers = ["ID", "Name", "PI"]
 %>
 
 <table>
@@ -16,28 +16,34 @@
 <table class="data_matrix">
 <tr style="text-align: left; ">
 <%= headers.map{|h| '<th>'+h+'</th>'}  %>
-<th colspan='4' >Data</th>
+<th colspan='4' >Data</th><th>&nbsp;</th>
 </tr>
-<%
-  p = Project.find(146)
-  test = "<tr><td>XXX</td><td>THIS IS A TEST (#{p.id})</td><td>1</td>"
-  test +="<td class='level"+(p.has_raw_data? ? 1 : 0).to_s+"'>&nbsp;</td>"
-  test +="<td class='level"+(p.has_wig_data? || p.has_feature_data? ? 2 : 0).to_s+"'>&nbsp;</td>"
-  test +="<td class='level"+(p.has_metadata? ? 3 : 0).to_s+"'>&nbsp;</td>"
-  test +="</tr>"
-  all = ""
-%>
-<%#="#{test}"%>
-<%#= projects.map{|p| "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td></tr>"} %>
+  <%
+    colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
+    i = 0
+  %>
 <% projects.map do |p|
+   next if p.deprecated?
   #test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td>"
-  test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td>"
-  test +="<td class='"+(p.has_readme? ? "readme" : "level0")+"'>&nbsp;&nbsp;</td>"
-  test +="<td class='level"+(p.has_raw_data? ? 1 : 0).to_s+"'>&nbsp;&nbsp;</td>"
-  test +="<td class='level"+(p.has_wig_data? || p.has_feature_data? ? 2 : 0).to_s+"'>&nbsp;&nbsp;</td>"
-  test +="<td class='level"+(p.has_metadata? ? 3 : 0).to_s+"'>&nbsp;&nbsp;</td>"
-  test +="</tr>"   
-  all += test
- end %>
-<%="#{all}"%>
+   color = colors[i%2]
+   i += 1
+   color = colors[2] if p.deprecated?
+%>
+  <tr style="background-color: <%= color %>">
+  <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
+  <td class="name"> <%= link_to p.name, {:action => 'show', :id => p.id, :controller => 'pipeline' } %></td>
+  <td class='<%=(p.has_readme? ? "readme" : "level0")%>'>&nbsp;&nbsp;</td>
+  <td class='level<%=(p.has_raw_data? ? 1 : 0).to_s%>'>&nbsp;&nbsp;</td>
+  <td class='level<%=((p.has_wig_data? || p.has_feature_data?) ? 2 : 0.to_s)%>'>&nbsp;&nbsp;</td>
+  <td class='level<%=(p.has_metadata? ? 3 : 0).to_s%>'>&nbsp;&nbsp;</td>
+  <td><%=p.pi.split(",")[0]%></td>
+  <td><% if Project::Status::ok_next_states(p).include?(Project::Status::VALIDATING) || p.status == Project::Status::RELEASED then %>
+        <%= link_to "Browse Data", :action => "download", :id => p, :root => :data %>
+  <% else %>
+       No data available.
+  <% end %>
+  </td>
+  </tr>
+<% end %>
+
 </table>

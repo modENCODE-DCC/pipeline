@@ -157,7 +157,7 @@
       </td>
 
        <% if !defined? @user %><td><%= p.user.login -%></td><% end %>
-      <% if !defined? @user %><td><%= p.user.pi.split(",")[0] -%></td><% end %>
+      <% if !defined? @user %><td><%= p.pi.split(",")[0] -%></td><% end %>
     </tr>
   <% end %>
   <tr><td colspan=17><hr noshade></td></tr>
