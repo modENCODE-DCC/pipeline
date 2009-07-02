@@ -159,10 +159,10 @@ class PipelineController < ApplicationController
     end
     pis = Hash.new if pis.nil?
 
-    user_pi = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }.first
+    user_pis = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }
 
     unless current_user.is_a? Moderator then
-      pis.delete_if { |k, v| k != user_pi }
+      pis.delete_if { |k, v| !user_pis.include?(k) }
     end
     @acceptable_labs = pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{k}"]] ] }
 
@@ -317,10 +317,10 @@ class PipelineController < ApplicationController
     end
     pis = Hash.new if pis.nil?
 
-    user_pi = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }.first
+    user_pis = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }
 
     unless current_user.is_a? Moderator then
-      pis.delete_if { |k, v| k != user_pi }
+      pis.delete_if { |k, v| !user_pis.include?(k) }
     end
     @acceptable_labs = pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}/#{k}"]] ] }
 
