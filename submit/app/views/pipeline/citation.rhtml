@@ -1,9 +1,9 @@
 <%
-  @max_entries = 15 unless defined?(@max_entries)
+  @max_entries = 25 unless defined?(@max_entries)
 %>
 <h1>
   <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Investigation Title"); tag ? tag.value : Project.find(@project_id).name %> 
-  (<%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Project"); tag ? tag.value : Project.find(@project_id).pi %> project<%= 
+  (<%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Project"); tag ? tag.value : Project.find(@project_id).user.pi %> project<%= 
    v = TrackTag.find_by_project_id_and_name(@project_id, "Lab"); v ? ", #{v.value} subgroup" : "" 
   %>)
 </h1>
@@ -83,10 +83,12 @@
   <% end %>
 </ol>
 
-<h2>Reagents</h2>
-<ol>
   <%
     animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
+    #strains = ["strain", "whole_organism", "strain_or_line", "organism", "cell_line"]
+    #tissue = ["organism_part"]
+    #stage = ["developmental stage", "stage", "developmental_stage"]
+    #sex = ["sex"]
     antibodies = ["antibody"]
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
     samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
@@ -95,6 +97,7 @@
     modencode_ids = ["referenced_submission"]
 
     animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
+    #strain_reagents = TrackTag.find(:all, :conditions => ["project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, strains])
     antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
     array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
     sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
@@ -102,31 +105,8 @@
     modencode_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, modencode_ids])
 
   %>
-  <% if animal_reagents.size > 0 then %>
-    <li>
-      <b>Animals:</b>
-      <%= 
-        counter = 0 
-        animal_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
-          counter += 1
-          name = tag.value 
-          url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
-          name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
-          short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
-          if url_tag then
-            link_to short_name, "#{url_tag.value}#{name}"
-          elsif name =~ /^[A-Z]\w+:/ then
-            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
-          elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
-          else
-            short_name
-          end
-        }.uniq.join(", ") 
-      %>
-      <%= ", and #{animal_reagents.size - @max_entries} more." if animal_reagents.size > @max_entries %>
-    </li>
-  <% end %>
+<%= "<h2>Experimental Reagents</h2>" if (antibody_reagents.size+array_reagents.size) > 0 %>
+<ol>
   <% if antibody_reagents.size > 0 then %>
     <li>
       <b>Antibodies:</b>
@@ -169,6 +149,35 @@
         end
       }.uniq.join(", ") %>
       <%= ", and #{array_reagents.size - @max_entries} more." if array_reagents.size > @max_entries %>
+    </li>
+  <% end %>
+</ol>
+<%= "<h2> Sample Details </h2>" if (animal_reagents.size+sample_reagents.size) > 0 %>
+
+<ol>
+  <% if animal_reagents.size > 0 then %>
+    <li>
+      <b>Animals/Lines:</b>
+      <%= 
+        counter = 0 
+        animal_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
+          counter += 1
+          name = tag.value 
+          url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
+          name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
+          short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
+          if url_tag then
+            link_to short_name, "#{url_tag.value}#{name}"
+          elsif name =~ /^[A-Z]\w+:/ then
+            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
+            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          else
+            short_name
+          end
+        }.uniq.join(", ") 
+      %>
+      <%= ", and #{animal_reagents.size - @max_entries} more." if animal_reagents.size > @max_entries %>
     </li>
   <% end %>
   <% related_projects = Array.new %>
@@ -222,24 +231,25 @@
 </ol>
 <% related_projects.delete(@project_id) %>
 <br />
-<h2>Related modENCODE submissions:</h2>
+
+<%= "<h2>Related modENCODE submissions:</h2>" if (related_projects.size+modencode_records.size) > 0 %>
 <ul>
   <% if modencode_records.size > 0 then %>
-      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
+     <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         submission_num = tag.value.to_i 
         begin
-	"<li><b>DCC-#{submission_num}</b>: #{Project.find(submission_num).name}</li>"
+	"<li><b>DCC-#{submission_num}</b>: #{link_to Project.find(submission_num).name, :action => 'citation', :controller => 'public', :id => submission_num}</li>"
         rescue
           "<li><b>DCC-#{submission_num}</b></li>"
         end
-      }.uniq.join(", ") %>
+      }.uniq.join("\n") %>
       <%= ", and #{modencode_records.size - @max_entries} more." if modencode_records.size > @max_entries %>
-  <% end %>
+   <% end %>
   <%=
 	related_projects.uniq.map{|id|
 	p = Project.find(id)
-	"<li><b>DCC-#{p.id.to_s}</b>: #{p.name}</li>"
-	}.uniq.join(", ") 
+	"<li><b>DCC-#{p.id.to_s}</b>: #{link_to p.name, :action => 'citation', :controller => 'public', :id => p.id}</li>"
+	}.uniq.join("\n") 
   %>
 </ul>
 <br />
