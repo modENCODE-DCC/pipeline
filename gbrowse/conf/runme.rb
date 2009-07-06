@@ -71,8 +71,9 @@ else
   # Just get all accepted configurations
   all_track_defs += TrackStanza.find_all_by_released(true)
 end
+released_project_ids = released_projects.map { |p| p.id }
 all_track_defs.each { |ts|
-  if !released_projects.include?(ts.project) then
+  if !released_project_ids.include?(ts.project_id) then
     s = ts.stanza
     if s then
       s.values.each { |stanza|
@@ -99,7 +100,7 @@ unique_project_ids.each { |project_id|
   use_this = project_tds.find { |td| td.user_id == user_id } unless use_this # This user's stanza
   use_this = project_tds.first unless use_this # A stanza from this user's group
 
-  all_track_defs.delete_if { |td| td.project_id == project_id && td != use_this }
+  all_track_defs.delete_if { |td| td.project_id == project_id && td.id != use_this.id }
 }
 
 all_track_defs.delete_if { |td| !(Project::Status::ok_next_states(td.project).include?(Project::Status::CONFIGURING) || td.project.status == Project::Status::RELEASED)  }
@@ -132,7 +133,7 @@ track_defs.each do |stanzaname, definition|
   next if seen_dbs.include?(database)
   if database =~ /^modencode_bam_/ then
     project_id = definition["data_source_id"]
-    bam_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", definition[:bam_file])
+    bam_file_path = File.join(ExpandController.path_to_project_id_dir(project_id), "tracks", definition[:bam_file])
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::Sam\n"
     config_text << "db_args       = -fasta ../../bam_support_fasta/#{organism}.fa\n"
