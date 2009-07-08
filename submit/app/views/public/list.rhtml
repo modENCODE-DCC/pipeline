@@ -127,7 +127,8 @@ Below, you can find:
           wrapped_name = project.name
           wrapped_name.gsub!(/(.{35})/, "\\1\n")
         %>
-        <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (project.same_pi?(@viewer_lab) || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
+        <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == project.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
+        <%# if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (project.same_pi?(@viewer_lab) || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
           <%= link_to wrapped_name, :action => 'citation', :id => project %>
         <% elsif project.has_readme? then %>
           <%= link_to wrapped_name, :action => 'readme', :id => project.id %>
