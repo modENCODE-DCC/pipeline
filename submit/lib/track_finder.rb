@@ -983,13 +983,13 @@ class TrackFinder
                 if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
                   if row['rank'].to_i then
                     # The new row is the Target
-                    current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                    current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin'].to_i+1} #{row['fmax']}"
                     current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
                     current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
                   elsif row['rank'].to_i == 0 then
                     # The previously seen row is the Target; this shouldn't happen because of
                     # an ORDER BY clause in the query, but just to be safe, swap the location entries
-                    current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                    current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin'].to_i+1} #{current_feature_hash['fmax']}"
                     current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
                     current_feature_hash['fmin'] = row['fmin']
                     current_feature_hash['fmax'] = row['fmax']
@@ -1080,13 +1080,13 @@ class TrackFinder
                   if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
                     if row['rank'].to_i then
                       # The new row is the Target
-                      current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin']} #{row['fmax']}"
+                      current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin'].to_i+1} #{row['fmax']}"
                       current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
                       current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
                     elsif row['rank'].to_i == 0 then
                       # The previously seen row is the Target; this shouldn't happen because of
                       # an ORDER BY clause in the query, but just to be safe, swap the location entries
-                      current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin']} #{current_feature_hash['fmax']}"
+                      current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin'].to_i+1} #{current_feature_hash['fmax']}"
                       current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
                       current_feature_hash['fmin'] = row['fmin']
                       current_feature_hash['fmax'] = row['fmax']
@@ -1404,14 +1404,13 @@ class TrackFinder
     else feature['strand'] = '.'
     end
     feature['phase'] = '.' if feature['phase'].nil?
-    feature['fmin'] = (feature['fmin'].to_i + 1).to_s unless feature['fmin'].nil? # Adjust coordinate system
     feature['fmin'] = '.' if feature['fmin'].nil?
     feature['fmax'] = '.' if feature['fmax'].nil?
 
     feature['srcfeature'] = feature['feature_id'] if feature['srcfeature'].nil?
 
     score = feature['score'] ? feature['score'] : "."
-    out = "#{feature['srcfeature']}\t#{tracknum}_details\t#{feature['type']}\t#{feature['fmin']}\t#{feature['fmax']}\t#{score}\t#{feature['strand']}\t#{feature['phase']}\tID=#{feature['feature_id']}"
+    out = "#{feature['srcfeature']}\t#{tracknum}_details\t#{feature['type']}\t#{feature['fmin'] == "." ? "." : (feature['fmin'].to_i+1)}\t#{feature['fmax']}\t#{score}\t#{feature['strand']}\t#{feature['phase']}\tID=#{feature['feature_id']}"
 
     # Build the attributes column
     if !feature['name'].nil? && feature['name'].length > 0 then
