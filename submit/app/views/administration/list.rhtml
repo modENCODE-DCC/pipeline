@@ -9,7 +9,7 @@
       <th align="left"><%= link_to "ID", :action => controller.action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
       <th align="left"><%= link_to "Name", :action => controller.action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
       <th align="left"><%= link_to "Status", :action => controller.action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
-      <% if !defined? @user %><th align="left">Investigator</th><th align="left">Submitter</th><% end %>
+      <% if !defined? @user %><th align="left">Lab</th><th align="left">Submitter</th><% end %>
       <th align="left"><%= link_to "Updated PST", :action => controller.action_name, :sort => { 'updated_at' => @new_sort_direction['updated_at'] } %></th>
       <th colspan="1" align="left"><%= link_to "Created PST", :action => controller.action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
       <th colspan="2" align="center">Change Status</th>
@@ -31,7 +31,7 @@
 	foo[:style] = "color: red" if failed_project
 	-%>
         <td><%= link_to c.status, {:action => 'command_status', :id => c.commands.all.last }, foo %> </td>
-        <% if !defined? @user %><td><%= c.user.pi -%></td><% end %>
+        <% if !defined? @user %><td><%= c.user.lab -%></td><% end %>
         <% if !defined? @user %><td><%= c.user.login -%></td><% end %>
         <td><%= c.updated_at.strftime("%b %d %H:%M") -%></td>
         <td><%= c.created_at.strftime("%b %d %H:%M") -%></td>

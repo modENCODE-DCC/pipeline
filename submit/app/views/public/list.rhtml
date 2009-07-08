@@ -127,8 +127,7 @@ Below, you can find:
           wrapped_name = project.name
           wrapped_name.gsub!(/(.{35})/, "\\1\n")
         %>
-        <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == project.pi || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
-        <%# if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (project.same_pi?(@viewer_lab) || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
+        <% if (Project::Status::ok_next_states(project).include?(Project::Status::AWAITING_RELEASE) && (project.same_pi?(@viewer_lab) || current_user.is_a?(Moderator))) || project.status == Project::Status::RELEASED then %>
           <%= link_to wrapped_name, :action => 'citation', :id => project %>
         <% elsif project.has_readme? then %>
           <%= link_to wrapped_name, :action => 'readme', :id => project.id %>
@@ -169,8 +168,14 @@ Below, you can find:
           unvetted_statuses.push("signal") if project.has_wig_data?
           unvetted_statuses.push("feature") if project.has_feature_data?
           unvetted_status = unvetted_statuses.andjoin + " data"
+          end_date = project.embargo_end_date
+          end_date_text = end_date ? end_date : "unknown/no data"
         %>
-        <%= link_to unvetted_status, :action => "download", :id => project, :root => :data %>
+        <% if end_date.nil? || end_date > Date.today then %>
+          <%= link_to unvetted_status, { :action => "download", :id => project, :root => :data }, :confirm => "This data is embargoed until #{end_date}. You may not publish genome-wide analyses using this data until the embargo period expires. See the modENCODE data release policy for details." %>
+        <% else %>
+          <%= link_to unvetted_status, { :action => "download", :id => project, :root => :data } %>
+        <% end %>
         <% if @modmine_ids.include?(project.id) then %>
           <br/>
           <span style="font-size: 80%">[<%= link_to "view in ModMine", @modmine_link_template % project.id %>]</span>
@@ -208,14 +213,7 @@ Below, you can find:
       %>
       </td>
       <td>
-        <%= 
-            end_date = project.embargo_end_date 
-            if end_date then
-              end_date
-            else
-              "unknown/no data"
-            end
-          %>
+        <%= end_date_text %>
       </td>
     </tr>
   <% end %>

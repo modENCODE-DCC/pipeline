@@ -2,14 +2,6 @@ require 'open-uri'
 require 'open3'
 require 'find'
 class PublicController < ApplicationController
-#  before_filter :download_check_user_can_view, :only => 
-#  [
-#    :get_gbrowse_stanzas,
-#    :get_file,
-#    :download,
-#    :citation
-#  ]
-
 
   def index
     redirect_to :action => :list
@@ -46,8 +38,8 @@ class PublicController < ApplicationController
     @modmine_link_template = modmine_link_template
 
     @organisms_by_pi = organisms_by_pi
-    @pis = User.all.map { |u| u.pi }.uniq
-    @viewer_pi = current_user.is_a?(User) ? current_user.pi : nil
+    @viewer_lab = current_user ? nil : current_user.lab
+    @pis = Project.all.map { |p| p.pi }.uniq
     if params[:sort] then
       session[:sort_list] = Hash.new unless session[:sort_list]
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
@@ -468,28 +460,6 @@ class PublicController < ApplicationController
   end
 
   private
-  def download_check_user_can_view
-    project = nil
-    begin
-      project = Project.find(params[:id])
-    rescue
-      flash[:error] = "Couldn't find project with ID #{params[:id]}"
-      redirect_to :action => "list"
-      return false
-    end
-
-    if (project.status == Project::Status::RELEASED) then
-      return true
-    elsif (current_user.is_a? User) then
-      if current_user.is_a?(Reviewer) || project.pi == current_user.pi then
-        return true
-      end
-      return false
-    else
-      redirect_to :action => "list"
-      return false
-    end
-  end
 
   def loaded_modmine_ids
       ids = Array.new

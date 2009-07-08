@@ -93,7 +93,7 @@
       <%= @user_is_owner ? "You can " : "As a moderater, you can " %>
       <%= link_to("rename", { :action => :edit, :id => @project }) %>,
       <%= link_to("delete", { :action => :delete, :id => @project }, :confirm => "Are you sure you want to permanently delete this submission?" ) %>, or
-      change the associated <br/><%= link_to("lab / project", { :action => :edit_lab_project, :id => @project }) %>
+      change the associated <br/><%= link_to("lab / project", { :action => :edit_lab_project, :id => @project }) %> for
       this submission.
     </div>
   <% end %>

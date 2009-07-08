@@ -19,7 +19,7 @@ class CommandNotifier < ActionMailer::Base
     logger.info("Notifying of completion of command ##{command.id}")
     liasons = get_liasons.keys.map { |l| User.find_by_login(l) }.compact
     user = command.running_user
-    liasons = get_liasons_for_pi(user.pi) unless user.nil?
+    liasons = get_liasons_for_pi(user.pis) unless user.nil?
     # User gets an email when a command completes (unless it's one of the simple ones)
 
     # Don't notify if it was just an expand
@@ -87,8 +87,8 @@ class CommandNotifier < ActionMailer::Base
     body        :name => to_user.name.split(/ /).first, :commands => commands
   end
 
-  def self.get_liasons_for_pi(pi)
-    usernames = get_liasons.find_all { |liason, pis| pis.include?(pi) }.map { |liason, pis| liason }
+  def self.get_liasons_for_pi(pis)
+    usernames = get_liasons.find_all { |liason, lpis| (lpis & pis).size > 0 }.map { |liason, lpis| liason }
     usernames.map { |username|
       begin
         User.find_by_login(username)

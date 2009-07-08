@@ -159,7 +159,7 @@ class PipelineController < ApplicationController
     end
     pis = Hash.new if pis.nil?
 
-    user_pis = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }
+    user_pis = pis[current_user.lab] ? current_user.lab : pis.find_all { |k, v| v.include?(current_user.lab) }.map { |k, v| k }
 
     unless current_user.is_a? Moderator then
       pis.delete_if { |k, v| !user_pis.include?(k) }
@@ -219,8 +219,7 @@ class PipelineController < ApplicationController
       return
     else
       if params[:pi] then
-        user_to_view = (params[:pi] && User.find_by_pi(params[:pi]) && current_user.is_a?(Moderator)) ? User.find_by_pi(params[:pi]) : current_user
-        session[:show_filter_user] = user_to_view.id
+        session[:show_filter_pis] = params[:pi].map { |p| p == "" ? nil : p }.compact
         session[:show_filter] = :group
       end
       status
@@ -317,7 +316,7 @@ class PipelineController < ApplicationController
     end
     pis = Hash.new if pis.nil?
 
-    user_pis = pis[current_user.pi] ? current_user.pi : pis.find_all { |k, v| v.include?(current_user.pi) }.map { |k, v| k }
+    user_pis = pis[current_user.lab] ? [ current_user.lab ] : pis.find_all { |k, v| v.include?(current_user.lab) }.map { |k, v| k }
 
     unless current_user.is_a? Moderator then
       pis.delete_if { |k, v| !user_pis.include?(k) }
@@ -2001,7 +2000,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || project.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
+    unless project.user_id == current_user.id || project.same_pi?(current_user.lab) || current_user.is_a?(Administrator) || current_user.is_a?(Moderator)
       flash[:error] = "This project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => 'show', :id => project unless options[:skip_redirect] == true 
       return false
@@ -2045,7 +2044,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    unless project.user_id == current_user.id || project.pi == current_user.pi || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
+    unless project.user_id == current_user.id || project.same_pi?(current_user.lab) || current_user.is_a?(Administrator) || current_user.is_a?(Moderator) || current_user.is_a?(Reviewer)
       flash[:error] = "That project does not belong to you." unless options[:skip_redirect] == true 
       redirect_to :action => "list" unless options[:skip_redirect] == true 
       return false
@@ -2208,15 +2207,20 @@ private
   end
   def status
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
+    @current_pis = current_user.nil? ? [] : current_user.pis
+    pis_to_view = (session[:show_filter_pis].nil? || session[:show_filter_pis] == "") ? @current_pis : session[:show_filter_pis]
 
     @viewing_user = user_to_view if user_to_view != current_user
-    same_group_users = User.find_all_by_pi(user_to_view.pi)
+    @viewing_pis = pis_to_view if pis_to_view != @current_pis
+
+    @show_filter_pis = Array.new
+    same_group_users = User.all.find_all { |u| (u.pis & user_to_view.pis).size > 0 }
     if session[:show_filter] == :user then
       @projects = user_to_view.projects
       @show_my_queue = user_to_view
     elsif session[:show_filter] == :group then
-      @projects = same_group_users.map { |u| u.projects }.flatten
-      @show_filter_pi = same_group_users.first.pi
+      @projects = pis_to_view.size > 0 ? Project.find_all_by_pi(pis_to_view) : Project.all
+      @show_filter_pis = pis_to_view
     else  
       @projects = Project.all
     end
@@ -2310,7 +2314,7 @@ private
       "New", "Uploaded", "Validated", "DBLoad", "Trk found", "Configured", "Needs attn", "Aprvl-PI", "Aprvl-DCC", "Aprvl-BOTH",
     ]
 
-    @pis = User.all.map { |u| u.pi }.uniq
+    @pis = Project.all.map { |p| p.pi }.uniq
 
     @active_status = @status[0..6]
 
@@ -2324,12 +2328,6 @@ private
       @my_groups_projects_by_status[@status_names[p.status]] += 1 if same_group_users.index(p.user_id).nil?
       @my_active_projects_by_status[@status_names[p.status]] += 1 if p.user_id == user_to_view.id && @status_names.keys[0..6].include?(p.status)
     }
-
-    #@pis = Array.new
-    @projects.each
-
-    
-    @pis.uniq!
 
     @all_my_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0 }
     # initialize to make sure all PIs are included; require each status to be represented

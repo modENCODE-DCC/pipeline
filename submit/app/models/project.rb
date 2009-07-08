@@ -174,6 +174,20 @@ class Project < ActiveRecord::Base
     return end_date
   end
 
+  def same_pi?(other_lab)
+    return false if other_lab.nil?
+    return true if self.lab == other_lab
+    return true if self.pi == other_lab
+    pis = Hash.new
+    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+      pis = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      pis = pis.first unless pis.nil?
+    end
+    pis = Hash.new if pis.nil?
+    other_pis = pis[other_lab] ? [ other_lab ] : pis.find_all { |k, v| v.include?(other_lab) }.map { |k, v| k }
+    return other_pis.include?(self.pi)
+  end
+
   module Status
     include Command::Status
     include Upload::Status

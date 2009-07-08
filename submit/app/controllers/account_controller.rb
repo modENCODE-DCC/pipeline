@@ -45,7 +45,7 @@ class AccountController < ApplicationController
       @user = self.current_user
     end
     @pis = get_pis
-    @pis.push @user.pi unless @pis.include?(@user.pi)
+    @pis.push @user.lab unless @pis.include?(@user.lab)
 
     return unless request.post?
     params[:user].delete_if { |k,v| !(['email', 'name', 'pi', 'institution', 'commit'].include?(k.to_s)) }
@@ -219,25 +219,8 @@ class AccountController < ApplicationController
     if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
       hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
       pis = hashes.first.keys
-#      while (hashes.length > 0) do
-#        newhashes = Array.new
-#        hashes.each { |hash|
-#          pis = pis + hash.keys
-#          newhashes = newhashes + hash.values.find_all { |val| val.is_a? Hash }
-#        }
-#        hashes = newhashes
-#      end
     end
     return pis.uniq.sort
   end
 
-#  private
-#  def get_project_pis
-#    project_pis = Array.new
-#    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
-#      hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
-#          project_pis = hashes.first.keys
-#    end
-#    return project_pis.uniq.sort
-#  end
 end

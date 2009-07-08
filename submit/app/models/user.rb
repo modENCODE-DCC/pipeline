@@ -68,6 +68,19 @@ class User < ActiveRecord::Base
   before_create :make_activation_code
   #after_save :update_ftp_password
 
+
+  def pis
+    pis = Hash.new
+    if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
+      pis = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      pis = pis.first unless pis.nil?
+    end
+    pis = Hash.new if pis.nil?
+    user_pis = pis[self.lab] ? [ self.lab ] : pis.find_all { |k, v| v.include?(self.lab) }.map { |k, v| k }
+    return user_pis
+  end
+
+
   # Authenticates a user by their login name and unencrypted password.  Returns the user or nil.
   def self.authenticate(login, password)
     # hide records with a nil activated_at

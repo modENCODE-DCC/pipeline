@@ -34,7 +34,7 @@ Hello <%= @name %>,
 <% end %>
 ----------------------------
 <% unless user.nil? -%>
-  <% liasons = CommandNotifier.get_liasons_for_pi(user.pi) %>
+  <% liasons = CommandNotifier.get_liasons_for_pi(user.pis) %>
 Your liason is <%= liasons.map { |l| "#{l.name} (#{l.email})" }.join(", ") %>.
 <% end -%>
 

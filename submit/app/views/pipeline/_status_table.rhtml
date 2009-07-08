@@ -40,10 +40,8 @@ Select page:
 |
 <%= link_to_if @has_next_page, "next &gt;", :page => @cur_page+1 %>
 <br/>
-<% if @projects.blank? %>
-  <p>There are no <%= @show_status %> projects currently.</p>
-<% else %>
-  <% if @display_type!='graph' %> 
+
+<% if @display_type!='graph' %> 
   <style type="text/css">
     TABLE.archive_list2 TR TH { vertical-align: bottom; text-align: center }
     TH.banner-top { background-color: #FAFAFA; border-bottom: thin solid black }
@@ -51,7 +49,6 @@ Select page:
     TH.tophr { border-top: medium solid grey; }
     TH.bottomhr { border-bottom: medium solid grey; }
   </style>
-  <%  %>
   <table class="archive_list2">
     <tr><th colspan="<%= 
         total_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).length
@@ -104,7 +101,11 @@ Select page:
       <th>Submitter</th>
       <th>
           <% form_tag url_for(:action => :show_group), :method => :get do %>
-            <select onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, @show_filter_pi %></select>
+            <% 
+              pi_options = [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }
+              pi_options += [[ @show_filter_pis.map { |pi| pi.split(",")[0] }.andjoin(", "), @show_filter_pis.andjoin(", ") ]] if @show_filter_pis.size > 1
+            %>
+            <select onchange="this.form.submit()" name="pi[]"><%= options_for_select pi_options, @show_filter_pis.andjoin(", ") %></select>
           <% end %>
       </th>
     </tr>
@@ -321,7 +322,7 @@ Select page:
 	 header = "My"
 	 data_hash = @my_projects_by_status
        elsif (session[:show_filter] == :group) then
-         title += current_user.pi.split(",")[0] + " project"
+         title += current_user.pis.map { |pi| pi.split(",")[0] + " project" }.andjoin(", ")
 	 header += "My Group's"
 	 data_hash = @my_groups_projects_by_status
        else
@@ -401,7 +402,5 @@ The distribution represents the submissions selected with the current filter of 
 <br />
 <br />
    
-<% end %>
-
 <% end %>
 
