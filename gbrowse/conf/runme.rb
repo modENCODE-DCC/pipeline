@@ -58,8 +58,7 @@ end
 released_projects = Project.find_all_by_status(Project::Status::RELEASED)
 all_track_defs = TrackStanza.find_all_by_project_id(released_projects)
 unless user_id.nil? then
-  all_pi_users = User.find_all_by_pi(User.find(user_id).pi)
-  all_pi_users_projects = Project.find_all_by_user_id(all_pi_users)
+  all_pi_users_projects = Project.find_all_by_pi(User.find(user_id).pis)
   all_track_defs += TrackStanza.find_all_by_project_id(all_pi_users_projects)
   # Any pages that this user has configured (mostly useful for moderators)
   all_track_defs += TrackStanza.find_all_by_user_id(user_id)
@@ -132,7 +131,7 @@ track_defs.each do |stanzaname, definition|
   next if database.nil?
   next if seen_dbs.include?(database)
   if database =~ /^modencode_bam_/ then
-    project_id = definition["data_source_id"]
+    project_id = definition["data_source_id"].split(" ").first
     bam_file_path = File.join(ExpandController.path_to_project_id_dir(project_id), "tracks", definition[:bam_file])
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::Sam\n"
