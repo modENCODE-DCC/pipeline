@@ -164,7 +164,8 @@ class ReportsController < ApplicationController
     pis.each {|p| all_distribution_levels_by_pi[p]}
     levels.each{|l| pis.each {|p| all_distribution_levels_by_pi[p][l] = 0}}
 
-    Project.all.reject { |p| p.deprecated? }.each {|p|
+    projects = Project.all
+    projects.reject!{ |p| p.deprecated? }.each {|p|
         all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
         }
     @all_distribution_levels_by_pi = all_distribution_levels_by_pi
