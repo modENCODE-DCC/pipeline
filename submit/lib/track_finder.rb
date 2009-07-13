@@ -1735,6 +1735,7 @@ class TrackFinder
         else
           track_defs[stanzaname][:semantic_zoom][zoomlevel] = Hash.new
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = type
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['height'] = 30
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['label'] = label
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = glyph
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['fgcolor'] = fgcolor
