@@ -44,8 +44,8 @@ class AccountController < ApplicationController
     else
       @user = self.current_user
     end
-    @pis = get_pis
-    @pis.push @user.lab unless @pis.include?(@user.lab)
+
+    @pis = get_pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}"]] ] }
 
     return unless request.post?
     params[:user].delete_if { |k,v| !(['email', 'name', 'pi', 'institution', 'commit'].include?(k.to_s)) }
@@ -92,7 +92,7 @@ class AccountController < ApplicationController
   end
 
   def signup
-    @pis = get_pis
+    @pis = get_pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}"]] ] }
     @user = User.new(params[:user])
     @user.host = request.host
     @user.port = request.port
@@ -215,12 +215,13 @@ class AccountController < ApplicationController
 
   private
   def get_pis
-    pis = Array.new
+    pis = Hash.new
     if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
-      hashes = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
-      pis = hashes.first.keys
+      pis = [ open("#{RAILS_ROOT}/config/PIs.yml") { |f| YAML.load(f.read) } ]
+      pis = pis.first unless pis.nil?
     end
-    return pis.uniq.sort
+    pis = Hash.new if pis.nil?
+    return pis
   end
 
 end

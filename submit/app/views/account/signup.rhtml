@@ -9,8 +9,8 @@
   <p><label for="name">Name</label><br/>
   <%= f.text_field :name %></p>
 
-  <p><label for="pi">Project PI</label><br/>
-  <%= select :user, :pi, @pis %>
+  <p><label for="user_lab">Lab</label><br/>
+  <%= select_tag 'user[lab]', grouped_options_for_select(@pis, "#{@user.lab}"), :id => "user_lab" %><br/>
 
   <p><label for="institution">Institution</label><br/>
   <%= f.text_field :institution %></p>
