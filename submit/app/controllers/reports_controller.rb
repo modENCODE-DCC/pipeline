@@ -82,7 +82,7 @@ class ReportsController < ApplicationController
     @projects = Project.find_all_by_status(Project::Status::RELEASED)
     @projects.delete_if { |p| p.deprecated? }
 
-    @pis = User.all.map { |u| u.pi }.uniq
+    @pis = User.all.map { |u| u.lab }.uniq
     if params[:sort] then
       session[:sort_list] = Hash.new unless session[:sort_list]
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
