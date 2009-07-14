@@ -10,7 +10,7 @@
         <%= select_tag "project_type_id", options_from_collection_for_select(@projectTypes, "id", "short_label") %>
     </td></tr>
     <tr><td><label for="project_pi_and_lab">Lab</label>: </td><td>
-        <%= select_tag 'project_pi_and_lab', grouped_options_for_select(@acceptable_labs, "#{@project.pi}/#{@project.lab}") %>
+        <%= select_tag 'project_pi_and_lab', grouped_options_for_select(@acceptable_labs, "#{current_user.pis.first}/#{current_user.lab}") %>
     </td></tr>
 
 
