@@ -246,9 +246,11 @@
       <%= ", and #{modencode_records.size - @max_entries} more." if modencode_records.size > @max_entries %>
    <% end %>
   <%=
-	related_projects.uniq.map{|id|
+	related_projects.uniq.map{ |id|
 	p = Project.find(id)
-	"<li><b>DCC-#{p.id.to_s}</b>: #{link_to p.name, :action => 'citation', :controller => 'public', :id => p.id}</li>"
+        
+        url = "/submit/public/citation/#{p.id}"
+        "<li><b>DCC-#{p.id.to_s}</b>: #{link_to(p.name, url) }</li>"
 	}.uniq.join("\n") 
   %>
 </ul>
