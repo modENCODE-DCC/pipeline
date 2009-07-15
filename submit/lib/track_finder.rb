@@ -1309,17 +1309,26 @@ class TrackFinder
               next if seen_sams.include?(row["sam_file"])
               seen_sams.push(row["sam_file"])
               cmd_puts "        Verifying presence of sorted BAM file."
+              bam_file_subdir = ""
               bam_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["sorted_bam_file"])
               if (!File.exist?(bam_file_path)) then
-                cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" not found, skipping this SAM file."
+                curdir = File.dirname(bam_file_path)
+                subdirs = Dir.entries(curdir).reject { |entry| entry =~ /^\./ }.find_all { |entry| File.directory?(File.join(curdir, entry)) }
+                cmd_puts "          Recursing into single existing subdirectory."
+                bam_file_path = File.join(curdir, subdirs[0], File.basename(bam_file_path)) if subdirs.size == 1
+                bam_file_subdir = subdirs[0] if subdirs.size == 1
+              end
+              if (!File.exist?(bam_file_path)) then
+                # Maybe it's in a subdir?
+                cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" NOT FOUND, skipping this SAM file!"
                 next
               end
               cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" found."
               cmd_puts "          Copying BAM file(s) to tracks dir."
               [ row["sorted_bam_file"], "#{row["sorted_bam_file"]}.bai" ].each { |f|
                 FileUtils.cp(
-                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", f),
-                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", f)
+                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", bam_file_subdir, f),
+                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", File.basename(f))
                 )
               }
               cmd_puts "          Done."
