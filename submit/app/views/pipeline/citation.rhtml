@@ -92,6 +92,7 @@
     antibodies = ["antibody"]
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
     samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
+    conditions = ["GrowthCondition"]
     external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID"]
     #modencode_ids = ["modENCODE Reference"]
     modencode_ids = ["referenced_submission"]
@@ -103,10 +104,27 @@
     sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
     repository_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, external_ids])
     modencode_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, modencode_ids])
+    condition_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, conditions])
 
   %>
 <%= "<h2>Experimental Reagents</h2>" if (antibody_reagents.size+array_reagents.size) > 0 %>
 <ol>
+  <% if condition_reagents.size > 0 then %>
+    <li>
+      <b>Growth Conditions:</b>
+    <%=
+      counter = 0
+      condition_reagents.sort{ |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
+          counter += 1
+          name = tag.value 
+	  #name += tag.name=="age" ? "h" : ""
+	  name
+        }.uniq.join(", ") 
+     %>
+      <%= ", and #{condition_reagents.size - @max_entries} more." if condition_reagents.size > @max_entries %>
+    </li>
+  <% end %>
+
   <% if antibody_reagents.size > 0 then %>
     <li>
       <b>Antibodies:</b>
@@ -180,6 +198,7 @@
       <%= ", and #{animal_reagents.size - @max_entries} more." if animal_reagents.size > @max_entries %>
     </li>
   <% end %>
+
   <% related_projects = Array.new %>
   <% if sample_reagents.size > 0 then %>
     <li>
