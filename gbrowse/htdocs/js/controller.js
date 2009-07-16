@@ -3,7 +3,7 @@
 
  Lincoln Stein <lincoln.stein@gmail.com>
  Ben Faga <ben.faga@gmail.com>
- $Id: controller.js,v 1.94 2009/05/22 14:33:38 lstein Exp $
+ $Id: controller.js,v 1.99 2009/06/16 14:08:24 lstein Exp $
 
 Indentation courtesy of Emacs javascript-mode 
 (http://mihai.bazon.net/projects/emacs-javascript-mode/javascript.el)
@@ -231,7 +231,7 @@ var GBrowseController = Class.create({
 
   // Update Section Methods *****************************************
   update_sections:
-  function(section_names, param_str, scroll_there) {
+  function(section_names, param_str, scroll_there, spin) {
 
     if (param_str==null){
         param_str = '';
@@ -239,10 +239,14 @@ var GBrowseController = Class.create({
     if (scroll_there==null) {
         scroll_there=false;
     }
+    if (spin == null) {
+        spin = false;
+    }
 
     var request_str = "update_sections=1" + param_str;
     for (var i = 0; i < section_names.length; i++) {
-      $(section_names[i]).innerHTML="<img src='/gbrowse2/images/spinner.gif' alt='loading...' />";
+      if (spin)
+         $(section_names[i]).innerHTML="<img src='/gbrowse2/images/spinner.gif' alt='loading...' />";
       request_str += "&section_names="+section_names[i];
     }
 
@@ -261,6 +265,8 @@ var GBrowseController = Class.create({
 	      && ($('autocomplete_choices') != null)) {
 	    	initAutocomplete();
 	    }
+	  if (section_name == page_title_id)
+	     document.title = $(section_name).innerHTML;
         }
       }
     });
@@ -295,7 +301,7 @@ var GBrowseController = Class.create({
 
     this.each_track(track_id,function(gbtrack) {
 
-    new Ajax.Request(Controller.url,{
+      new Ajax.Request(Controller.url,{
         method:     'post',
         parameters: {
           set_track_visibility:  1,
@@ -376,7 +382,6 @@ var GBrowseController = Class.create({
     
         // Update the segment sections
         Controller.update_sections( Controller.segment_observers.keys());
-
         $('details_msg').innerHTML = results.details_msg;
         Controller.get_multiple_tracks(track_keys);
         if (results.display_details == 0){
@@ -476,7 +481,7 @@ var GBrowseController = Class.create({
        $(gbtrack.track_image_id).setOpacity(0.3);
        Controller.set_last_update_key(gbtrack);
 
-    new Ajax.Request(Controller.url,{
+       new Ajax.Request(Controller.url,{
          method:     'post',
          parameters: {
            rerender_track:  1,
@@ -602,7 +607,7 @@ var GBrowseController = Class.create({
   // Track Configure Methods ****************************************
 
   reconfigure_track:
-  function(track_id, form_element) {
+  function(track_id, form_element, semantic_label) {
 
     if (form_element==null)
        form_element = $("track_config_form");
@@ -615,7 +620,8 @@ var GBrowseController = Class.create({
     new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: form_element.serialize() +"&"+ $H({
-            reconfigure_track: track_id
+            reconfigure_track: track_id,
+	    semantic_label: semantic_label
           }).toQueryString(),
       onSuccess: function(transport) {
         var track_div_id = Controller.gbtracks.get(track_id).track_div_id;
@@ -627,7 +633,7 @@ var GBrowseController = Class.create({
           if ($(track_div_id) != null){
             actually_remove(track_div_id);
           }
-          Controller.update_sections(new Array(track_listing_id));
+          Controller.update_sections(new Array(track_listing_id),null,null,true);
         }
       } // end onSuccess
     });
@@ -637,10 +643,10 @@ var GBrowseController = Class.create({
   filter_subtrack:
   function(track_id, form_element) {
 
-    new Ajax.Request(document.URL,{
+    new Ajax.Request(Controller.url,{
       method:     'post',
       parameters: form_element.serialize() +"&"+ $H({
-            filter_subtrack:  track_id,
+            filter_subtrack:  track_id
           }).toQueryString(),
       onSuccess: function(transport) {
         Balloon.prototype.hideTooltip(1);
@@ -654,7 +660,7 @@ var GBrowseController = Class.create({
   configure_plugin:
   function(div_id) {
     var plugin_base  = document.pluginform.plugin.value;
-    this.update_sections(new Array(div_id), '&plugin_base='+plugin_base);
+    this.update_sections(new Array(div_id), '&plugin_base='+plugin_base,null,null,true);
     new Effect.ScrollTo(div_id);
   },
 
@@ -682,13 +688,13 @@ var GBrowseController = Class.create({
         }
         else if (plugin_type == 'filter') {
           Controller.update_coordinates("reload segment");
-	  Controller.update_sections(new Array(track_listing_id),'',1);
+	  Controller.update_sections(new Array(track_listing_id),'',1,false);
 	}
         else if (plugin_type == 'highlighter') {
           Controller.update_coordinates("reload segment");
         }
 	else if (plugin_type == 'trackfilter') {
-	  Controller.update_sections(new Array(track_listing_id),'',1);
+	  Controller.update_sections(new Array(track_listing_id),'',1,false);
 	}
       } // end onSuccess
     });
@@ -701,7 +707,7 @@ var GBrowseController = Class.create({
       var track_name = select_box.options[select_box.selectedIndex].attributes.getNamedItem('track_name').value;
 
       this.add_track(track_name);
-      Controller.update_sections(new Array(track_listing_id));
+      Controller.update_sections(new Array(track_listing_id),null,null,false);
     }
     else if (plugin_type == 'dumper'){
       var loc_str = "?plugin="+plugin_base+";plugin_action="+encodeURI(plugin_action);
@@ -726,7 +732,7 @@ var GBrowseController = Class.create({
 
   edit_new_file:
   function() {
-    Controller.update_sections(new Array(external_utility_div_id), '&new_edit_file=1',true);
+    Controller.update_sections(new Array(external_utility_div_id), '&new_edit_file=1',true,true);
   },
 
   edit_upload:
@@ -735,7 +741,7 @@ var GBrowseController = Class.create({
     var basename = gbtrack!=null ? gbtrack.track_name : edit_file;
     visibility('upload_tracks_panel',1);
     Controller.update_sections(new Array(external_utility_div_id), 
-   	    '&edit_file='+basename,true);
+   	    '&edit_file='+basename,true,true);
   },
 
   commit_file_edit:
@@ -776,19 +782,19 @@ var GBrowseController = Class.create({
 
 	tracks_to_update.each(function(id) { 
 	   Controller.rerender_track(id,true);
-	   Controller.update_sections(new Array(external_listing_id));
+	   Controller.update_sections(new Array(external_listing_id),null,null,true);
 	});
 
 	tracks_to_delete.each(function(id) { 
 	   var gbtrack = current_tracks.get(id);
 	   actually_remove(gbtrack.track_div_id);
 	   Controller.unregister_gbtrack(gbtrack);
-	   Controller.update_sections(new Array(track_listing_id,external_listing_id));
+	   Controller.update_sections(new Array(track_listing_id,external_listing_id),null,null,false);
 	});
 
 	if (tracks_to_add.length > 0)
           Controller.add_track(edited_file, function(){
-            Controller.update_sections(new Array(track_listing_id,external_listing_id));
+            Controller.update_sections(new Array(track_listing_id,external_listing_id),null,null,false);
         },true);	
 
       } // end onSuccess
@@ -810,7 +816,7 @@ var GBrowseController = Class.create({
         Controller.each_track(file_name,function(gbtrack) {
 	      actually_remove(gbtrack.track_div_id);
           });
-        Controller.update_sections(new Array(track_listing_id,external_listing_id));
+        Controller.update_sections(new Array(track_listing_id,external_listing_id),null,null,true);
         Controller.unregister_track(file_name);
       } // end onSuccess
     });
@@ -835,7 +841,7 @@ var GBrowseController = Class.create({
         var url_created = results.url_created;
         if ( 1 == url_created ){
           Controller.add_track(eurl, function(){
-            Controller.update_sections(new Array(track_listing_id,external_listing_id));
+            Controller.update_sections(new Array(track_listing_id,external_listing_id),null,null,true);
           })
         } else
 	  Controller.each_track(eurl,function(gbtrack) {
