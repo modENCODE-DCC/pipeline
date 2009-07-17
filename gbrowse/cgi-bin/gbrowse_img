@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: gbrowse_img,v 1.10 2009/05/22 14:33:38 lstein Exp $
+# $Id: gbrowse_img,v 1.5 2009/07/14 16:58:31 lstein Exp $
 
 use strict;
 
@@ -28,7 +28,15 @@ umask 022;
 my $fcgi = Bio::Graphics::Browser::Render->fcgi_request;
 if ($fcgi) {
 
-    while ($fcgi->Accept >= 0) {
+    my $FCGI_DONE = 0;
+    $SIG{USR1} = $SIG{PIPE} = $SIG{TERM} = sub {
+	my $sig  = shift;
+	my $time = localtime;
+	print STDERR "[$time] [notice] GBrowse FastCGI process caught sig$sig. Exiting... (pid $$)\n";
+	$FCGI_DONE = 1;
+    };
+
+    while (!$FCGI_DONE && ($fcgi->Accept >= 0)) {
 	my $globals = Bio::Graphics::Browser->open_globals;
 	CGI->initialize_globals();
 	GBrowse_img->new($globals)->run();
