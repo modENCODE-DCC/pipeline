@@ -1,0 +1,31 @@
+Index: Render.pm
+===================================================================
+RCS file: /cvsroot/gmod/Generic-Genome-Browser/lib/Bio/Graphics/Browser/Render.pm,v
+retrieving revision 1.122
+diff -r1.122 Render.pm
+2480a2481,2486
+>     # BEGIN ADDED BY EO
+>     if ( $action =~ /name/) {
+>         $self->move_to_name($state, $action);
+>         $position_updated++;
+>     }
+>     # END ADDED BY EO
+2525a2532,2549
+> # BEGIN ADDED BY EO
+> sub move_to_name {
+>   my $self = shift;
+>   my ( $state, $new_name ) = @_;
+> 
+>   if ( $new_name =~ /:(.*):([\d+.-]+)\.\.([\d+.-]+)/ ) {
+>     my $new_chr   = $1;
+>     my $new_start = $2;
+>     my $new_stop  = $3;
+> 
+>     $state->{ref} = $new_chr;
+>     $state->{start} = $new_start;
+>     $state->{stop}  = $new_stop;
+>     $self->background_track_render();
+>   }
+> }
+> # END ADDED BY EO
+> 
