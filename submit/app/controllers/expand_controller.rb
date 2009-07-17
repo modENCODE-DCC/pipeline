@@ -104,6 +104,9 @@ class ExpandController < CommandController
     # the expand_path method resolves this relative path to full absolute path
     File.expand_path("#{ActiveRecord::Base.configurations[RAILS_ENV]['upload']}/#{project.id}")
   end
+  def self.path_to_project_id_dir(project_id)
+    File.expand_path("#{ActiveRecord::Base.configurations[RAILS_ENV]['upload']}/#{project_id}")
+  end
   private
   def path_to_project_dir
     ExpandController.path_to_project_dir(command_object.project)
