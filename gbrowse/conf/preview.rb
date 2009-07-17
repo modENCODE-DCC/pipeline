@@ -3,7 +3,7 @@
 require 'cgi'
 require 'socket'
 require 'rubygems'
-require '../../../submit/config/environment'
+require '../../submit/config/environment'
 
 path_prefix = "/srv/www/data/pipeline_public"
 if Socket.gethostname == "smaug" then
@@ -17,7 +17,7 @@ if ARGV[0] && ARGV[0] !~ /worm|fly/ then
     File.open(preview_conf) { |f|
       conf_text = f.read
       organism = (conf_text =~ /##species worm/) ? "worm" : "fly"
-      File.open("../../conf/modencode_#{organism}.conf") { |f2|
+      File.open("../conf/modencode_#{organism}.conf") { |f2|
         puts f2.read
       }
       puts conf_text
@@ -28,11 +28,11 @@ else
   organism = ARGV[0]
   organism = "fly" unless organism
 
-  File.open("../../conf/modencode_#{organism}.conf") { |f|
+  File.open("../conf/modencode_#{organism}.conf") { |f|
     puts f.read
   }
 
-  conf_name = "../../conf/tmp_conf/modencode_preview_#{organism}.conf"
+  conf_name = "../conf/tmp_conf/modencode_preview_#{organism}.conf"
   if File.exist?(conf_name) && (Time.now - File.mtime(conf_name)) < 600 then
     File.open(conf_name) { |f|
       puts f.read
