@@ -388,7 +388,7 @@ class PipelineController < ApplicationController
     else
       ts = TrackStanza.find_by_project_id_and_user_id(@project.id, current_user.id)
     end
-    if ts && ts.stanza.values.size > 0 then
+    if ts && ts.stanza && ts.stanza.values.size > 0 then
       organism = ts.stanza.values.first[:organism]
       if organism == "Caenorhabditis elegans" then
         @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_wormbase/?name=3L:6066513..6266513;grid=1;label=_scale-_scale:overview-_scale:region"
