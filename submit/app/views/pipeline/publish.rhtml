@@ -40,7 +40,7 @@ used by moderators to record when a given submission has been published to any o
           <tr>
             <td><%= name %></td>
             <td>
-              <%= text_field_tag (
+              <%= text_field_tag(
                     "#{command[:class].name.to_s}_date", 
                     (command[:command] ? command[:command].end_time.strftime(@time_format) : "never published"),
                     :onclick => "if ($(this).value == 'never published') { $(this).value = '#{Time.now.strftime("%Y-%m-%d %H:%M")}'; $(this).removeClassName('empty'); $(this).select(); }",
