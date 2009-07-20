@@ -48,7 +48,7 @@ class AccountController < ApplicationController
     @pis = get_pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}"]] ] }
 
     return unless request.post?
-    params[:user].delete_if { |k,v| !(['email', 'name', 'pi', 'institution', 'commit'].include?(k.to_s)) }
+    params[:user].delete_if { |k,v| !(['email', 'name', 'lab', 'institution', 'commit'].include?(k.to_s)) }
     unless params[:commit] == "Cancel"
       email_addr = params[:user].delete(:email)
       @user.update_attributes(params[:user])
