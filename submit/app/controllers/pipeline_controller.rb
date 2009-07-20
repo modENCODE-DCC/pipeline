@@ -401,6 +401,10 @@ class PipelineController < ApplicationController
     if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then
       flash[:warning] = "This project is awaiting release and approval!"
     end
+    if @project.deprecated? then
+      flash[:error] += "<br/>" unless flash[:error] == ""
+      flash[:error] += "This project has been deprecated!"
+    end
   end
 
   def download_chadoxml
