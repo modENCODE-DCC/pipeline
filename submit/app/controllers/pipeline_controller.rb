@@ -402,6 +402,7 @@ class PipelineController < ApplicationController
       flash[:warning] = "This project is awaiting release and approval!"
     end
     if @project.deprecated? then
+      flash[:error] = "" if flash[:error].nil?
       flash[:error] += "<br/>" unless flash[:error] == ""
       flash[:error] += "This project has been deprecated!"
     end
