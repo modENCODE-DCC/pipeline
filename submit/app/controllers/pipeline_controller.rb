@@ -1582,6 +1582,24 @@ class PipelineController < ApplicationController
 
     @project_needs_release = Project::Status::ok_next_states(@project).include?(Release::Status::AWAITING_RELEASE)
 
+    @project_replaces_deprecated_project = Project.find_by_deprecated_project_id(@project.id)
+    last_release = @project.commands.all.find_all { |cmd| cmd.is_a?(Release) && cmd.status != Release::Status::RELEASE_REJECTED }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    if last_release && !last_release.backdated_by_project.nil? then
+      # There was a previous release, and we explicitly chose to
+      # use deprecated dates
+      @use_deprecated_dates = true
+      @project_replaces_deprecated_project = last_release.backdated_by_project
+    elsif !last_release.nil? then
+      # There was a previous release, and we didn't choose to use
+      # deprecated dates
+      @use_deprecated_dates = false
+    else
+      # We don't know any better, so if possible, we'll assume we want to use
+      # deprecated dates
+      @use_deprecated_dates = true
+    end
+    @last_release = last_release
+
     # Handle form click
     if params[:commit] == "Release" then
       is_okay = true
@@ -1592,7 +1610,11 @@ class PipelineController < ApplicationController
         is_okay = false unless params[task[0]]
       }
       if is_okay then
-        do_user_release(@project)
+        if @use_deprecated_dates then
+          do_user_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.")
+        else
+          do_user_release(@project)
+        end
         redirect_to :action => :show, :id => @project
         return
       else
@@ -1608,7 +1630,11 @@ class PipelineController < ApplicationController
         is_okay = false unless params[task[0]]
       }
       if is_okay then
-        do_dcc_release(@project)
+        if params[:use_deprecated_release_date] then
+          do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.")
+        else
+          do_dcc_release(@project)
+        end
         redirect_to :action => :show, :id => @project
         return
       else
@@ -1737,9 +1763,9 @@ class PipelineController < ApplicationController
   def do_user_release(project, options = {})
     release_controller = nil
     if Release::Status::constants.map { |c| Release::Status::const_get(c) }.include?(project.status) then
-      release_controller = UserReleaseController.new(:project => project, :status => project.status)
+      release_controller = UserReleaseController.new(:project => project, :status => project.status, :stderr => options[:stderr])
     else
-      release_controller = UserReleaseController.new(:project => project)
+      release_controller = UserReleaseController.new(:project => project, :stderr => options[:stderr])
     end
     release_controller.run
   end
@@ -1747,9 +1773,9 @@ class PipelineController < ApplicationController
   def do_dcc_release(project, options = {})
     release_controller = nil
     if Release::Status::constants.map { |c| Release::Status::const_get(c) }.include?(project.status) then
-      release_controller = DccReleaseController.new(:project => project, :status => project.status)
+      release_controller = DccReleaseController.new(:project => project, :status => project.status, :stderr => options[:stderr])
     else
-      release_controller = DccReleaseController.new(:project => project)
+      release_controller = DccReleaseController.new(:project => project, :stderr => options[:stderr])
     end
     release_controller.run
   end

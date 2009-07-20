@@ -74,6 +74,11 @@ Once you have verified the dataset, checkoff the appropriate boxes.  When comple
   <br />
   <% if @project_needs_release %>
     <center>
+      <% if !@project_replaces_deprecated_project.nil? then %>
+        <%= check_box_tag("use_deprecated_release_date", "1", @use_deprecated_dates, :disabled => !current_user.is_a?(Moderator)) %>
+        <%= label_tag "use_deprecated_release_date", "Use release date of the submission (##{@project_replaces_deprecated_project.id}) deprecated by this one?" %>
+        <br/>
+      <% end %>
       <input type="hidden" name="reason" id="reason"/>
       <%= submit_tag("Release", :disabled => (@project.status == Release::Status::USER_RELEASED || @project.status == Release::Status::RELEASED)) %>
       <% if @project.status == Release::Status::USER_RELEASED && !current_user.is_a?(Moderator) then %>

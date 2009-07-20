@@ -29,5 +29,13 @@ class Release < Command
   def fail
     self.status = Release::Status::RELEASE_REJECTED
   end
+
+  def backdated_by_project
+    if self.stderr =~ /Backdated to submission #\d+\.$/ then
+      old_id = self.stderr.match(/Backdated to submission #(\d+)\.$/)[1]
+      return Project.find(old_id)
+    end
+    return nil
+  end
   
 end
