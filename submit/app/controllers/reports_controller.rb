@@ -78,6 +78,10 @@ class ReportsController < ApplicationController
     index
   end
 
+  def weekly_summary
+    index
+  end
+
   def publication
     @projects = Project.find_all_by_status(Project::Status::RELEASED)
     @projects.delete_if { |p| p.deprecated? }
