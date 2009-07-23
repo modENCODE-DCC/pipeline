@@ -1,52 +1,53 @@
-  class Array
-    def median
-      self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
-    end
-    def mean
-      self.sum/self.size
-    end
-    def variance
-      numbers = self
-      n = 0;
-      mean = numbers.mean;
-      s = 0.0;
-      numbers.each { |x|
-        n = n+1
-        delta = x-mean
-        s = s + delta*delta         
-      }
-      return (s/(n))
-    end
-    def stdev
-      numbers = self;
-      Math.sqrt(numbers.variance)      
-    end
-    def mode
-      numbers = self
-      c_n_count = 0 # Current number count
-      length = numbers.length - 1
-      amount = {} # New array for the number of times each number occurs in the array
-      for x in 0..length
-        c_number = numbers[x]
-        for y in 0..length
-          if numbers[y] == c_number # If the current number is equal to the upper level current number
-            c_n_count = c_n_count + 1
-          end
-        end
-        amount[x] = c_n_count # Add the total number of occurences in the value array
-        c_n_count = 0
-      end
-      max = 0
-      high_number = 0
-      for x in 0..length
-        if amount[x] > max # If the current number breaks the previous high record
-          max = amount[x] # Reset the max to this new record
-          high_number = x # Set the new most common number to that number
-        end
-      end
-      return numbers[high_number]
-    end
+class Array
+  def median
+    self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
   end
+  def mean
+    self.sum/self.size
+  end
+  def variance
+    numbers = self
+    n = 0;
+    mean = numbers.mean;
+    s = 0.0;
+    numbers.each { |x|
+      n = n+1
+      delta = x-mean
+      s = s + delta*delta         
+    }
+    return (s/(n))
+  end
+  def stdev
+    numbers = self;
+    Math.sqrt(numbers.variance)      
+  end
+  def mode
+    numbers = self
+    c_n_count = 0 # Current number count
+    length = numbers.length - 1
+    amount = {} # New array for the number of times each number occurs in the array
+    for x in 0..length
+      c_number = numbers[x]
+      for y in 0..length
+        if numbers[y] == c_number # If the current number is equal to the upper level current number
+          c_n_count = c_n_count + 1
+        end
+      end
+      amount[x] = c_n_count # Add the total number of occurences in the value array
+      c_n_count = 0
+    end
+    max = 0
+    high_number = 0
+    for x in 0..length
+      if amount[x] > max # If the current number breaks the previous high record
+        max = amount[x] # Reset the max to this new record
+        high_number = x # Set the new most common number to that number
+      end
+    end
+    return numbers[high_number]
+  end
+end
+
 
 class ReportsController < ApplicationController
   before_filter :login_required
@@ -168,17 +169,21 @@ class ReportsController < ApplicationController
     pis.each {|p| all_distribution_levels_by_pi[p]}
     levels.each{|l| pis.each {|p| all_distribution_levels_by_pi[p][l] = 0}}
 
-    projects = Project.all
-    projects.reject!{ |p| p.deprecated? }.each {|p|
-        all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
-        }
+    # Only use the first version of any project, since it's impossible to "unrelease" a project.
+    # This means finding all projects that do not deprecate another project.
+    all_projects = Project.all
+    deprecating_projects = all_projects.map { |p| p.deprecated_by_project }.compact
+    projects = all_projects - deprecating_projects
+
+    projects.each { |p|
+      all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
+    }
     @all_distribution_levels_by_pi = all_distribution_levels_by_pi
 
 
     # initialize to make sure all PIs are included; require each status to be represented
     all_distributions_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, status| hash2[status] = 0} }
     pis.each {|p| all_distributions_by_pi[p]}
-    #Project.all.reject { |p| p.deprecated? }.each { |p| all_distributions_by_pi[p.pi.split(",")[0]][p.status] += 1 }
     all_active_by_pi = Hash.new { |hash, pi| hash[pi] = Hash.new { |hash2, status| hash2[status] = 0} }
     pis.each {|p| all_active_by_pi[p]}
 
@@ -189,7 +194,7 @@ class ReportsController < ApplicationController
     active_status.each{|s| pis.each {|p| @all_active_by_status[s][p] = 0}}
 
 
-    Project.all.reject { |p| p.deprecated? }.each do |p| 
+    projects.each do |p| 
           step = 1
 	  #identify what step its at
           step = case p.status  
