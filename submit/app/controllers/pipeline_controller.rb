@@ -1610,7 +1610,7 @@ class PipelineController < ApplicationController
         is_okay = false unless params[task[0]]
       }
       if is_okay then
-        if @use_deprecated_dates then
+        if @use_deprecated_dates && @project_replaces_deprecated_project then
           do_user_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.")
         else
           do_user_release(@project)
@@ -1630,7 +1630,7 @@ class PipelineController < ApplicationController
         is_okay = false unless params[task[0]]
       }
       if is_okay then
-        if params[:use_deprecated_release_date] then
+        if params[:use_deprecated_release_date] && @project_replaces_deprecated_project then
           do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.")
         else
           do_dcc_release(@project)
