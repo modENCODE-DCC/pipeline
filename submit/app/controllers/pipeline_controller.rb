@@ -758,7 +758,8 @@ class PipelineController < ApplicationController
           "application/x-compressed-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
           "application/octet-stream" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
           "application/gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
-          "application/x-gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"]
+          "application/x-gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
+          "application/x-gtar" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"]
       }
       extensions = extensionsByMIME[upfile.content_type.chomp]
       if params["skip_content_check"] == "yes" then
