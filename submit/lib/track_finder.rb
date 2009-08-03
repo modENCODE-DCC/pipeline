@@ -25,7 +25,7 @@ class TrackFinder
   GD_COLORS = ['red', 'green', 'blue', 'white', 'black', 'orange', 'lightgrey', 'grey']
 
   # Track finding constants
-  DEBUG = false
+  @debugging = false
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
   CHROMOSOMES = [ 
@@ -487,10 +487,16 @@ class TrackFinder
     }
   end
   def cmd_puts(message)
-    puts message + "\n" if DEBUG
+    puts message + "\n" if debugging?
     return if @command_object.nil?
     @command_object.stdout = @command_object.stdout + message + "\n";
     @command_object.save
+  end
+  def debugging?
+    return @debugging
+  end
+  def debugging=(enable_debug)
+    @debugging = enable_debug
   end
   def delete_tracks(project_id, directory)
     cmd_puts "Removing old tracks and metadata."
