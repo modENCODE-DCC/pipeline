@@ -1585,7 +1585,7 @@ class PipelineController < ApplicationController
 
     @project_replaces_deprecated_project = Project.find_by_deprecated_project_id(@project.id)
     while (@project_replaces_deprecated_project && !(p = Project.find_by_deprecated_project_id(@project_replaces_deprecated_project.id)).nil?)
-      @project_replaces_deprecated_project = p.id
+      @project_replaces_deprecated_project = p
     end
     last_release = @project.commands.all.find_all { |cmd| cmd.is_a?(Release) && cmd.status != Release::Status::RELEASE_REJECTED }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
     if last_release && !last_release.backdated_by_project.nil? then
