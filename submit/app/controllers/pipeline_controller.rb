@@ -55,7 +55,8 @@ class PipelineController < ApplicationController
       'modENCODE tracks: MacAlpine Group',
       'modENCODE tracks: Piano Group',
       'modENCODE tracks: Snyder Group',
-      'modENCODE tracks: Waterston Group'
+      'modENCODE tracks: Waterston Group',
+      'modENCODE tracks: White Group'
     ],
     'bump density' => :integer,
     'label density' => :integer,
