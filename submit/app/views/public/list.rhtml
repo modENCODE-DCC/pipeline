@@ -121,7 +121,7 @@ Below, you can find:
       color = colors[2] if project.deprecated?
     %>
     <tr style="background-color: <%= color %>">
-      <td style="text-align: left"><%= link_to project.id, {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
+      <td style="text-align: left"><%= link_to "modENCODE_#{project.id}", {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
       <td class="name hardwrap">
         <%
           wrapped_name = project.name

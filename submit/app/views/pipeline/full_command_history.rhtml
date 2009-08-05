@@ -32,7 +32,7 @@
 
 <div style="text-align: center; margin-bottom: 20px">
   <h1>Command History</h1><br/>
-  <h2>Submission #<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
+  <h2>Submission modENCODE_<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
   <%
     full_history = @project.commands
     full_history = @project.commands.all.reject { |cmd| cmd.status == Command::Status::QUEUED }

@@ -143,7 +143,7 @@ Select page:
       %>
       <tr style="background-color: <%= color %>">
         <td align="right" <%= ' style="text-decoration: line-through"' if deleted_project %>>
-          <%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %>
+          <%= link_to "modENCODE_#{p.id}", {:action => 'show', :id => p.id, :controller => 'pipeline'} %>
         </td>
         <td class="name"<%= ' style="text-decoration: line-through"' if deleted_project %>>
           <%= link_to p.name, {:action => 'show', :id => p.id, :controller => 'pipeline' } %>
