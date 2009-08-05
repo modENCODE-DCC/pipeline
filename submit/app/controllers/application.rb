@@ -15,6 +15,12 @@ class ApplicationController < ActionController::Base
         ctrl.send(:redirect_to, new_url)
       end
     end
+
+    if ctrl.request.parameters[:modencode_id] then
+      new_url = ctrl.request.url.sub(/\/modencode_?(\d+)/i, '/\1')
+      ctrl.send(:render, :text => new_url)
+      #ctrl.send(:redirect_to, new_url)
+    end
   }
 
   def self.getErrorMessages

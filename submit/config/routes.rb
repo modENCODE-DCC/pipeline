@@ -32,4 +32,5 @@ ActionController::Routing::Routes.draw do |map|
     :path => /.*/
   map.connect ':controller/:action.:format'
   map.connect ':controller/:action/:id'
+
 end
