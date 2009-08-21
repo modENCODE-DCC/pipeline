@@ -405,7 +405,7 @@ class PipelineController < ApplicationController
     if @project.deprecated? then
       flash[:error] = "" if flash[:error].nil?
       flash[:error] += "<br/>" unless flash[:error] == ""
-      flash[:error] += "This project has been deprecated!"
+      flash[:error] += "This project has been deprecated by project #{@project.deprecated_project_id}!"
     end
   end
 
