@@ -757,6 +757,8 @@ class PipelineController < ApplicationController
           "application/zip" => ["zip", "ZIP"],
           "application/x-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
           "application/x-compressed-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
+          "application/x-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
+          "application/x-tar-gz" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
           "application/octet-stream" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
           "application/gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
           "application/x-gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
