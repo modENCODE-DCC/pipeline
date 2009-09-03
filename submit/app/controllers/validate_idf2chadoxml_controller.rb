@@ -58,7 +58,7 @@ class ValidateIdf2chadoxmlController < ValidateController
       idf_file = possible_idfs.first
       output_file = File.join(package_dir, "#{command_object.project.id}.chadoxml")
 
-      run_command = "#{validator} #{params} #{idf_file} #{output_file} -n=#{Escape::shell_single_word(command_object.project.name)}"
+      run_command = "#{validator} #{params} #{Escape::shell_single_word(idf_file)} #{output_file} -n=#{Escape::shell_single_word(command_object.project.name)}"
 
       last_update = Time.now
       (exitvalue, errormessage) = Open5.popen5(run_command) { |stdin, stdout, stderr, exitvaluechannel, sidechannel|
