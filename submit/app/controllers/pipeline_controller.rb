@@ -1152,7 +1152,8 @@ class PipelineController < ApplicationController
           end
           # Delete old one
           TrackStanza.destroy_all(:user_id => current_user.id, :project_id => @project.id)
-          ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id, :marshaled_stanza => Marshal.dump(track_defs)
+          ts = TrackStanza.new :user_id => current_user.id, :project_id => @project.id
+          ts.stanza = track_defs
           ts.save
           # Unaccept config(s) for this project if any have been accepted
           TrackStanza.find_all_by_project_id(@project.id).each { |ts|
