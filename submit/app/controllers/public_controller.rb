@@ -261,6 +261,10 @@ class PublicController < ApplicationController
     end
     download_dir = ""
     download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
+    if (download_dir == "") then
+      download_dir = "extracted" 
+      params[:root] = "extracted"
+    end
     @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
@@ -340,6 +344,10 @@ class PublicController < ApplicationController
     end
     download_dir = ""
     download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
+    if (download_dir == "") then
+      download_dir = "extracted" 
+      params[:root] = "extracted"
+    end
     @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
