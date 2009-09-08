@@ -30,11 +30,11 @@ class FileUploadController < UploadController
         unless source == destfile
           File.delete(destfile) if File.exists?(destfile) 
 
-          if (command_object.timeout && command_object.timeout > 0) then
-            Timeout::timeout(command_object.timeout) { FileUtils.copy(source, destfile) }
-          else
+#          if (command_object.timeout && command_object.timeout > 0) then
+#            Timeout::timeout(command_object.timeout) { FileUtils.copy(source, destfile) }
+#          else
             FileUtils.copy(source, destfile)
-          end
+#          end
         end
         command_object.status = Upload::Status::UPLOADED
         command_object.save
