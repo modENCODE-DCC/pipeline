@@ -445,7 +445,10 @@ class PipelineController < ApplicationController
     end
 
     # ---------EXPAND ALL--------------
-    queue_reexpand_project(@project)
+    if (@project.status != Expand::Status::EXPANDED)
+      # Don't bother re-expanding if the last status was a successful expand
+      queue_reexpand_project(@project)
+    end
 
     # ---------VALIDATE--------------
     do_validate(@project) # Don't defer; we'll start processing
