@@ -16,7 +16,7 @@ class TrackStanza < ActiveRecord::Base
       return Marshal.restore(s)
     end
   end
-#  def stanza=(newstanza)
-#    self.marshaled_stanza = "b64_header" + Base64.encode64(Marshal.dump(newstanza))
-#  end
+  def stanza=(newstanza)
+    self.marshaled_stanza = Marshal.dump(newstanza)
+  end
 end
