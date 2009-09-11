@@ -9,14 +9,14 @@ class TrackStanza < ActiveRecord::Base
   def stanza
     s = self.marshaled_stanza
     if s[0..9] == "b64_header" then
-      # Remove (new) header
+      # Remove (formerly new) header
       s = s[10..-1]
       return Marshal.restore(Base64.decode64(s))
     else
       return Marshal.restore(s)
     end
   end
-  def stanza=(newstanza)
-    self.marshaled_stanza = "b64_header" + Base64.encode64(Marshal.dump(newstanza))
-  end
+#  def stanza=(newstanza)
+#    self.marshaled_stanza = "b64_header" + Base64.encode64(Marshal.dump(newstanza))
+#  end
 end
