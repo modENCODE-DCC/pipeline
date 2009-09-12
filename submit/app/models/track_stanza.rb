@@ -11,7 +11,7 @@ class TrackStanza < ActiveRecord::Base
     if s[0..9] == "b64_header" then
       # Remove (formerly new) header
       s = s[10..-1]
-      return Marshal.restore(Base64.decode64(s))
+      return Marshal.restore(Base64.decode64(PGconn.unescape_bytea(s)))
     else
       return Marshal.restore(s)
     end
