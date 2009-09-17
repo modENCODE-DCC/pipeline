@@ -282,6 +282,9 @@
         <% end %>
       </div>
     </div>
+    <% if (current_user.is_a?(Administrator) || current_user.login == "nbild") && state == Upload::Status::UPLOADING && @project.status == state then %>
+    <span class="additionalinfo" style="float: left;"><%= link_to "cancel upload", :action => :cancel_upload, :id => @project %></span>
+    <% end %>
   <% end %>
   <br style="clear:both"/><br/>
 

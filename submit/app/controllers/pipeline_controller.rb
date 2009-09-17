@@ -2394,4 +2394,24 @@ private
     #for now, will use the last updated date, but should probably find the release command, and use that
     @released_projects.map{|p| @all_my_released_projects_per_quarter[@quarters.find{|k,v| p.updated_at.to_date <= v["end"] && p.updated_at.to_date >= v["start"]}[0]] += 1 }
   end
+
+  def cancel_upload
+    unless current_user && (current_user.is_a?(Administrator) || current_user.login == "nbild") then
+      redirect_to :action => :list
+      return
+    end
+    begin
+      @project = Project.find(params[:id])
+      return false unless check_user_can_write @project
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+
+    @project.commands.find_all_by_status(Upload::Status::UPLOADING).each { |cmd|
+      cmd.status = Upload::Status::UPLOAD_FAILED
+      cmd.save
+    }
+  end
 end
