@@ -2213,6 +2213,7 @@ class PipelineController < ApplicationController
       cmd.status = Upload::Status::UPLOAD_FAILED
       cmd.save
     }
+    redirect_to :action => :show, :id => @project
   end
 private
 
