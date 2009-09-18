@@ -21,7 +21,7 @@ workers:
     }
   - {
       name: heartbroken,
-      ip: 131.243.192.216,
+      ip: 131.243.192.216
     }
   ## Testing
   #- {name: rubuntu1, ip: 192.168.122.85}
