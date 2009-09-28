@@ -308,6 +308,9 @@ class PipelineController < ApplicationController
     else
       @project = Project.new
     end
+    if (params[:moderator_assigned_id] && params[:moderator_assigned_id].to_i.to_s == params[:moderator_assigned_id]) then
+      @project.write_attribute(:id, params[:moderator_assigned_id].to_i) unless Project.find_by_id(params[:moderator_assigned_id].to_i)
+    end
     @projectTypes = getProjectTypes
 
     pis = Hash.new

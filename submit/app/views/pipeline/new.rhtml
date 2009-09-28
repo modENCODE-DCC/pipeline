@@ -5,6 +5,10 @@
 
 <% form_tag(:action => 'new') do %>
   <table border="0">
+    <% if current_user && current_user.is_a?(Moderator) %>
+      <tr><td><label for="project_name">ID</label>: </td><td><%= text_field_tag 'moderator_assigned_id' %></td></tr>
+      <tr><td style="font-size:80%">&nbsp;</td><td style="font-size:70%; vertical-align: top">(leave blank to generate a new one)</td></tr>
+    <% end %>
     <tr><td><label for="project_name">Name</label>: </td><td><%= text_field 'project', 'name'  %></td></tr>
     <tr><td><label for="project_type_id">Type</label>: </td><td>
         <%= select_tag "project_type_id", options_from_collection_for_select(@projectTypes, "id", "short_label") %>
