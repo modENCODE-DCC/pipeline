@@ -1761,6 +1761,7 @@ class PipelineController < ApplicationController
           pub = publish_class[1][:command]
           pub.start_time = new_date
           pub.end_time = new_date
+          pub.user = current_user
           pub.save
         else
           # Make a new one
@@ -1768,6 +1769,7 @@ class PipelineController < ApplicationController
           pub.save
           pub.start_time = new_date
           pub.end_time = new_date
+          pub.user = current_user
           pub.save
         end
         redirect_to :action => :publish

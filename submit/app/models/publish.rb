@@ -10,10 +10,14 @@ class Publish < Command
   end
 
   def short_formatted_status
-    "#{prefix} #{self.started_at.strftime("%a, %b %d, %Y (%H:%M)")}"
+    str = "#{prefix} #{self.start_time.strftime("%a, %b %d, %Y (%H:%M)")}"
+    str += " by #{user.name}" unless user.nil?
+    str
   end
   def formatted_status
-    "#{prefix} #{self.started_at.strftime("%a, %b %d, %Y (%H:%M)")}"
+    str = "#{prefix} #{self.start_time.strftime("%a, %b %d, %Y (%H:%M)")}"
+    str += " by #{user.name}" unless user.nil?
+    str
   end
   def prefix
     "Published at"
