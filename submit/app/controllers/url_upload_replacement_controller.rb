@@ -73,7 +73,7 @@ class UrlUploadReplacementController < UrlUploadController
             content_disposition_file = result.meta["content-disposition"]
             content_disposition_file = content_disposition_file.split(";").find { |h| h =~ /^\s*filename=/ } unless content_disposition_file.nil?
             content_disposition_file = content_disposition_file.split("=").last unless content_disposition_file.nil?
-            content_disposition_file.gsub!(/^"|"$/, "")
+            content_disposition_file.gsub!(/^"|"$/, "") unless content_disposition_file.nil?
             if !content_disposition_file.nil? && content_disposition_file.length > 0 then
               project_archive = command_object.project.project_archives.all.find { |pa| File.basename(pa.file_name) == File.basename(destfile) }
               (source, dest, rest) = command_object.command.split(" to ")
