@@ -297,13 +297,13 @@ class PublicController < ApplicationController
     escape_quote = "'\\''"
 
     exclude = params[:include_chadoxml] == "true" ? '' : '--exclude \'*.chadoxml\''
-    files = "'#{File.basename(@current_directory).gsub(/'/, escape_quote)}'"
+    files = "'#{File.basename(@current_directory).gsub(/'/, escape_quote)}/'"
     flatten = ''
     if params[:structured] != "true" then
       flatten = '--transform \'s/^\.\///g\'  --transform \'s/\//_/g\''
-      files = "--files-from <( cd '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}'; find './#{File.basename(@current_directory).gsub(/'/, escape_quote)}' -type f )"
+      files = "--files-from <( cd '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}/'; find './#{File.basename(@current_directory).gsub(/'/, escape_quote)}/' -type f )"
     end
-    command = "tar #{exclude} #{flatten} -czv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
+    command = "tar #{exclude} #{flatten} -hczv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
 
     headers['Content-Type'] = 'application/x-tar-gz'
     headers['Content-Disposition'] = "attachment; filename=#{File.basename(@current_directory)}.tgz"
@@ -382,6 +382,7 @@ class PublicController < ApplicationController
     @highlight = params[:highlight]
 
     @listing = Array.new
+    @current_directory += "/" unless @current_directory =~ /\/$/;
     Find.find(@current_directory) do |path|
       next if File.basename(path) == File.basename(@current_directory)
       relative_path = path[@root_directory.length..-1]
