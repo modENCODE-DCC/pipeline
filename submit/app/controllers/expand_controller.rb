@@ -236,7 +236,7 @@ class ExpandController < CommandController
         # Move the file!
         new_entry_path = File.join(extract_dir, relative_entry_path)
         # Don't rescue rename here errors, because the whole process has effectively failed
-        File.rename(current_entry_path, new_entry_path);
+        FileUtils.move(current_entry_path, new_entry_path);
       end
     end
 
