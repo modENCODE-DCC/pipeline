@@ -96,12 +96,22 @@ class UrlUploadReplacementController < UrlUploadController
             ::File.open(destfile, "w") { |dfile|
               dfile.write(result.read)
             }
+            if (result.is_a?(Tempfile)) then
+              begin
+                result.close!
+              rescue
+              end
+            end
           }
     rescue Exception => e
       logger.warn "Rescued upload exception #{e}"
       logger.error e
       command_object.status = Upload::Status::UPLOAD_FAILED 
       command_object.save
+      begin 
+        globally_visible_result.close!
+      rescue
+      end
       raise CommandFailException.new("Failed to fetch URL #{upurl}")
     end
   end

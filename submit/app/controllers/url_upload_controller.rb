@@ -64,8 +64,10 @@ class UrlUploadController < UploadController
   def get_contents(upurl, destfile)
     begin
       upurl = URI.escape(upurl)
+      globally_visible_result = nil
       OpenURI.open_uri( upurl, :no_verify_peer => true, :content_length_proc => proc { |len| command_object.content_length = len; command_object.save }, :progress_proc => proc { |prog| self.update_uploader_progress_with_save = prog }
           ) { |result|
+            globally_visible_result = result
             content_disposition_file = result.meta["content-disposition"]
             content_disposition_file = content_disposition_file.split(";").find { |h| h =~ /^\s*filename=/ } unless content_disposition_file.nil?
             content_disposition_file = content_disposition_file.split("=").last unless content_disposition_file.nil?
@@ -95,6 +97,12 @@ class UrlUploadController < UploadController
             ::File.open(destfile, "w") { |dfile|
               dfile.write(result.read)
             }
+            if (result.is_a?(Tempfile)) then
+              begin
+                result.close!
+              rescue
+              end
+            end
           }
     rescue Exception => e
       logger.warn "Rescued upload exception #{e}"
@@ -102,6 +110,10 @@ class UrlUploadController < UploadController
       logger.error e.backtrace
       command_object.status = Upload::Status::UPLOAD_FAILED 
       command_object.save
+      begin 
+        globally_visible_result.close!
+      rescue
+      end
       raise CommandFailException.new("Failed to fetch URL #{upurl}")
     end
   end
