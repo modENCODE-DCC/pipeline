@@ -688,13 +688,13 @@ sub _fetch_sequence {
   my $locationlist_table = $self->_locationlist_table;
 
   my $sth     = $self->_prepare(<<END);
-SELECT sequence,offset
+SELECT sequence,"offset"
    FROM $sequence_table as s,$locationlist_table as ll
    WHERE s.id=ll.id
      AND ll.seqname= ?
-     AND offset >= ?
-     AND offset <= ?
-   ORDER BY offset
+     AND "offset" >= ?
+     AND "offset" <= ?
+   ORDER BY "offset"
 END
 
   my $seq = '';
@@ -721,9 +721,9 @@ sub _offset_boundary {
   my $locationlist_table = $self->_locationlist_table;
 
   my $sql;
-  $sql =  $position eq 'left'  ? "SELECT min(offset) FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=?"
-         :$position eq 'right' ? "SELECT max(offset) FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=?"
-	 :"SELECT max(offset) FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=? AND offset<=?";
+  $sql =  $position eq 'left'  ? "SELECT min(\"offset\") FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=?"
+         :$position eq 'right' ? "SELECT max(\"offset\") FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=?"
+	 :"SELECT max(\"offset\") FROM $sequence_table as s,$locationlist_table as ll WHERE s.id=ll.id AND ll.seqname=? AND \"offset\"<=?";
   my $sth = $self->_prepare($sql);
   my @args = $position =~ /^-?\d+$/ ? ($seqid,$position) : ($seqid);
   $sth->execute(@args) or $self->throw($sth->errstr);
