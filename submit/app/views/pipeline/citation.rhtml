@@ -18,7 +18,7 @@
 
     growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol"]
     preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR", "sequencing"]
-    analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment"]
+    analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment", "peak_finding_data_analysis_protocol"]
 
     growth_protocols = type_tags.find_all { |tag| growth.include?(tag.value) }
     preparation_protocols = type_tags.find_all { |tag| preparation.include?(tag.value) }
@@ -92,8 +92,8 @@
     antibodies = ["antibody"]
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
     samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
-    conditions = ["GrowthCondition"]
-    external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID"]
+    conditions = ["GrowthCondition", "temperature"]
+    external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID (SRA)"]
     #modencode_ids = ["modENCODE Reference"]
     modencode_ids = ["referenced_submission"]
 
