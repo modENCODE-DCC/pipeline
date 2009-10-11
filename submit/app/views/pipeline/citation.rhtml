@@ -16,7 +16,7 @@
     type_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_type')
     url_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_url')
 
-    growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol"]
+    growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol", "biosample_preparation_protocol"]
     preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR", "sequencing"]
     analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment", "peak_finding_data_analysis_protocol"]
 
@@ -84,7 +84,7 @@
 </ol>
 
   <%
-    animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line"]
+    animals = ["stage", "strain", "whole_organism", "cell_line", "developmental_stage", "organism", "organism_part", "strain_or_line", "cell line culture"]
     #strains = ["strain", "whole_organism", "strain_or_line", "organism", "cell_line"]
     #tissue = ["organism_part"]
     #stage = ["developmental stage", "stage", "developmental_stage"]
