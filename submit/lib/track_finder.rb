@@ -462,6 +462,34 @@ class TrackFinder
 
       WHERE cur.applied_protocol_id = ANY(?)"
     }
+    @sth_leaf_metadata = dbh_safe {
+      @dbh.prepare "SELECT
+      cur_output_data.value AS data_value,
+      cur_output_data_type.name AS data_type,
+      db.description AS db_type,
+      db.url AS db_url,
+      prev_apd.applied_protocol_id AS prev_applied_protocol_id,
+      attr.value AS attr_value, attr_type.name AS attr_type, attr.heading AS attr_name
+
+      FROM applied_protocol cur
+
+      LEFT JOIN (applied_protocol_data cur_apd 
+        INNER JOIN (data cur_output_data
+          LEFT JOIN cvterm cur_output_data_type ON cur_output_data.type_id = cur_output_data_type.cvterm_id
+          LEFT JOIN (dbxref dbx
+            INNER JOIN db ON dbx.db_id = db.db_id
+          ) ON dbx.dbxref_id = cur_output_data.dbxref_id
+          LEFT JOIN (data_attribute da
+            INNER JOIN attribute attr ON da.attribute_id = attr.attribute_id
+            INNER JOIN cvterm attr_type ON attr_type.cvterm_id = attr.type_id
+          ) ON da.data_id = cur_output_data.data_id
+        ) ON cur_apd.data_id = cur_output_data.data_id
+        LEFT JOIN applied_protocol_data prev_apd ON cur_apd.data_id = prev_apd.data_id AND prev_apd.direction = 'input'
+      ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'output'
+
+      WHERE prev_apd.data_id IS NULL AND cur.applied_protocol_id = ANY(?)"
+    }
+
     @sth_metadata_last = dbh_safe {
       @dbh.prepare "SELECT
       cur_output_data.value AS data_value,
@@ -726,6 +754,54 @@ class TrackFinder
         # Get all of the metadata leading up to this protocol
         @sth_metadata.execute(ap_ids)
         @sth_metadata.fetch do |row|
+            unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
+              # Datum name
+              begin
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => row['data_value'],
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['data_value'],
+                  :cvterm => row['data_type'],
+                  :history_depth => history_depth
+                ).save
+              rescue
+              end
+              # Datum URL prefix (for wiki links)
+              begin
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => row['data_value'],
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['db_url'],
+                  :cvterm => 'data_url',
+                  :history_depth => history_depth
+                ).save unless row['db_type'] != "URL_mediawiki_expansion"
+                seen.push row['data_value']
+              rescue
+              end
+              # Datum attributes
+            end
+            begin
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => row['data_value'],
+                :project_id => project_id,
+                :track => tracknum,
+                :value => row['attr_value'],
+                :cvterm => row['attr_name'],
+                :history_depth => history_depth
+              ).save unless row['attr_value'].nil? || row['attr_value'].empty?
+            rescue
+            end
+            # And go through any attached previous applied protocols
+            prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
+        end
+        # Get all of the metadata that comes out of this protocol and terminates
+        @sth_leaf_metadata.execute(ap_ids)
+        @sth_leaf_metadata.fetch do |row|
             unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
               # Datum name
               begin
