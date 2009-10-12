@@ -2236,12 +2236,13 @@ private
 
     diff = new_tracks[0][0].match(/_(\d+)_\d+$/)[1].to_i - old_tracks[0][0].match(/_(\d+)_\d+$/)[1].to_i
 
-    old_tracks.each { |track_name, values|
+    old_tracks.each_index { |old_index|
+      (track_name, values) = old_tracks[old_index]
       (tracktype, details) = values["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
       (tracknum, projnum) = track_name.match(/_(\d+)_(\d+)$/)[1].to_i
-      new_track_name = "_#{tracknum+diff}_#{new_project_id}"
 
-      (tn, vs) = new_tracks.find { |t| t[0].match(/#{new_track_name}$/) }
+      (tn, vs) = new_tracks[old_index]
+      $stderr.puts "Tracktype: #{tracktype}, Details: #{details}"
       (tracktp, deets) = vs["feature"].match(/^(.*):\d+(_details)?$/)[1..2]
 
       if !(tracktype == tracktp && details == deets) then
