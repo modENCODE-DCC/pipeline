@@ -13,12 +13,14 @@
     HR { margin-top: 4px; margin-bottom: 0px; width: 70%; text-align: left; margin: 0 auto 0 0; }
   </style>
   <%
-    gbrowse_source = "modencode_flybase"
+    gbrowse_source = "modencode_flybase_quick_#{@project.id}"
+    gbrowse_full_source = "modencode_flybase"
     default_chr = "3L"
     default_fmin = 6066513
     default_fmax = 6266513
     if @organism == "Caenorhabditis elegans" then
-      gbrowse_source = "modencode_wormbase"
+      gbrowse_source = "modencode_wormbase_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_wormbase"
       default_chr = "III"
       default_fmin = 4200000
       default_fmax = 4300000
@@ -293,7 +295,8 @@
     <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
   <% end %>
   <div style="float:right">
-    <%= link_to "View in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %>
+    <%= link_to "View this in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %><br/>
+    <%= link_to "View all in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_full_source}/", :popup => true %>
     <br/>
     <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
     <% if current_user.is_a? Moderator then %>
