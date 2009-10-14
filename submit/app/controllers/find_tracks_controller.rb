@@ -39,7 +39,12 @@ class FindTracksController < CommandController
       Dir.mkdir(tracks_dir,0775) unless File.exists?(tracks_dir)
       track_finder.delete_tracks(command_object.project.id, tracks_dir)
 
-      track_finder.generate_track_files_and_tags(experiment_id, command_object.project.id, tracks_dir)
+      res = track_finder.generate_track_files_and_tags(experiment_id, command_object.project.id, tracks_dir)
+      if res.nil? then
+        command_object.status = FindTracks::Status::FINDING_FAILED
+        command_object.save
+        return self.do_after
+      end
       track_finder.load_into_gbrowse(command_object.project.id, tracks_dir)
 
       command_object.status = FindTracks::Status::FOUND

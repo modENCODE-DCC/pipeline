@@ -584,8 +584,11 @@ class TrackFinder
       sth_aps.finish
     }
 
+    $stderr.puts "Got #{applied_protocols.size} applied protocols, I think" if @debug
+
     # Then follow the applied_protocol->datum->applied_protocol link
     column = 0
+    seen_aps = Array.new
     dbh_safe {
       sth_aps = @dbh.prepare("SELECT 
                              apd_next.applied_protocol_id AS next_applied_protocol,
@@ -601,8 +604,16 @@ class TrackFinder
                              AND apd_prev.applied_protocol_id = ?")
 
       until applied_protocols.values.find_all { |ap| ap.column == column }.size == 0 do
+
+        $stderr.puts "There are #{applied_protocols.values.find_all { |ap| ap.column == column }.size} aps for column #{column}" if @debug
         applied_protocols.values.find_all { |ap| ap.column == column }.map { |ap| ap.applied_protocol_id }.uniq.each do |applied_protocol_id|
+          if seen_aps.include?(applied_protocol_id) then
+            cmd_puts "ERROR: Looping back to previously seen protocols. Quitting!"
+            cmd_puts "Please check your SDRF to make sure you don't have a value that's both an input and an output to the same protocol."
+            return nil
+          end
           sth_aps.execute(applied_protocol_id)
+          seen_aps.push(applied_protocol_id)
           sth_aps.fetch do |row|
             applied_protocols[row[0]].column = column + 1 # Note that the AP gets autocreated by the hash init block
             applied_protocols[row[0]].inputs.push row[1]
@@ -951,6 +962,7 @@ class TrackFinder
 
     # Get datum objects attached to features or wiggle data
     usable_tracks = find_usable_tracks(experiment_id, project_id)
+    return nil if usable_tracks.nil?
     # Figure out the protocol order
     protocol_ids_by_column = Hash.new
     usable_tracks.each { |col, set_of_tracks| 
@@ -1465,6 +1477,7 @@ class TrackFinder
     ####### /Find Features/Wiggles #######
 
     # Didn't find anything? Still need a citation?
+    return true
   end
   def recursive_output(seen_feature_ids, sth_get_gff, gff_file, parent_id = nil)
     if !parent_id.nil? then
