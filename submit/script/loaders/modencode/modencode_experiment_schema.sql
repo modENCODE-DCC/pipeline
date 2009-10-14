@@ -8551,8 +8551,13 @@ CREATE RULE assayprop_update AS
 -- Name: attribute_name_key; Type: CONSTRAINT; Schema: $temporary_chado_schema_name$; Owner: -; Tablespace: 
 --
 
-ALTER TABLE ONLY attribute
-    ADD CONSTRAINT attribute_name_key UNIQUE (name, heading, rank, value, type_id);
+CREATE FUNCTION $temporary_chado_schema_name$_data.md5_if_long(text) RETURNS TEXT AS $$
+  SELECT CASE WHEN LENGTH($1)>5 THEN MD5($1) ELSE $1 END
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE UNIQUE INDEX attribute_name_key ON attribute (name, heading, rank, md5_if_long(value), type_id);
+--ALTER TABLE ONLY attribute
+--    ADD CONSTRAINT attribute_name_key UNIQUE (name, heading, rank, $temporary_chado_schema_name$_data.md5_if_long(value), type_id);
 
 
 --

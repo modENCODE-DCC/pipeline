@@ -140,8 +140,9 @@ END
 sub _index_fields {
   my($proto, $dbh, $index, $namespace) = @_;
   $namespace ||= default_db_schema();
+  # SELECT a.attname, a.attnum
   my $sth = $dbh->prepare(<<END) or die $dbh->errstr;
-    SELECT a.attname, a.attnum
+    SELECT CASE WHEN a.attname LIKE 'pg_expression_%' THEN pg_get_indexdef(c.oid, attnum, false) ELSE a.attname END, a.attnum
     FROM pg_class c, pg_attribute a, pg_type t, pg_namespace n
     WHERE c.relname = '$index'
       AND n.nspname = '$namespace' AND a.attnum > 0 AND a.attrelid = c.oid AND a.atttypid = t.oid

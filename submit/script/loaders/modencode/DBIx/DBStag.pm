@@ -527,7 +527,17 @@ sub get_unique_sets {
     else {
         my %indices = $tableobj->indices;
         my @unique_indices = grep {$_->unique} values %indices;
-        return map {$_->columns} @unique_indices;
+        return map {
+          [
+            map { 
+              my $fcn = $_;
+              $_ =~ s/^.*\(//;
+              $_ =~ s/\).*$//;
+              if ($fcn ne $_) { print STDERR "Just remapped $fcn to column $_.\n" }
+              $_;
+            } @{$_->columns}
+          ]
+        } @unique_indices;
     }
 }
 
@@ -1690,6 +1700,7 @@ sub _storenode {
         # -- make null value part of the key
         # -- ADDED 20041012 - make null 0/''
         
+        use Data::Dumper;
         foreach (keys %constr) {
             # in pg, pk cols are sequences with defaults nextval
             # skip these
