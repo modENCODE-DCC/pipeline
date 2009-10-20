@@ -20,6 +20,9 @@ ActionController::Routing::Routes.draw do |map|
 
   # Install the default route as the lowest priority.
   map.connect ':controller/load/:id', :action => '_load'
+  map.connect 'public/download_tarball/:id.tgz',
+    :controller => 'public',
+    :action => 'download_tarball'
   map.connect ':controller/:action/:id.:format'
   map.connect 'public/get_file/:id/:root/:path',
     :controller => 'public',
