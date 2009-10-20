@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1" />
+  <meta http-equiv="Content-Language" content="en-us" />
+  <title><%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] + " " +  ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%> - Bulk Downloads</title>
+  <%= stylesheet_link_tag "encode" %>
+  <style type="text/css">
+    FORM.bulk_select LABEL { width: 12em; float: left; }
+    FORM.bulk_select SELECT { width: 20em; }
+    FORM.bulk_select DIV.sample_characteristics { margin-left: 12em; margin-top: 1em  }
+    FORM.bulk_select DIV.sample_characteristics LABEL { width: 5em; float: none; }
+    FORM.bulk_select DIV.sample_characteristics SPAN { margin-right: 1em; }
+    DIV#urllist { background-color: #AAAAAA; border: thin black dashed; padding: 5px; }
+    CODE { border: thin black dashed; margin-left: 5em; margin-top: 7px; padding: 5px; display: block; }
+  </style>
+  <%= javascript_include_tag "prototype" %>
+</head>
+<body id="encode-pipeline">
+  <div id="container">
+    <img align="left" height="85"  src="/images/encode_logo.png" alt="modENCODE"/>
+    <div id="header">
+      <%= ActiveRecord::Base.configurations[RAILS_ENV]['title'] -%>
+      <font size="-1" color="gray"> <em>
+          <%#= ActiveRecord::Base.configurations[RAILS_ENV]['subtitle'] -%>
+      </em></font>
+    </div>
+
+    <% if current_user.is_a?(User) %>
+      <div id="user"> 
+        <%= link_to '(logout)', {:controller=> 'account', :action => 'logout'}, :class=> "smallLink" %><br/>
+        Logged In: 
+        <%= link_to current_user.login, {:controller => 'account', :action => 'change_profile' }, :title => "View/Change User Details", :class => "strong" %>
+      </div>
+    <% end %>
+
+    <div id="nav">
+      <span style="float:right; text-align:right">
+          <span>Bulk Downloads</span>
+          |
+          <span><%= link_to_unless request.request_uri =~ /pipeline\/show|pipeline\/show_user|pipeline\/show_group/,'Submissions', :controller => 'pipeline', :action => 'list' %></span>
+          |
+          <span><%= link_to_unless_current 'Downloads', :controller => 'public', :action => 'list' %></span>
+          |
+          <span><%= link_to_unless_current 'Stats', :controller => 'reports', :action => 'index' %></span>
+      </span>
+      <span>&nbsp;</span>
+    </div>
+
+    <div id="message">
+      <% if flash[:error] %><div id="error"><%= flash[:error] %></div><% end %>  
+      <% if flash[:warning] %><div id="warning"><%= flash[:warning] %></div><% end %>  
+      <% if flash[:notice] %><div id="notice"><%= flash[:notice] %></div><% end %>  
+    </div>
+
+    <div id="content">
+      <%= yield %>
+    </div>
+
+    <div id="footer">
+    <%= link_to "Help", :controller => :documentation, :action => :help %>
+    <%= ' | ' -%>
+    <%= link_to "Contact Us", :controller => :documentation, :action => :contact %>
+    </div>
+  </div>
+</body>
+</html>
