@@ -11,7 +11,9 @@ If you have Perl and XML::Simple installed, and you want to name the files after
   wget -O - 'http://submit.modencode.org<%= url_for( @reduced_params.merge({:action => :index, :format => "xml"}) ) %>' | perl -e '
   use XML::Simple;
   $/ = undef;
-  foreach $record (@{XMLin(<>)->{"record"}}) { system("wget '\''" . $record->{"url"} . "'\''"); system("mv -v '\''" . $record->{"ID"} . ".tgz'\''* '\''" . $record->{"Name"} . ".tgz'\''"); }
+  $records = XMLin(<>)->{"record"};
+  @records = (ref($records) eq "ARRAY") ? @$records : $records;
+  foreach $record (@records) { system("wget '\''" . $record->{"url"} . "'\''"); system("mv -v '\''" . $record->{"ID"} . ".tgz'\''* '\''" . $record->{"Name"} . ".tgz'\''"); }
   '
 </code>
 <h1>Filter data</h1>
