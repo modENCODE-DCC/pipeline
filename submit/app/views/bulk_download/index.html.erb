@@ -1,6 +1,17 @@
+<h1>Instructions</h1>
+Select the freeze dataset you wish to download and adjust the filters to focus
+on the datasets of interest. The URL links at the bottom of the page will be
+updated as you do so. When you are satisfied with the list, you may either
+download the datasets manually, or download them in bulk by cutting and pasting
+either of the two "magic invocations" in the boxes below onto your command line
+shell. Both require the "wget" program, while the second requires Perl and the
+XML::Simple module to be installed as well. As you update the filters, these
+invocations will change.
+
 <h1>Generated commands</h1>
-This page's "permalink" URL is: <%= link_to "here", @reduced_params.merge({:action => :index}) %>.<br/>
-An XML version is: <%= link_to "here", @reduced_params.merge({:action => :index, :format => "xml"}) %>.<br/>
+This page's "permalink" URL (to bookmark the currently selected options) is: <%= link_to "here", @reduced_params.merge({:action => :index}) %>.<br/>
+For computational access, An XML version is: <%= link_to "here", @reduced_params.merge({:action => :index, :format => "xml"}) %>.<br/>
+<br/>
 You can fetch the data with:<br/>
 <code>
   wget 'http://submit.modencode.org<%= url_for( @reduced_params.merge({:action => :index}) ) %>' -O - | grep download_tarball | wget -i - --base='http://submit.modencode.org//' --force-html

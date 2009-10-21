@@ -38,8 +38,11 @@
         </li>
         <li>
           <%= link_to "Download Public Data", { :controller => :public, :action => :list }, { :style => "font-weight:bold" } %>
+          <ul>
+            <li>From <%= link_to "ModMine", "http://intermine.modencode.org" %>.</li>
+            <li>In bulk for the <%= link_to "Oct. 19, 2009 fly data freeze", :controller => :bulk_download, :selected_freeze => "dmelanogaster_2009-10-19" %>. <b>NEW</b></li>
+          </ul>
           <p style="margin-left: 2em">Any user can download publicly released data.</p>
-          <p style="color:red; font-weight: bold;">NOTICE (09/17/2009): Public downloads are currently incomplete as we rebuild the data after a recent hardware failure.</p>
         </li>
       </ul>
    Before submitting data, the submission format must be defined
