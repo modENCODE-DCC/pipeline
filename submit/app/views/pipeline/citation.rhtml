@@ -234,7 +234,9 @@
       <%= repository_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         name = tag.value 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
-        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'GEO_record')
+        name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, external_ids)
+
+        puts "#{name}:#{name_tag}:#{url_tag}"
 
         if url_tag then
           link_to name_tag.value, url_tag.value
