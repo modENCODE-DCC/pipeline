@@ -25,21 +25,21 @@ class Project < ActiveRecord::Base
   end
   def report_generated?
     if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
-      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last
       return true if self.report_tarball_generated? || self.reported?
       return cmd.status == Project::Status::REPORT_GENERATED unless cmd.nil?
     end
   end
   def report_tarball_generated?
     if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
-      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last
       return true if self.reported?
       return cmd.status == Project::Status::REPORT_TARBALL_GENERATED unless cmd.nil?
     end
   end
   def reported?
     if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
-      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+      cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last
       return cmd.status == Project::Status::REPORTED unless cmd.nil?
     end
   end
@@ -142,13 +142,13 @@ class Project < ActiveRecord::Base
 
   def release_date
     return nil unless self.released?
-    last_release = self.commands.all.find_all { |cmd| cmd.is_a?(Release) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    last_release = self.commands.all.find_all { |cmd| cmd.is_a?(Release) && cmd.succeeded? }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last
     return self.updated_at if last_release.nil?
     return last_release.end_time.nil? ? last_release.updated_at : last_release.end_time
   end
 
   def most_recent_upload_date
-    last_upload = self.commands.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.last
+    last_upload = self.commands.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last
     return nil if last_upload.nil?
     return last_upload.end_time.nil? ? last_upload.updated_at.to_date : last_upload.end_time.to_date
   end
@@ -157,7 +157,7 @@ class Project < ActiveRecord::Base
     return self.release_date.to_date if (!self.release_date.nil? && self.release_date.to_date < Date.new(2009, 02, 01))
 
     # Find first upload date
-    first_upload = self.commands.all.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time <=> up2.end_time }.first
+    first_upload = self.commands.all.find_all { |cmd| cmd.is_a?(Upload) && cmd.succeeded? }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.first
     return nil if first_upload.nil?
     upload_date = first_upload.end_time.nil? ? first_upload.updated_at.to_date : first_upload.end_time.to_date
   end
