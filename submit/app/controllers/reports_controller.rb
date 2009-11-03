@@ -176,9 +176,16 @@ class ReportsController < ApplicationController
 
     # Only use the first version of any project, since it's impossible to "unrelease" a project.
     # This means finding all projects that do not deprecate another project.
-    all_projects = Project.all
-    deprecating_projects = all_projects.map { |p| p.deprecated_by_project }.compact
-    projects = all_projects - deprecating_projects
+    projects = Project.all
+    projects.clone.each { |p|
+      if p.deprecated_by_project then
+       if p.level >= p.deprecated_by_project.level then
+        projects.delete(p.deprecated_by_project)
+       else
+         projects.delete(p)
+       end
+      end
+    }
 
     projects.each { |p|
       all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
