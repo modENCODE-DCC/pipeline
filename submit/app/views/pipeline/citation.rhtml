@@ -236,8 +236,6 @@
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, external_ids)
 
-        puts "#{name}:#{name_tag}:#{url_tag}"
-
         if url_tag then
           link_to name_tag.value, url_tag.value
         elsif name_tag then
