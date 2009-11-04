@@ -1341,7 +1341,7 @@ class PipelineController < ApplicationController
       end
     else
       stanzaname = params[:stanzaname]
-      user_stanzas = TrackStanza.find_all_by_user_id(current_user.id)
+      user_stanzas = TrackStanza.find_all_by_user_id_and_project_id(current_user.id, @project.id)
       user_stanza = user_stanzas.find { |ts| ts.stanza.has_key? stanzaname }
 
       stanzas = user_stanza.stanza
