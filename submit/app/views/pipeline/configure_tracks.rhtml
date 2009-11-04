@@ -507,6 +507,9 @@
             </script>
             <%= submit_tag "Update" %>
           </div>
+        <% else %>
+          <%= hidden_field_tag :reload, true %>
+          <%= submit_tag "Update" %>
         <% end %>
     </form>
     <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
