@@ -239,7 +239,11 @@
         if url_tag then
           link_to name_tag.value, url_tag.value
         elsif name_tag then
-          name_tag.value
+          if (name_tag.type == "TraceArchive_record") then
+            "TA:" + name_tag.value
+          else
+            name_tag.value
+          end
         else
           tag.cvterm + ":" + name
         end
