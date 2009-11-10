@@ -35,7 +35,7 @@ ALTER TABLE $temporary_chado_schema_name$.attribute OWNER TO db_public;
 
 CREATE TABLE attributelist (
     id integer NOT NULL,
-    tag character varying(50) NOT NULL
+    tag character varying(255) NOT NULL
 );
 
 
@@ -67,7 +67,7 @@ ALTER TABLE $temporary_chado_schema_name$.feature OWNER TO db_public;
 
 CREATE TABLE locationlist (
     id integer NOT NULL,
-    seqname character varying(50) NOT NULL
+    seqname character varying(255) NOT NULL
 );
 
 
