@@ -32,6 +32,7 @@ If you have Perl and XML::Simple installed, and you want to name the files after
 <%= form_tag url_for(:action => :index), { :method => :post, :class => "bulk_select" } %>
   <label for"selected_freeze" class="bulk_select">Select freeze date:</label>
   <%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, @freeze_file), :onchange => "this.form.submit()") %>
+  <%= hidden_field_tag("prev_selected_freeze", @freeze_file) %>
   <br/>
   <label for="selected_experiment_type" class="bulk_select">Select experiment type:</label>
   <%= select_tag("selected_experiment_type[]", options_for_select(@experiment_types, :selected => @experiment_type, :disabled => @disabled_experiment_types), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
@@ -41,6 +42,17 @@ If you have Perl and XML::Simple installed, and you want to name the files after
   <%= select_tag("selected_data_type[]", options_for_select(@data_types, :selected => @data_type, :disabled => @disabled_data_types ), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
   <%= link_to_function("All", "$A($(this).previous('select').options).each(function(elem) { elem.selected = true; }); $(this).previous('select').form.submit();") %><br/>
   <% if @data_type && @data_type.size > 0 then %>
+    <div class="sample_characteristics">
+      <span style="float: left">
+        <label for="selected_project" class="bulk_select">Project:</label>
+        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
+        <%= select_tag("selected_project[]", options_for_select(@projects, @project), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
+      </span><span>
+        <label for="selected_lab" class="bulk_select">Lab:</label>
+        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
+        <%= select_tag("selected_lab[]", options_for_select(@labs, @lab), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
+      </span>
+    </div>
     <div class="sample_characteristics">
       <span style="float: left">
         <label for="selected_tissue" class="bulk_select">Tissue:</label>
@@ -61,10 +73,25 @@ If you have Perl and XML::Simple installed, and you want to name the files after
         <label for="selected_stage" class="bulk_select">Stage:</label>
         <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
         <%= select_tag("selected_stage[]", options_for_select(@stages, @stage), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span>
+      </span><span style="float:left">
         <label for="selected_antibody" class="bulk_select">Antibody:</label>
         <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
         <%= select_tag("selected_antibody[]", options_for_select(@antibodies, @antibody), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
+      </span><span>
+        <label for="selected_array_platform" class="bulk_select">Array Platform:</label>
+        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
+        <%= select_tag("selected_array_platform[]", options_for_select(@array_platforms, @array_platform), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
+      </span>
+    </div>
+    <div class="sample_characteristics">
+      <span style="float: left">
+        <label for="selected_rnai_target" class="bulk_select">RNAi Target:</label>
+        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
+        <%= select_tag("selected_rnai_target[]", options_for_select(@rnai_targets, @rnai_target), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
+      </span><span>
+        <label for="selected_compound" class="bulk_select">Compound:</label>
+        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
+        <%= select_tag("selected_compound[]", options_for_select(@compounds, @compound), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
       </span>
     </div>
   <% end %>
