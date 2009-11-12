@@ -99,7 +99,7 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 </tr>
 <tr style="text-align: center; background-color: <%=colors[0]%>;">
 <td>Initial Submission</td>
-<td><%=((time_from_submission_to_release.sum/time_from_submission_to_release.count) / 60 / 60 / 24).round %> days</td>
+<td><%=(time_from_submission_to_release.count > ) ? "#{((time_from_submission_to_release.sum/time_from_submission_to_release.count) / 60 / 60 / 24).round.to_s } days" : "N/A" %></td>
 <td><%=((time_from_submission_to_gbrowse.sum/time_from_submission_to_gbrowse.count) / 60 / 60 / 24).round %> days</td>
 <td>.</td>
 <td>.</td>
