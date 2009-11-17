@@ -1395,7 +1395,7 @@ class PipelineController < ApplicationController
           when :citation_text
             okay_value = true
             begin
-              REXML::Document.new("<html>#{value}</html>")
+              REXML::Document.new("<html>#{value.gsub(/&/, '&amp;')}</html>")
             rescue
               update_errors.push "Citation text is not valid XML."
               okay_value = false
@@ -1505,13 +1505,13 @@ class PipelineController < ApplicationController
     if params[:reload] then
       response = "window.location.reload();"
       if update_errors.size > 0 then
-        response = "alert('#{update_errors.join('\n').gsub("'", "\\'")}');" + response
+        response = "alert('#{update_errors.map { |ue| ue.gsub(/\n/, "\\n") }.join('\n').gsub(/'/, "\\\\'")}');" + response
       end
       render :text => response
     else
       response = "1;"
       if update_errors.size > 0 then
-        response = "alert('#{update_errors.join('\n').gsub("'", "\\'")}');"
+        response = "alert('#{update_errors.map { |ue| ue.gsub(/\n/, "\\n") }.join('\n').gsub("'", "\\'")}');"
       end
       render :text => response
     end
