@@ -135,7 +135,7 @@ track_defs.each do |stanzaname, definition|
     bam_file_path = File.join(ExpandController.path_to_project_id_dir(project_id), "tracks", definition[:bam_file])
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::Sam\n"
-    config_text << "db_args       = -fasta ../bam_support_fasta/#{organism}.fa\n"
+    config_text << "db_args       = -fasta ../bam_support_fasta/#{organism}.fa -split_splices 1\n"
     config_text << "                -bam #{bam_file_path}\n"
     config_text << "                -split_splices 1\n"
     config_text << "\n"

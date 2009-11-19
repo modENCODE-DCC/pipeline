@@ -20,6 +20,7 @@ use Bio::Graphics::Browser::RegionSearch;
 use Bio::Graphics::Browser::RenderPanels;
 use Bio::Graphics::Browser::GFFPrinter;
 use Bio::Graphics::Browser::Util qw[modperl_request url_label];
+use Bio::Graphics::Browser::UserTracks;
 
 use constant VERSION              => 2.0;
 use constant DEBUG                => 0;
@@ -37,7 +38,7 @@ my $FCGI_REQUEST;  # stash fastCGI request handle
 # new() can be called with two arguments: ($data_source,$session)
 # or with one argument: ($globals)
 # in the latter case, it will invoke this code:
-#   $session = $globals->session()
+#   $session = $globals->authorized_session()
 #   $globals->update_data_source($session)
 #   $source = $globals->create_data_source($session->source)
 
@@ -50,7 +51,9 @@ sub new {
     ($data_source,$session) = @_;
   } elsif (@_ == 1) {
     my $globals = shift;
-    $session = $globals->session(param('id'));
+    my $requested_id = param('id')        || CGI::cookie('gbrowse_sess');
+    my $authority    = param('authority') || CGI::cookie('authority');
+    $session = $globals->authorized_session($requested_id,$authority);
     $globals->update_data_source($session);
     $data_source = $globals->create_data_source($session->source);
   } else {
@@ -100,6 +103,14 @@ sub remote_sources {
   $d;
 }
 
+sub user_tracks {
+    my $self = shift;
+    return $self->{usertracks} 
+       ||= Bio::Graphics::Browser::UserTracks->new($self->data_source,
+						   $self->state,
+						   $self->language);
+}
+
 sub db {
   my $self = shift;
   my $d = $self->{db};
@@ -137,6 +148,12 @@ sub run {
        query_string() if $self->debug;
 
   $self->set_source();
+
+
+  # This guarantees that all user-specific tracks
+  # disappear after the current session completes.
+  local $self->data_source->{user_tracks} = {};
+
   my $state = $self->state;
 
   if ($self->run_asynchronous_event) {
@@ -600,10 +617,54 @@ sub asynchronous_event {
 	return (204,'text/plain',undef);
     }
 
+    # authorize an attempted login
+    if (param('authorize_login') && param('username') && param('session') && param('openid')) {
+	my ($id,$nonce) = $self->authorize_user(param('username'),param('session'),param('remember'),param('openid'));
+	return (200,'application/json',{id=>$id,authority=>$nonce});
+    }
+
+    # add a dummy track to the user data
+    if (param('new_test_track')) {
+	my $userdata = Bio::Graphics::Browser::UploadSet->new($self->data_source,
+							      $self->state,
+							      $self->language);
+	warn "Adding test track for ",$self->state->{uploadid}," path = ",($userdata->name_file('test'))[1];
+	return (204,'text/plain',undef);
+    }
+
     return unless $events;
     warn "processing asynchronous event(s)" if DEBUG;
     return (204,'text/plain',undef);
     1;
+}
+
+sub authorize_user {
+    my $self = shift;
+    my ($session,$error);
+    my ($username,$id,$remember,$using_openid) = @_;
+
+	warn "Checking current session";
+    my $current = $self->session->id;
+    if($current eq $id) {
+        warn "Using current session";
+        $session = $self->session;
+    } elsif($self->session->private) {
+        warn "Another account is currently in use";
+        return ("error");
+    } else {
+        warn "Retrieving old session";
+	    $session = $self->globals->session($id);  # create/retrieve session
+    }
+    
+    my $nonce = Bio::Graphics::Browser::Util->generate_id;
+    my $ip    = CGI::remote_addr();
+
+    $session->set_nonce($nonce,$ip,$remember);
+    $session->username($username);
+    $session->using_openid($using_openid);
+
+    $session->flush();
+    return ($id,$nonce);
 }
 
 sub format_autocomplete {
@@ -782,21 +843,23 @@ sub render {
 
 sub render_header {
   my $self    = shift;
-  my $cookie = $self->create_cookie();
+  my $cookie1 = $self->state_cookie();
+  my $cookie2 = $self->auth_cookie();
   my $header = CGI::header(
       -cache_control =>'no-cache',
-      -cookie  => $cookie,
+      -cookie  => [$cookie1,$cookie2],
       -charset => $self->tr('CHARSET'),
       );
   print $header;
 }
 
-sub create_cookie {
+sub state_cookie {
   my $self    = shift;
   my $session = $self->session;
-  my $path   = url(-absolute => 1);
-  $path      =~ s!gbrowse/?$!!;
+  my $path    = url(-absolute => 1);
+  $path       =~ s!gbrowse/?$!!;
   my $globals = $self->globals;
+  warn "setting cookie to ",$session->id;
   my $cookie = CGI::Cookie->new(
     -name    => $CGI::Session::NAME,
     -value   => $session->id,
@@ -804,6 +867,17 @@ sub create_cookie {
     -expires => '+'.$globals->time2sec($globals->remember_settings_time).'s',
   );
   return $cookie;
+}
+
+sub auth_cookie {
+    my $self = shift;
+    my $path = url(-absolute => 1);
+    $path    =~ s!gbrowse/?$!!;
+    my $auth = param('authority') or return;
+    return CGI::Cookie->new(
+    -name => 'authority',
+    -value=> $auth,
+    -path => $path);
 }
 
 # For debugging
@@ -849,6 +923,14 @@ sub render_body {
   }
   print $self->render_global_config();
   print $self->render_bottom($features);
+
+  if (param('confirm') && param('code') && param('id')) {
+      print $self->render_login_account_confirm(param('code'));
+  }
+
+  if (param('openid_confirm') && param('page') && param('s')) {
+      print $self->render_login_openid_confirm(param('page'),param('s'));
+  }
 }
 
 
@@ -3215,7 +3297,7 @@ sub render_error_track {
     my $self = shift;
     my %args             = @_;
     my $image_width      = $args{'image_width'};
-    my $image_height     = $args{'image_height'};
+    my $image_height     = $args{'image_height'} * 3;
     my $image_element_id = $args{'image_element_id'};
     my $track_id         = $args{'track_id'};
     my $error_message    = $args{'error_message'};
@@ -3228,7 +3310,7 @@ sub render_error_track {
     my $font             = GD->gdMediumBoldFont;
     my ($swidth,$sheight) = ($font->width * length($error_message),$font->height);
     my $xoff              = ($image_width - $swidth)/2;
-    my $yoff              = ($image_height - $sheight)/2;
+    my $yoff              = ($image_height - $sheight - 3);
     $gd->string($font,$xoff,$yoff,$error_message,$black);
     my ($url,$path) = $self->data_source->generate_image($gd);
 

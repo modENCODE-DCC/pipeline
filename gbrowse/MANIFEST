@@ -24,7 +24,7 @@ cgi-bin/gbrowse
 cgi-bin/gbrowse_details
 cgi-bin/gbrowse_gmap
 cgi-bin/gbrowse_img
-cgi-bin/README
+cgi-bin/gbrowse_login
 Changes
 conf/detail_select_menu.conf
 conf/enzymes.txt
@@ -252,6 +252,12 @@ htdocs/images/help/upload.gif
 htdocs/images/help/worm_exons_spec.png
 htdocs/images/help/worm_telomeric_spec.png
 htdocs/images/help/yeast_I_genes_spec.png
+htdocs/images/openid/aim-logo.png
+htdocs/images/openid/blogspot-logo.png
+htdocs/images/openid/livejournal-logo.png
+htdocs/images/openid/myopenid-logo.png
+htdocs/images/openid/openid-logo.gif
+htdocs/images/openid/yahoo-logo.png
 htdocs/images/spinner.gif
 htdocs/index.html
 htdocs/js/animation.js
@@ -271,6 +277,7 @@ htdocs/js/effects.js
 htdocs/js/event.js
 htdocs/js/GBox.js
 htdocs/js/karyotype.js
+htdocs/js/login.js
 htdocs/js/overviewSelect.js
 htdocs/js/prototype.js
 htdocs/js/regionSelect.js
@@ -457,7 +464,6 @@ lib/Bio/DB/Tagger.pm
 lib/Bio/DB/Tagger/mysql.pm
 lib/Bio/DB/Tagger/Tag.pm
 lib/Bio/Graphics/Browser.pm
-lib/Bio/Graphics/Browser/Admin.pm
 lib/Bio/Graphics/Browser/AuthorizedFeatureFile.pm
 lib/Bio/Graphics/Browser/CachedTrack.pm
 lib/Bio/Graphics/Browser/DataBase.pm
@@ -483,6 +489,7 @@ lib/Bio/Graphics/Browser/Session.pm
 lib/Bio/Graphics/Browser/Shellwords.pm
 lib/Bio/Graphics/Browser/UploadSet.pm
 lib/Bio/Graphics/Browser/UserData.pm
+lib/Bio/Graphics/Browser/UserTracks.pm
 lib/Bio/Graphics/Browser/Util.pm
 lib/Bio/Graphics/GBrowseFeature.pm
 lib/Bio/Graphics/Karyotype.pm

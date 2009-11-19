@@ -1154,49 +1154,64 @@ sub run_local_requests {
 
         my %trackmap;
 
-        if ( my $file = ($feature_files->{$base}) ) {
+	my $timeout         = $source->global_setting('global_timeout');
 
-            # Add feature files, including remote annotations
-            my $featurefile_select = $args->{featurefile_select}
+	eval {
+	    local $SIG{ALRM}    = sub { warn "alarm clock"; die "timeout" };
+	    alarm($timeout);
+
+	    if ( my $file = ($feature_files->{$base}) ) {
+		
+		# Add feature files, including remote annotations
+		my $featurefile_select = $args->{featurefile_select}
                 || $self->feature_file_select($section);
 
-            if ( ref $file and $panel ) {
-                $self->add_feature_file(
-                    file     => $file,
-                    panel    => $panel,
-                    position => $feature_file_offsets{$label} || 0,
-                    options  => {},
-                    select   => $featurefile_select,
-                );
-                %trackmap = map { $_ => $file } @{ $panel->{tracks} || [] };
-            }
-        }
-        else {
+		if ( ref $file and $panel ) {
+		    $self->add_feature_file(
+			file     => $file,
+			panel    => $panel,
+			position => $feature_file_offsets{$label} || 0,
+			options  => {},
+			select   => $featurefile_select,
+			);
+		    %trackmap = map { $_ => $file } @{ $panel->{tracks} || [] };
+		}
+	    }
+	    else {
+		
+		my $track_args = $requests->{$label}->track_args;
+		my $track      = $panel->add_track(@$track_args);
 
-	    my $track_args = $requests->{$label}->track_args;
-	    my $track      = $panel->add_track(@$track_args);
-	    # == populate the tracks with feature data ==
-	    $self->add_features_to_track(
-		-labels    => [ $label, ],
-		-tracks    => { $label => $track },
-		-filters   => $filters,
-		-segment   => $segment,
-		-fsettings => $settings->{features},
-		);
-	    %trackmap = ($track=>$label);
-        }
+		# == populate the tracks with feature data ==
+		$self->add_features_to_track(
+		    -labels    => [ $label, ],
+		    -tracks    => { $label => $track },
+		    -filters   => $filters,
+		    -segment   => $segment,
+		    -fsettings => $settings->{features},
+		    );
+		%trackmap = ($track=>$label);
+	    }
+	    # == generate the maps ==
+	    my $gd  = $panel->gd;
+	    my $map = $self->make_map( scalar $panel->boxes,
+				       $panel, $label,
+				       \%trackmap, 0 );
 
-        # == generate the maps ==
-        my $gd  = eval {$panel->gd};
-	unless ($gd) {
-	    warn "Fatal error while making track for $label: $@";
-	    $requests->{$label}->flag_error($@);
+	    $requests->{$label}->put_data($gd, $map );
+	    
+	};
+
+	alarm(0);
+	if ($@) {
+	    warn $@;
+	    if ($@ =~ /timeout/) {
+		$requests->{$label}->flag_error('Timeout; Try turning off tracks or looking at a smaller region.');
+	    } else {
+		$requests->{$label}->flag_error($@);
+	    }
 	    next;
 	}
-        my $map = $self->make_map( scalar $panel->boxes,
-            $panel, $label,
-            \%trackmap, 0 );
-        $requests->{$label}->put_data($gd, $map );
     }
 }
 
@@ -1351,7 +1366,7 @@ sub add_features_to_track {
   # The effect of this loop is to fetch a feature from each iterator in turn
   # using a queueing scheme. This allows streaming iterators to parallelize a
   # bit. This may not be worth the effort.
-  my (%feature2dbid,%classes);
+  my (%feature2dbid,%classes,%max_features,%limit_hit);
 
   while (keys %iterators) {
     for my $iterator (values %iterators) {
@@ -1476,6 +1491,7 @@ sub add_features_to_track {
 	$tracks->{$l}->configure(-key => $self->language->tr('FEATURES_CLIPPED',$max,$count));
     }
   }
+
 }
 
 sub load_external_sources {
@@ -1723,6 +1739,8 @@ sub create_track_args {
                         || {};   # user-set override settings for tracks
 
   my @override        = map {'-'.$_ => $override->{$_}} keys %$override;
+
+  push @override,(-feature_limit => $override->{limit}) if $override->{limit};
 
   my $hilite_callback = $args->{hilite_callback};
 

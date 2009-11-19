@@ -1,14 +1,16 @@
 package Bio::Graphics::Browser::Session;
 
-# $Id: Session.pm,v 1.15 2009/05/04 05:19:40 lstein Exp $
+# $Id: Session.pm,v 1.16.4.10 2009/08/27 19:02:58 idavies Exp $
 
 use strict;
 use warnings;
 
 use CGI::Session;
+use CGI::Cookie;
 use Fcntl 'LOCK_EX','LOCK_SH';
 use File::Spec;
 use File::Path 'mkpath';
+use Digest::MD5 'md5_hex';
 
 my $HAS_NFSLOCK;
 my $HAS_MYSQL;
@@ -32,7 +34,11 @@ sub new {
   $CGI::Session::NAME = 'gbrowse_sess';     # custom cookie
   $CGI::Session::Driver::file::NoFlock = 1; # flocking unnecessary because we roll our own
 
-  $id               ||= CGI->cookie($CGI::Session::NAME);
+  unless ($id) {
+      my $cookie = CGI::Cookie->fetch();
+      $id        = $cookie->{$CGI::Session::NAME}->value 
+	  if $cookie && $cookie->{$CGI::Session::NAME};
+  }
   my $self            = bless {
       lockdir  => $lockdir,
       locktype => $locktype,
@@ -40,6 +46,7 @@ sub new {
   $self->lock_ex($id) if $id;
 
   $self->{session}    = CGI::Session->new($driver,$id,$session_args);
+
   $self->{session}->expire($expire_time) 
       if defined $expire_time;
 
@@ -222,10 +229,54 @@ sub plugin_settings {
 sub source {
   my $self = shift;
   my $source = $self->{session}->param('.source');
-  if (@_) {
-    $self->{session}->param('.source' => shift());
-  }
+  $self->{session}->param('.source' => shift()) if @_;
   return $source;
+}
+
+sub private {
+    my $self = shift;
+    my $private = $self->{session}->param('.private');
+    $self->{session}->param('.private' => shift()) if @_;
+    return $private;
+}
+
+sub username {
+    my $self = shift;
+    my $user = $self->{session}->param('.username');
+    $self->{session}->param('.username' => shift()) if @_;
+    return $user;
+}
+
+sub using_openid {
+    my $self = shift;
+    my $using = $self->{session}->param('.using_openid');
+    $self->{session}->param('.using_openid' => shift()) if @_;
+    return $using;
+}
+
+sub set_nonce {
+    my $self = shift;
+    my ($nonce,$salt,$remember) = @_;
+    warn "id=",$self->id," writing nonce = ",md5_hex($nonce,$salt);
+    $self->{session}->param('.nonce' => md5_hex($nonce,$salt));
+
+    # BUG: must handle session expiration
+    if($remember) {
+        $self->{session}->expire('.nonce' => '30d');
+    } else {
+        $self->{session}->expire('.nonce' => '10m');
+    }
+    $self->private(1);
+}
+
+sub match_nonce {
+    my $self  = shift;
+    my ($new_nonce,$salt) = @_;
+    $self->private || return;
+    my $nonce = $self->{session}->param('.nonce');
+    warn "id=",$self->id," matching $nonce against ",$new_nonce,"|",$salt;
+    warn "$nonce eq ",md5_hex($new_nonce,$salt);
+    return $nonce eq md5_hex($new_nonce,$salt);
 }
 
 sub config_hash {

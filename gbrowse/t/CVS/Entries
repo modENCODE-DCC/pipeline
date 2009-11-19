@@ -1,11 +1,11 @@
 D/testdata////
 D/data////
-/01yeast.t/1.5/Wed Dec  3 18:43:37 2008/-kb/THEAD
-/02.rearchitecture.t/1.18/Tue Jun  2 21:24:42 2009/-kb/THEAD
-/03.render.t/1.38/Tue Jun  2 21:24:42 2009/-kb/THEAD
-/04.remoteserver.t/1.18/Wed Jan 28 19:22:12 2009/-kb/THEAD
-/05.deferredrendering.t/1.13/Wed Jan 28 19:22:12 2009/-kb/THEAD
-/06.featuresearch.t/1.13/Wed Jan 28 19:22:12 2009/-kb/THEAD
-/07.karyotype.t/1.1/Wed Jan 21 16:35:42 2009//THEAD
-/08.calign.t/1.2/Wed Dec  3 18:43:37 2008//THEAD
-/Test.pm/1.1.1.1/Wed Dec  3 18:43:37 2008/-kb/THEAD
+/01yeast.t/1.5/Wed Sep 16 17:33:09 2009/-kb/THEAD
+/04.remoteserver.t/1.18/Wed Sep 16 17:33:09 2009/-kb/THEAD
+/05.deferredrendering.t/1.13/Wed Sep 16 17:33:09 2009/-kb/THEAD
+/06.featuresearch.t/1.13/Wed Sep 16 17:33:09 2009/-kb/THEAD
+/07.karyotype.t/1.1/Wed Sep 16 17:33:09 2009//THEAD
+/08.calign.t/1.2/Wed Sep 16 17:33:09 2009//THEAD
+/Test.pm/1.1.1.1/Wed Sep 16 17:33:09 2009/-kb/THEAD
+/02.rearchitecture.t/1.19/Fri Oct 23 00:42:34 2009/-kb/THEAD
+/03.render.t/1.39/Fri Oct 23 00:42:34 2009/-kb/THEAD
