@@ -1,6 +1,7 @@
 class AppliedProtocol
   def initialize(attrs = {})
     @inputs = Array.new
+    @protocols = Array.new
     attrs.each_pair { |key, value|
       m = self.method("#{key}=")
       m.call value unless m.nil?
@@ -21,20 +22,6 @@ class AppliedProtocol
     @inputs
   end
 
-  def protocol_id=(newprotocol)
-    @protocol_id = newprotocol
-  end
-  def protocol_id
-    @protocol_id
-  end
-
-  def protocol=(newprotocol)
-    @protocol = newprotocol
-  end
-  def protocol
-    @protocol
-  end
-
   def column=(newcolumn)
     @column = newcolumn
   end
@@ -42,4 +29,14 @@ class AppliedProtocol
     @column
   end
 
+  def add_protocol(newprotocol)
+    unless @protocols.include?(newprotocol)
+      @protocols.push newprotocol
+    end
+  end
+  def protocols
+    @protocols
+  end
+
 end
+

@@ -578,8 +578,7 @@ class TrackFinder
       sth_aps.fetch do |row|
         applied_protocols[row[0]].column = 0 # Note that the AP gets autocreated by the hash init block
         applied_protocols[row[0]].inputs.push(row[1]) if row[1]
-        applied_protocols[row[0]].protocol = row[2]
-        applied_protocols[row[0]].protocol_id = row[3]
+        applied_protocols[row[0]].add_protocol({ :name => row[2], :id => row[3] })
       end
       sth_aps.finish
     }
@@ -617,14 +616,14 @@ class TrackFinder
           sth_aps.fetch do |row|
             applied_protocols[row[0]].column = column + 1 # Note that the AP gets autocreated by the hash init block
             applied_protocols[row[0]].inputs.push row[1]
-            applied_protocols[row[0]].protocol = row[2]
-            applied_protocols[row[0]].protocol_id = row[3]
+            applied_protocols[row[0]].add_protocol({ :name => row[2], :id => row[3] })
           end
         end
         column = column + 1
       end
       sth_aps.finish
     }
+
     cmd_puts "    Done."
 
     # Currently, each set of inputs or outputs for an applied protocol is a potential track
@@ -659,13 +658,13 @@ class TrackFinder
       end
 
       if number_of_tracks > TRACKS_PER_COLUMN then
-        cmd_puts "      #{cur_aps[0].protocol} has #{number_of_tracks} potential distinct tracks; attempting to combine applied protocols."
+        cmd_puts "      #{cur_aps[0].protocols.map { |p| p[:name] }.join(", ")} has #{number_of_tracks} potential distinct tracks; attempting to combine applied protocols."
 
         # Get all the inputs for tracks that collapse
         inputs_that_collapse = tracks_by_input.reject { |k, v| number_of_tracks/v.size > TRACKS_PER_COLUMN }
         full_collapse_inputs = inputs_that_collapse.reject { |k, v| number_of_tracks != v.size }
         full_collapse_inputs.each do |data_id, aps|
-          cmd_puts "        Could collapse all applied protocols for protocol '#{aps[0].protocol}' into one set of track(s) by shared '#{data_names[data_id]}'"
+          cmd_puts "        Could collapse all applied protocols for protocol '#{aps[0].protocols.map { |p| p[:name] }.join(", ")}' into one set of track(s) by shared '#{data_names[data_id]}'"
         end
 
         partial_collapse_inputs = Hash.new { |hash, key| hash[key] = Array.new }
@@ -676,7 +675,7 @@ class TrackFinder
         # TODO: If could do a partial collapse on an anonymous datum, then work back up the protocol chain
         # and find out where the difference _does_ occur
         partial_collapse_inputs.each do |data_name, aps|
-          cmd_puts "        Could collapse all applied protocols for protocol '#{aps[0][0].protocol}' into #{aps.size} tracks by shared '#{data_name}'"
+          cmd_puts "        Could collapse all applied protocols for protocol '#{aps[0][0].protocols.map { |p| p[:name] }.join(", ")}' into #{aps.size} tracks by shared '#{data_name}'"
         end
 
         # TODO: Replace this with above todo
@@ -693,11 +692,11 @@ class TrackFinder
           usable_tracks[column] = usable_tracks[column] + partial_collapse_inputs[selected_dividing_datum]
         else
           # No inputs allow collapsing (either in part or total) so just collapse the whole thing on principle
-          cmd_puts "      Creating 1 set(s) of track(s) for protocol '#{cur_aps[0].protocol}'; there is no way to collapse by input."
+          cmd_puts "      Creating 1 set(s) of track(s) for protocol '#{cur_aps[0].protocols.map { |p| p[:name] }.join(", ")}'; there is no way to collapse by input."
           usable_tracks[column].push cur_aps
         end
       else
-        cmd_puts "      Creating #{number_of_tracks} set(s) of track(s) for protocol '#{cur_aps[0].protocol}'"
+        cmd_puts "      Creating #{number_of_tracks} set(s) of track(s) for protocols '#{cur_aps[0].protocols.map { |p| p[:name] }.join(", ")}'"
         usable_tracks[column].push cur_aps
       end
     end
@@ -917,11 +916,11 @@ class TrackFinder
               INNER JOIN protocol_attribute pa ON a.attribute_id = pa.attribute_id 
               INNER JOIN protocol p ON pa.protocol_id = p.protocol_id 
               LEFT JOIN dbxref dbx ON p.dbxref_id = dbx.dbxref_id
-              WHERE a.heading = 'Protocol Type' AND p.protocol_id = ?
+              WHERE a.heading = 'Protocol Type' AND p.protocol_id = ANY(?)
               GROUP BY p.protocol_id, p.name, type, url"
 
-      protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_id|
-        sth_protocol_type.execute(protocol_id)
+      protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_ids|
+        sth_protocol_type.execute(protocol_ids)
         sth_protocol_type.fetch do |row|
           begin
           TrackTag.new(
@@ -964,10 +963,9 @@ class TrackFinder
     usable_tracks = find_usable_tracks(experiment_id, project_id)
     return nil if usable_tracks.nil?
     # Figure out the protocol order
-    protocol_ids_by_column = Hash.new
+    protocol_ids_by_column = Hash.new {|h, k| h[k] = Array.new }
     usable_tracks.each { |col, set_of_tracks| 
-      # FIXME: Only supports a single protocol per column
-      protocol_ids_by_column[col] = set_of_tracks.first.first.protocol_id
+      protocol_ids_by_column[col] = set_of_tracks.first.map { |ap| ap.protocols.map { |p| p[:id] } }.uniq
     }
 
     tracknum_to_data_name = Hash.new
