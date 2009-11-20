@@ -1396,8 +1396,8 @@ class PipelineController < ApplicationController
             okay_value = true
             begin
               REXML::Document.new("<html>#{value.gsub(/&/, '&amp;')}</html>")
-            rescue
-              update_errors.push "Citation text is not valid XML."
+            rescue REXML::ParseException => e
+              update_errors.push "Citation text is not valid XML. #{e}"
               okay_value = false
             end
           end
