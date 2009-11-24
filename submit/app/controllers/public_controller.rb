@@ -312,17 +312,15 @@ class PublicController < ApplicationController
     render :status => 200, :text => Proc.new { |response, output|
       max_size = 4096
       Open3.popen3('bash', '-c', command) { |stdin, stdout, stderr|
-        stderr_is_eof = false
         stdout_is_eof = false
-        while !stdout_is_eof do
+        while !stdout.eof? do
           buf = ""
           begin
-            buf = stdout.read_nonblock(max_size)
+            stdout.readpartial(max_size, buf)
+            output.write(buf) if buf && buf.length > 0
           rescue EOFError
-            stdout_is_eof = true
-          rescue Errno::EAGAIN
+          rescue
           end
-          output.write(buf) if buf.length > 0
         end
       }
     }
