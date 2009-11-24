@@ -314,13 +314,7 @@ class PublicController < ApplicationController
       Open3.popen3('bash', '-c', command) { |stdin, stdout, stderr|
         stderr_is_eof = false
         stdout_is_eof = false
-        while !stderr_is_eof || !stdout_is_eof do
-          begin
-            string = stderr.read_nonblock(max_size)
-          rescue EOFError
-            stderr_is_eof = true
-          rescue Errno::EAGAIN
-          end
+        while !stdout_is_eof do
           buf = ""
           begin
             buf = stdout.read_nonblock(max_size)
@@ -330,7 +324,6 @@ class PublicController < ApplicationController
           end
           output.write(buf) if buf.length > 0
         end
-        output.flush
       }
     }
   end
