@@ -38,8 +38,8 @@ class ValidateIdf2chadoxmlController < ValidateController
       # If the root of the extracted package just contains a single dir, assume
       # the IDF is in that dir
       lookup_dir = package_dir
-      if Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$/ }.size == 1 then
-        entry = Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$/ }.first
+      if Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$|\/ws\d+$/ }.size == 1 then
+        entry = Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml$|\/ws\d+$/ }.first
         if File.directory? entry then
           lookup_dir = entry
         end
