@@ -179,7 +179,13 @@ If you want to download data in bulk, please try:
           end_date_text = end_date ? end_date : "unknown/no data"
         %>
         <% if end_date.nil? || end_date > Date.today then %>
-          <%= link_to unvetted_status, { :action => "download", :id => project, :root => :data }, :confirm => "This data is embargoed until #{end_date}. You may not publish genome-wide analyses using this data until the embargo period expires. See the modENCODE data release policy for details." %>
+          <%
+            confirm_text = "This data is embargoed until #{end_date}. You may not publish genome-wide analyses using this data until the embargo period expires. See the modENCODE data release policy for details."
+            if project.status != "released" then
+              confirm_text += "\n\nIMPORTANT: This submission is PRELIMINARY data, not yet vetted by the DCC. It MAY NOT HAVE UNDERGONE QC and MAY BE REMOVED OR ALTERED."
+            end
+          %>
+          <%= link_to unvetted_status, { :action => "download", :id => project, :root => :data }, :confirm => confirm_text %>
         <% else %>
           <%= link_to unvetted_status, { :action => "download", :id => project, :root => :data } %>
         <% end %>
