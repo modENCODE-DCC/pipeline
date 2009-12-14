@@ -470,9 +470,12 @@ class PublicController < ApplicationController
       modtime = Time.new - 84001 # By default, it's out of date
       modtime = File.mtime(cache_file) if File.exists?(cache_file)
       if Time.new - modtime > 84000 then
+        begin
         OpenURI.open_uri(loaded_ids_url) { |result|
           File.open(cache_file, "w") { |f| f.puts result.read }
         }
+        rescue
+        end
       end
       File.open(cache_file) { |f| ids = f.read.split.map { |n| n.to_i } }
 
