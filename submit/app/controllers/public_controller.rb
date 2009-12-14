@@ -477,7 +477,7 @@ class PublicController < ApplicationController
         rescue
         end
       end
-      File.open(cache_file) { |f| ids = f.read.split.map { |n| n.to_i } }
+      File.open(cache_file) { |f| ids = f.read.split.map { |n| n.split(/\t/)[0].to_i } }
 
       return ids
   end
