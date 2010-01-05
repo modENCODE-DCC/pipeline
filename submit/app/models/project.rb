@@ -127,17 +127,20 @@ class Project < ActiveRecord::Base
     # uploaded raw data files incl readme = level 1
     # uploaded wig/alignment/feature files = level 2
     # only once released  = level 3
-    if self.released?
-      return 3
-    elsif ((self.has_wig_data? || self.has_feature_data?) && (self.has_readme? || self.has_metadata?))
-      return 2  # TODO: need to add in a self.has_config?
-    elsif (self.has_raw_data? && (self.has_readme? || self.has_metadata?))
-      return 1
-    elsif self.status == Project::Status::NEW
-      return 0  
-    else
-      return 0
+    if (@level.nil?) then
+      if self.released?
+        @level = 3
+      elsif ((self.has_wig_data? || self.has_feature_data?) && (self.has_readme? || self.has_metadata?))
+        @level = 2  # TODO: need to add in a self.has_config?
+      elsif (self.has_raw_data? && (self.has_readme? || self.has_metadata?))
+        @level = 1
+      elsif self.status == Project::Status::NEW
+        @level = 0  
+      else
+        @level = 0
+      end
     end
+    @level
   end
 
   def release_date

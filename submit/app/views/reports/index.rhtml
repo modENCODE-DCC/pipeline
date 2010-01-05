@@ -246,29 +246,33 @@ Numbers in parentheses indicate the total active submissions for that particular
 
 <% missing_quarters = @all_released_projects_per_group_per_quarter.map{|q,v| q unless v.map{|pi,n| n}.sum > 0}.compact.sort %>
 <%
-   upload_commands = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
-   upload_fails = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
+   all_upload_commands = Command.find_all_by_type([Upload::Url.name, Upload::File.name])
+   upload_commands = all_upload_commands.find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
+   upload_fails = all_upload_commands.find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
    upload_scatter = Array.new
    upload_commands.each{|cmd| upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
    upload_times = upload_scatter.sort.map{|a| a[1].round}
    upload_sum = upload_times.sum
 
-   validate_commands = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
-   validate_fails = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
+   all_validate_commands = Command.find_all_by_type(ValidateIdf2chadoxml.name)
+   validate_commands = all_validate_commands.find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
+   validate_fails = all_validate_commands.find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
    validate_scatter = Array.new
    validate_commands.each{|cmd| validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
    validate_times = validate_scatter.sort.map{|a| a[1].round}
    validate_sum = validate_times.sum
 
-   findtrack_fails = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
-   findtrack_commands = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
+   all_findtrack_commands = Command.find_all_by_type(FindTracks.name)
+   findtrack_commands = all_findtrack_commands.find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
+   findtrack_fails = all_findtrack_commands.find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
    findtrack_scatter = Array.new
    findtrack_commands.each{|cmd| findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
    findtrack_times = findtrack_scatter.sort.map{|a| a[1].round}
    findtrack_sum = findtrack_times.sum
 
-   load_fails =  (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Load::Status::LOADED}
-   load_commands = (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status==Load::Status::LOADED}
+   all_load_commands = Command.find_all_by_type(LoadIdf2chadoxml.name)
+   load_commands = all_load_commands.find_all{|cmd| cmd.status==Load::Status::LOADED}
+   load_fails =  all_load_commands.find_all{|cmd| cmd.status!=Load::Status::LOADED}
    load_scatter = Array.new
    load_commands.each{|cmd| load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil?}
    load_times = load_scatter.sort.map{|a| a[1].round}
@@ -329,31 +333,23 @@ Numbers in parentheses indicate the total active submissions for that particular
 
 <%
    #adjusted times by removing items beyond 3*stdevs
-   aj_upload_commands = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status==Upload::Status::UPLOADED}
-   aj_upload_fails = (Command.find_all_by_type(Upload::Url.name) + Command.find_all_by_type(Upload::File.name)).find_all{|cmd| cmd.status!=Upload::Status::UPLOADED}
    aj_upload_scatter = Array.new
-   aj_upload_commands.each{|cmd| aj_upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (upload_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   upload_commands.each{|cmd| aj_upload_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (upload_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_upload_times = aj_upload_scatter.sort.map{|a| a[1].round}
    aj_upload_times = [0] if (aj_upload_times.size == 0)
 
-   aj_validate_commands = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status==Validate::Status::VALIDATED}
-   aj_validate_fails = (Command.find_all_by_type(ValidateIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Validate::Status::VALIDATED}
    aj_validate_scatter = Array.new
-   aj_validate_commands.each{|cmd| aj_validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (validate_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   validate_commands.each{|cmd| aj_validate_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (validate_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_validate_times = aj_validate_scatter.sort.map{|a| a[1].round}
    aj_validate_times = [0] if (aj_validate_times.size == 0)
 
-   aj_findtrack_fails = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status!=FindTracks::Status::FOUND}
-   aj_findtrack_commands = Command.find_all_by_type(FindTracks.name).find_all{|cmd| cmd.status==FindTracks::Status::FOUND}
    aj_findtrack_scatter = Array.new
-   aj_findtrack_commands.each{|cmd| aj_findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (findtrack_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   findtrack_commands.each{|cmd| aj_findtrack_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (findtrack_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_findtrack_times = aj_findtrack_scatter.sort.map{|a| a[1].round}
    aj_findtrack_times = [0] if (aj_findtrack_times.size == 0)
 
-   aj_load_fails =  (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status!=Load::Status::LOADED}
-   aj_load_commands = (Command.find_all_by_type(LoadIdf2chadoxml.name)).find_all{|cmd| cmd.status==Load::Status::LOADED}
    aj_load_scatter = Array.new
-   aj_load_commands.each{|cmd| aj_load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (load_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
+   load_commands.each{|cmd| aj_load_scatter.push([cmd.end_time,cmd.end_time-cmd.start_time]) unless cmd.end_time.nil? || cmd.start_time.nil? || (cmd.end_time-cmd.start_time) > (load_times.stdev*2) || (cmd.end_time-cmd.start_time) > (3600*24*3)}
    aj_load_times = aj_load_scatter.sort.map{|a| a[1].round}
    aj_load_times = [0] if (aj_load_times.size == 0)
 
@@ -373,7 +369,7 @@ Numbers in parentheses indicate the total active submissions for that particular
        <td class="content"><%= "#{convert_time(aj_validate_times.mean)}"%> </td>
        <td class="content"><%= "#{convert_time(aj_validate_times.stdev)}"%> </td>
        <td class="content"><%= "#{convert_time(aj_validate_times.median)}"%> </td>
-       <td class="content2"><%= "#{aj_validate_fails.length}"%></td>
+       <td class="content2"><%= "#{validate_fails.length}"%></td>
        <td class="content2"><%= "#{validate_times.length - aj_validate_times.length}" %></td>
        <td class="notes">&nbsp;</td>
    </tr>
@@ -385,7 +381,7 @@ Numbers in parentheses indicate the total active submissions for that particular
        <td class="content"><%=  if aj_upload_times.mean < 1 then "< 1s" else "#{convert_time(aj_upload_times.mean)}" end %> </td>
        <td class="content"><%=  if aj_upload_times.stdev < 1 then "< 1s" else "#{convert_time(aj_upload_times.stdev)}" end %> </td>
        <td class="content"><%= if aj_upload_times.median < 1 then "< 1s" else "#{convert_time(aj_upload_times.median)}" end %> </td>
-       <td class="content2"><%= "#{aj_upload_fails.length}"%></td>
+       <td class="content2"><%= "#{upload_fails.length}"%></td>
        <td class="content2"><%= "#{upload_times.length - aj_upload_times.length}" %></td>
        <td class="notes" >via url:<%="#{upload_commands.find_all{|c| c.type==Upload::Url.name}.length}"%><br />via local file: <%="#{upload_commands.find_all{|c| c.type==Upload::File.name}.length}"%></td>
    </tr>
@@ -397,7 +393,7 @@ Numbers in parentheses indicate the total active submissions for that particular
        <td class="content"><%= "#{convert_time(aj_load_times.mean)} "%></td>
        <td class="content"><%= "#{convert_time(aj_load_times.stdev)} "%></td>
        <td class="content"><%= "#{convert_time(aj_load_times.median)} "%></td>
-       <td class="content2"><%= "#{aj_load_fails.length}"%></td>
+       <td class="content2"><%= "#{load_fails.length}"%></td>
        <td class="content2"><%= "#{load_times.length - aj_load_times.length}" %></td>
        <td class="notes">&nbsp;</td>
    </tr>
@@ -409,7 +405,7 @@ Numbers in parentheses indicate the total active submissions for that particular
        <td class="content"><%="#{convert_time(aj_findtrack_times.mean)}"%></td>
        <td class="content"><%="#{convert_time(aj_findtrack_times.stdev)}"%></td>
        <td class="content"><%="#{convert_time(aj_findtrack_times.median)}"%></td>
-       <td class="content2"><%= "#{aj_findtrack_fails.length}"%></td>
+       <td class="content2"><%= "#{findtrack_fails.length}"%></td>
        <td class="content2"><%= "#{findtrack_times.length - aj_findtrack_times.length}" %></td>
        <td class="notes">&nbsp;</td>
    </tr>

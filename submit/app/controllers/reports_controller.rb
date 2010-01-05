@@ -190,6 +190,7 @@ class ReportsController < ApplicationController
     projects.each { |p|
       all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
     }
+
     @all_distribution_levels_by_pi = all_distribution_levels_by_pi
 
 
@@ -212,7 +213,7 @@ class ReportsController < ApplicationController
           step = case p.status  
             when (Project::Status::NEW ) : 1
 	    when Project::Status::UPLOAD_FAILED : 1
-	     when Project::Status::UPLOADING : 1
+	    when Project::Status::UPLOADING : 1
             when (Project::Status::UPLOADED) : 2
             when (Project::Status::VALIDATION_FAILED) : 2
 	    when (Project::Status::VALIDATING) : 2
@@ -248,28 +249,33 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_new_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.reject { |p| p.deprecated? }.each {|p| @all_new_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1 unless pis.index(p.pi.split(",")[0]).nil? }
+    undeprecated_projects = Project.all.reject { |p| p.deprecated? }
+    undeprecated_projects.each {|p| @all_new_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1 unless pis.index(p.pi.split(",")[0]).nil? }
 
 
     @all_released_projects_per_group_per_quarter = Hash.new {|hash,quarter| hash[quarter] = Hash.new { |hash2, pi | hash2[pi] = 0} }
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_released_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    Project.all.reject { |p| p.deprecated? }.find_all{|p| p.released?}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v| Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.end_time.to_date <= v["end"] && Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.last.end_time.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1 unless Command.find_all_by_project_id(p.id).find_all{|c| c.status==Project::Status::RELEASED}.length==0}
+    undeprecated_projects.find_all{|p| p.released?}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v|
+      cmds = Command.find_all_by_project_id_and_status(p.id, Project::Status::RELEASED)
+      cmd = cmds.last if cmds.length > 0
+      cmd && cmd.end_time.to_date <= v["end"] && cmd.end_time.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1
+    }
 
 
     @all_new_projects_per_quarter = Hash.new {|hash,quarter| hash[quarter] = 0} 
-    Project.all.reject { |p| p.deprecated? }.each {|p| @all_new_projects_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1  unless pis.index(p.pi.split(",")[0]).nil? }
+    undeprecated_projects.each {|p| @all_new_projects_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]] += 1  unless pis.index(p.pi.split(",")[0]).nil? }
 
 
     all_distributions_by_user = Hash.new { |hash, user| hash[user] = Hash.new { |hash2, status| hash2[status] = 0} }
-    Project.all.reject { |p| p.deprecated? }.each { |p| all_distributions_by_user[p.user.login][p.status] += 1 }
+    undeprecated_projects.each { |p| all_distributions_by_user[p.user.login][p.status] += 1 }
 
     @all_distributions_by_status = Hash.new {|hash,status| hash[status] = 0}
-    Project.all.reject { |p| p.deprecated? }.each {|p| @all_distributions_by_status[p.status] += 1 }
+    undeprecated_projects.each {|p| @all_distributions_by_status[p.status] += 1 }
 
     overall_distributions = Hash.new { |hash, status| hash[status] = 0 }
-    Project.all.reject { |p| p.deprecated? }.each { |p| overall_distributions[p.status] += 1 }
+    undeprecated_projects.each { |p| overall_distributions[p.status] += 1 }
     @all_distributions = overall_distributions
 
 
@@ -278,7 +284,7 @@ class ReportsController < ApplicationController
     status = ["Active","Released"]
     @bi_status = status
     status.each{|s| pis.each {|p| @all_projects_by_pi[p][s] = 0}}
-    Project.all.reject { |p| p.deprecated? }.each do |p|
+    undeprecated_projects.each do |p|
           step = 0
           #identify what step its at
           step = case p.status
@@ -299,7 +305,7 @@ class ReportsController < ApplicationController
     end
 
 
-    @all_projects = Project.all.reject { |p| p.deprecated? }
+    @all_projects = undeprecated_projects
 
   end
 
