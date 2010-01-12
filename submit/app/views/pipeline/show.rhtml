@@ -166,7 +166,7 @@
         :preview, 
         (@project.project_archives.all.find { |pa| pa.status == ProjectArchive::Status::EXPANDED } ? PreviewBrowser::Status::GENERATING_PREVIEW : false),
         "#{@project.has_preview? ? "Rebuild" : "Build"} GBrowse preview",
-        @project.has_preview? ? link_to("Preview uploaded data files in GBrowse.", "http://gbrowse.oicr.on.ca/fgb2/gbrowse/#{organism}_preview/", :target => "_blank") : "Build a preview browser for this project.",
+        @project.has_preview? ? link_to("Preview uploaded data files in GBrowse.", "http://submit.modencode.org/gbrowse/cgi-bin/gbrowse/preview_#{project.id}/", :target => "_blank") : "Build a preview browser for this project.",
         "(Data must be expanded.)",
       ],
       [
