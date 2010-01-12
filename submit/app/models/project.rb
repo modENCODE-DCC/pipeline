@@ -232,7 +232,12 @@ class Project < ActiveRecord::Base
     end
 
     def self.status_number(state)
-      states_in_order.find { |n, states| states.include?(state) }[0]
+      states = states_in_order.find { |n, states| states.include?(state) }
+      if states then
+        states[0]
+      else
+        nil
+      end
     end
 
     def self.is_active_state(state)
