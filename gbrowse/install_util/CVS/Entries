@@ -1,11 +1,11 @@
-/GBrowseGuessDirectories.pm/1.4/Wed Sep 16 17:33:09 2009//THEAD
-/InstallUtil.pm/1.5/Wed Sep 16 17:33:09 2009/-kb/THEAD
-/cgi_install.pl/1.8/Wed Sep 16 17:33:09 2009//THEAD
-/conf_install.pl/1.6/Wed Sep 16 17:33:09 2009//THEAD
-/gbrowse_ppm_install.pl/1.2/Wed Sep 16 17:33:09 2009//THEAD
-/htdocs_install.pl/1.13/Wed Sep 16 17:33:09 2009//THEAD
-/make_clean_add.pl/1.4/Wed Sep 16 17:33:09 2009/-kb/THEAD
-/pod2docs.pl/1.4/Wed Sep 16 17:33:09 2009/-kb/THEAD
-/sync-bioperl.sh/1.1/Wed Sep 16 17:33:09 2009//THEAD
-/GBrowseInstall.pm/1.45/Fri Oct 23 00:42:33 2009//THEAD
+/GBrowseGuessDirectories.pm/1.4/Mon Nov 16 22:34:07 2009//THEAD
+/GBrowseInstall.pm/1.45/Mon Nov 16 22:34:08 2009//THEAD
+/InstallUtil.pm/1.5/Mon Nov 16 22:34:07 2009/-kb/THEAD
+/cgi_install.pl/1.8/Mon Nov 16 22:34:07 2009//THEAD
+/conf_install.pl/1.6/Mon Nov 16 22:34:07 2009//THEAD
+/gbrowse_ppm_install.pl/1.2/Mon Nov 16 22:34:07 2009//THEAD
+/htdocs_install.pl/1.13/Mon Nov 16 22:34:07 2009//THEAD
+/make_clean_add.pl/1.4/Mon Nov 16 22:34:07 2009/-kb/THEAD
+/pod2docs.pl/1.4/Mon Nov 16 22:34:07 2009/-kb/THEAD
+/sync-bioperl.sh/1.1/Mon Nov 16 22:34:07 2009//THEAD
 D
