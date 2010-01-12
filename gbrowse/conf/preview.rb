@@ -5,7 +5,7 @@ require 'socket'
 require 'rubygems'
 require '../../submit/config/environment'
 
-path_prefix = "/srv/www/data/pipeline_public"
+path_prefix = "/srv/www/data/pipeline"
 if Socket.gethostname == "smaug" then
   path_prefix = "/var/www/data/pipeline"
 end
