@@ -101,6 +101,8 @@ class PublicController < ApplicationController
         xml_objs = Project.all.map { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
           url = url_for(:action => :get_file, :id => p) + full_path
+          embargo_date = p.embargo_end_date
+          embargo_date = embargo_date.strftime("%F") unless embargo_date.nil?
           { 
             :id => p.id,
             :pi => p.pi,
@@ -108,7 +110,8 @@ class PublicController < ApplicationController
             :deprecated => p.deprecated?,
             :replaced_by => p.deprecated? ? p.deprecated_by_project.id : nil,
             :name => p.name,
-            :chadoxml => url 
+            :chadoxml => url,
+            :embargo_date => embargo_date
           }
         }
         render :xml => xml_objs
@@ -117,6 +120,8 @@ class PublicController < ApplicationController
         text_objs = Project.all.map { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
           url = url_for(:action => :get_file, :id => p) + full_path
+          embargo_date = p.embargo_end_date
+          embargo_date = embargo_date.strftime("%F") unless embargo_date.nil?
           [
             p.id,
             p.deprecated?,
@@ -124,7 +129,8 @@ class PublicController < ApplicationController
             url,
             p.name,
             p.pi,
-            p.status
+            p.status,
+            embargo_date
           ].join("\t")
         }
         render :text => text_objs.join("\n")
