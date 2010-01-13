@@ -108,7 +108,12 @@ track_defs = Hash.new
 all_track_defs.each { |td| track_defs.merge! td.stanza }
 
 track_defs.reject! { |track, config| 
-  stanza_organism = (config[:organism] == "Caenorhabditis elegans") ? "worm" : "fly"
+  stanza_organism = "worm" if config[:organism] == "Caenorhabditis elegans"
+  stanza_organism = "dpse" if config[:organism] == "Drosophila pseudoobscura pseudoobscura"
+  stanza_organism = "dsim" if config[:organism] == "Drosophila simulans"
+  stanza_organism = "dsec" if config[:organism] == "Drosophila sechellia"
+  stanza_organism = "dper" if config[:organism] == "Drosophila persimilis"
+  stanza_organism = "fly" if stanza_organism.nil?
   stanza_organism != organism
 }
 
