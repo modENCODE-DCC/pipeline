@@ -425,9 +425,10 @@ class PublicController < ApplicationController
     unless File.file?(file) then
       # Try to see if there's a base directory from the archive
       # (e.g. extracted/MySubmission/...)
-      curdir = File.dirname(file)
-      subdirs = Dir.entries(curdir).reject { |entry| entry =~ /^\./ }.find_all { |entry| File.directory?(File.join(curdir, entry)) }
-      file = File.join(curdir, subdirs[0], File.basename(file)) if subdirs.size == 1
+      subdirs = Dir.entries(@root_directory).reject { |entry|
+        entry =~ /^\./  || entry == "ws180"
+      }.find_all { |entry| File.directory?(File.join(@root_directory, entry)) }
+      file = File.join(@root_directory, subdirs[0], params[:path]) if subdirs.size == 1
       unless File.file?(file) then
         flash[:error] = "File does not exist #{file}"
         redirect_to :action => :download, :id => params[:id], :root => params[:root] 
