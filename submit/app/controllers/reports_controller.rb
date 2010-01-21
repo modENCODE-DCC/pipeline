@@ -83,9 +83,65 @@ class ReportsController < ApplicationController
     index
   end
 
+  def publish
+    @time_format = "%a, %b %d, %Y (%H:%M)"
+    unpublish = params[:publish_date].empty?
+    unless current_user.is_a?(Moderator) then
+      flash[:error] = "Only moderators can update publication dates."
+      redirect_to :action => "list"
+      return
+    end
+    publish_projects = Hash.new
+    begin
+      publish_projects[:gbrowse] = params[:publish][:gbrowse].nil? ? Array.new : params[:publish][:gbrowse].keys.map { |project_id| Project.find(project_id) }
+      publish_projects[:modmine] = params[:publish][:modmine].nil? ? Array.new : params[:publish][:modmine].keys.map { |project_id| Project.find(project_id) }
+      publish_projects[:geo] = params[:publish][:geo].nil? ? Array.new : params[:publish][:geo].keys.map { |project_id| Project.find(project_id) }
+    rescue
+      flash[:error] = "Couldn't find all projects with to publish"
+      redirect_to :action => "publication"
+      return
+    end
+    unless unpublish then
+      date = params[:publish_date]
+      if (date !~ /\d\d\d\d-\d\d-\d\d \d\d:\d\d/) then
+        if Time.parse(date).strftime(@time_format) != date then
+          flash[:warning] = "Nonstandard time format. To avoid this message use YYYY-MM-DD HH:MM."
+        end
+      end
+      new_date = Time.parse(date)
+    end
+    publish_types = {
+      :gbrowse => PublishToGbrowse,
+      :modmine => PublishToModMine,
+      :geo     => PublishToGEO
+    }
+    publish_types.each { |type, classname|
+      publish_projects[type].each { |p|
+        if unpublish then
+          pub = classname.find_all_by_project_id(p.id)
+          pub.each { |pub1| pub1.destroy }
+        else
+          pub = classname.new(:project => p)
+          pub.save
+          pub.start_time = new_date
+          pub.end_time = new_date
+          pub.user = current_user
+          pub.save
+        end
+      }
+    }
+    redirect_to :action => "publication"
+  end
   def publication
-    @projects = Project.find_all_by_status(Project::Status::RELEASED)
-    @projects.delete_if { |p| p.deprecated? }
+    @time_format = "%a, %b %d, %Y (%H:%M)"
+    @released_projects = Project.find_all_by_status_and_deprecated_project_id(Project::Status::RELEASED, nil)
+
+    @filter_by_ids = session[:filter_by_ids].nil? ? Array.new : session[:filter_by_ids]
+    unless params[:filter_by_ids].nil?
+      @filter_by_ids = params[:filter_by_ids].split(/,? /).reject { |i| i != i.to_i.to_s }.map { |i| i.to_i }
+      session[:filter_by_ids] = @filter_by_ids
+      redirect_to :action => "publication"
+    end
 
     @pis = User.all.map { |u| u.lab }.uniq
     if params[:sort] then
@@ -99,20 +155,49 @@ class ReportsController < ApplicationController
     end
     @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
     if params[:pi] && params[:pi].length > 0 then
-      @projects.reject! { |p| p.pi != params[:pi] }
+      @released_projects.reject! { |p| p.pi != params[:pi] }
     end
     if session[:sort_list] then
       sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }
-      @projects = @projects.sort { |p1, p2|
+      @released_projects = @released_projects.sort { |p1, p2|
         p1_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p2.send(col) : p1.send(col) } << p1.id
         p2_attrs = sorts.map { |col| (session[:sort_list][col][0] == 'backward') ?  p1.send(col) : p2.send(col) } << p2.id
         p1_attrs.nil_flatten_compare p2_attrs
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
     else
-      @projects = @projects.sort { |p1, p2| p2.id <=> p1.id }
+      @released_projects = @released_projects.sort { |p1, p2| p2.id <=> p1.id }
     end
 
+    @all_released_projects = @released_projects
+    if @filter_by_ids.size > 0 then
+      @released_projects = @released_projects.find_all { |rp| @filter_by_ids.include?(rp.id) }
+    else
+      # Paginate
+      if params[:page_size] then
+        begin
+          session[:page_size] = params[:page_size].to_i
+        rescue
+        end
+      end
+      session[:page_size] = 25 if session[:page_size].nil?
+      page_size = session[:page_size]
+      page_offset = 0
+      if params[:page] then
+        page_offset = [(params[:page].to_i-1), 0].max * page_size
+      end
+      page_end = (page_offset + page_size)
+      @cur_page = (page_offset / page_size) + 1
+      @num_pages = @released_projects.size / page_size
+      @num_pages += 1 if @released_projects.size % page_size != 0
+      @has_next_page = @cur_page != @num_pages
+      @has_prev_page = @cur_page != 1
+      @released_projects = @released_projects[page_offset...page_end]
+    end
+
+    @all_gbrowse_publishes = PublishToGbrowse.all
+    @all_modmine_publishes = PublishToModMine.all
+    @all_geo_publishes = PublishToGEO.all
   end
 
   def data_matrix

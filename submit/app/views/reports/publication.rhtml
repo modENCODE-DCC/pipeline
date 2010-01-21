@@ -1,15 +1,58 @@
 <% 
-   released_projects = @projects
-   
-   publishes = Publish.all
    headers = ["ID", "Name", "PI", "Released", "To GBrowse", "To modmine", "To GEO"]
 %>
-<center>
+<style type="text/css">
+  LABEL.light { color: #CCCCCC }
+  DIV.small_contents INPUT { font-size: 80% }
+  DIV.small_contents { font-size: 80% }
+</style>
 <h2>
 Publication dates for Released datasets for the modENCODE project, as of <%=Time.now.strftime("%B %d, %Y")%>
 </h2>
 <br />
-<table class="data_matrix">
+<% if current_user.is_a?(Moderator) then %>
+  <script type="text/javascript">
+    function doSubmitDataMatrix() {
+      var checkboxes = $$('TABLE#data_matrix INPUT.publish_checkbox');
+      checkboxes = checkboxes.findAll(function (e) { return e.checked });
+      var hidden_elem = $('invisible_checkboxes');
+      checkboxes.each(function (e) { hidden_elem.appendChild(e); })
+      return true;
+    }
+  </script>
+  <div class="small_contents">
+    <% form_tag url_for(:action => :publish), :method => :post do %>
+      <span style="display:none;" id="invisible_checkboxes"></span>
+      <%= submit_tag "(Re-)publish checked projects", :onclick => 'return doSubmitDataMatrix();', :style => "width: 20em" %>
+      <%= text_field_tag("publish_date", Time.now.strftime(@time_format), :style => "width: 15em") %> (leave empty to unpublish)
+    <% end %>
+    <% form_tag url_for(:action => :publication), :method => :post do %>
+      <%= submit_tag "Filter by ID", :style => "width: 20em" %>
+      <%= text_field_tag("filter_by_ids", @filter_by_ids.join(", "), :style => "width: 15em") %> (comma or space separated)
+    <% end %>
+    <br/>
+  </div>
+<% end %>
+<div style="font-size: 60%">
+  Projects per page:
+  <% [25, 50, 75, 100].each do |page_size| %>
+    <%= "<b>" if session[:page_size] == page_size %>
+    <%= link_to_unless session[:page_size] == page_size, page_size, :page_size => page_size %>
+    <%= "</b>" if session[:page_size] == page_size %>
+  <% end %>
+</div>
+Select page:
+<% (1..@num_pages).each do |pagenum| %>
+  <%= "<b>" if @cur_page == pagenum %>
+    <%= link_to_unless @cur_page == pagenum, pagenum, :page => pagenum %>
+  <%= "</b>" if @cur_page == pagenum %>
+<% end %>
+<br/>
+<%= link_to_if @has_prev_page, "&lt; previous", :page => @cur_page-1 %>
+|
+<%= link_to_if @has_next_page, "next &gt;", :page => @cur_page+1 %>
+<br/>
+<table class="data_matrix" id="data_matrix">
 <tr>
   <tr class="titles">
     <% refresh_action_name = :publication -%>
@@ -34,60 +77,59 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
     colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
     i = 0
   %>
-<% released_projects.map do |p|
-   #next if p.deprecated?
-  #test = "<tr><td>"+p.id.to_s+"</td><td>"+p.name+"</td><td>"+p.level.to_s+"</td>"
-   color = colors[i%2]
-   i += 1
-   color = colors[2] if p.deprecated?
-  publish_gbrowse = PublishToGbrowse.all.find_all{|g| g.project_id==p.id}
-  publish_modmine = PublishToModMine.all.find_all{|g| g.project_id==p.id}
-  publish_geo =  PublishToGEO.all.find_all{|g| g.project_id==p.id}
-  released = p.commands.find_all{|c| c.type==Release.name}
+<% @released_projects.each do |p|
+  color = colors[i%2]
+  i += 1
+  color = colors[2] if p.deprecated?
+  publish_gbrowse = PublishToGbrowse.find_by_project_id(p.id, :order => "end_time DESC")
+  publish_modmine = PublishToModMine.find_by_project_id(p.id, :order => "end_time DESC")
+  publish_geo =  PublishToGEO.find_by_project_id(p.id, :order => "end_time DESC")
+  released = Release.find_by_project_id(p.id, :order => "updated_at DESC")
 %>
   <tr style="background-color: <%= color %>">
   <td style="text-align: left"><%= link_to p.id, {:action => 'show', :id => p.id, :controller => 'pipeline'} %></td>
   <td class="name hardwrap">
-        <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
-          <%= link_to p.name, :action => 'citation', :id => p, :controller => 'public' %>
-        <% elsif p.has_readme? then %>
-          <%= link_to p.name, :action => 'readme', :id => p.id, :controller => 'public' %>
-        <% else %>
-          <%= link_to p.name, { :action => 'show', :id => p.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
-	  <% end %>
+    <% if (Project::Status::ok_next_states(p).include?(Project::Status::AWAITING_RELEASE) && (@viewer_pi == p.pi || current_user.is_a?(Moderator))) || p.status == Project::Status::RELEASED then %>
+      <%= link_to p.name, :action => 'citation', :id => p, :controller => 'public' %>
+    <% elsif p.has_readme? then %>
+      <%= link_to p.name, :action => 'readme', :id => p.id, :controller => 'public' %>
+    <% else %>
+      <%= link_to p.name, { :action => 'show', :id => p.id, :controller => 'pipeline' }, :confirm => "This project has no description, so you are being directed to the project page in the pipeline." %>
+    <% end %>
   </td>
   <td style="width: 100px; text-align: center;"><%=p.pi.split(",")[0]%></td>
   <td style="width: 150px; text-align: center;">
-  <%= release_date = released.last
-          if release_date then
-              release_date.updated_at.strftime("%Y %b %d")
-            else
-              ""
-            end
-      %>
+    <%= released.updated_at.strftime("%Y %b %d") unless released.nil? %>
   </td>
-  <td style="width: 150px; text-align: center;"><%=publish_gbrowse.empty? ? "" : publish_gbrowse.last.end_time.strftime("%Y %b %d")%></td>
-  <td style="width: 150px; text-align: center;"><%=publish_modmine.empty? ? "" : publish_modmine.last.end_time.strftime("%Y %b %d")%></td>
-  <td style="width: 150px; text-align: center;"><%=publish_geo.empty? ? "" : publish_geo.last.end_time.strftime("%Y %b %d")%></td>
+  <% if current_user.is_a?(Moderator) then %>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[gbrowse][<%=p.id%>]" name="publish[gbrowse][<%=p.id%>]" value="true"/><%= publish_gbrowse.nil? ? "<label class=\"light\" for=\"publish[gbrowse][#{p.id}]\">publish this</label>" : publish_gbrowse.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[modmine][<%=p.id%>]" name="publish[modmine][<%=p.id%>]" value="true"/><%= publish_modmine.nil? ? "<label class=\"light\" for=\"publish[modmine][#{p.id}]\">publish this</label>" : publish_modmine.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[geo][<%=p.id%>]" name="publish[geo][<%=p.id%>]" value="true"/><%= publish_geo.nil?     ? "<label class=\"light\" for=\"publish[geo][#{p.id}]\">publish this</label>" : publish_geo.end_time.strftime("%Y %b %d") %></td>
+  <% else %>
+    <td style="width: 150px; text-align: center;"><%= publish_gbrowse.nil? ? "&nbsp;" : publish_gbrowse.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><%= publish_modmine.nil? ? "&nbsp;" : publish_modmine.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><%= publish_geo.nil?     ? "&nbsp;" : publish_geo.end_time.strftime("%Y %b %d") %></td>
+  <% end %>
   </tr>
 <% end %>
 <tr style="text-align: center">
 <td colspan="3" style="text-align: right">Totals:</td>
-<td><%=released_projects.count%></td>
-<td><%=PublishToGbrowse.all.count%></td>
-<td><%=PublishToModMine.all.count%></td>
-<td><%=PublishToGEO.all.count%></td>
+<td><%=@all_released_projects.count%></td>
+<td><%=@all_gbrowse_publishes.count%></td>
+<td><%=@all_modmine_publishes.count%></td>
+<td><%=@all_geo_publishes.count%></td>
 </tr>
 </table>
 <%
-  gbrowse_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
-  modmine_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
-  geo_projects = PublishToGbrowse.all.map{|p| Project.find(p.project_id)}
-  time_from_submission_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; rc.last.nil? ? nil : (rc.last.end_time - p.created_at) }.compact.delete_if{|v| v.nil? || v<0}
+  gbrowse_projects = @all_gbrowse_publishes.map{|r| r.project }.compact.uniq
+  modmine_projects = @all_modmine_publishes.map{|r| r.project }.compact.uniq
+  geo_projects = @all_geo_publishes.map{|r| r.project }.compact.uniq
+
+  time_from_submission_to_release = @all_released_projects.map{ |p| rc = p.commands.find_all { |c| c.type==Release.name}; rc.last.nil? ? nil : (rc.last.end_time - p.created_at) }.compact.delete_if{|v| v.nil? || v<0}
   time_from_submission_to_gbrowse = gbrowse_projects.map{|p| pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; pc.last.nil? ? nil : (pc.last.end_time - p.created_at )}.compact.delete_if{|v| v.nil? || v<0}
-  time_from_first_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.first.nil? || rc.last.end_time.nil? || vc.first.end_time.nil?)  ? nil : (rc.last.end_time.nil? ? rc.last.updated_at : rc.last.end_time) - (vc.first.end_time.nil? ? vc.first.updated_at : vc.first.end_time) }.compact.delete_if{|v| v.nil? || v<0}
+  time_from_first_validate_to_release = @all_released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.first.nil? || rc.last.end_time.nil? || vc.first.end_time.nil?)  ? nil : (rc.last.end_time.nil? ? rc.last.updated_at : rc.last.end_time) - (vc.first.end_time.nil? ? vc.first.updated_at : vc.first.end_time) }.compact.delete_if{|v| v.nil? || v<0}
   time_from_first_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.first.nil? || pc.last.nil? || pc.last.end_time.nil? || vc.first.end_time.nil?) ? nil : (pc.last.end_time.nil? ? pc.last.updated_at : pc.last.end_time) - (vc.first.end_time.nil? ? vc.first.updated_at : vc.first.end_time )}.compact.delete_if{|v| v.nil? || v<0}
-  time_from_last_validate_to_release = released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil? || rc.last.end_time.nil? || vc.last.end_time.nil?)  ? nil : (rc.last.end_time.nil? ? rc.last.updated_at : rc.last.end_time) - (vc.last.end_time.nil? ? vc.last.updated_at : vc.last.end_time) }.compact.delete_if{|v| v.nil? || v<0}
+  time_from_last_validate_to_release = @all_released_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; (rc.last.nil? || vc.last.nil? || rc.last.end_time.nil? || vc.last.end_time.nil?)  ? nil : (rc.last.end_time.nil? ? rc.last.updated_at : rc.last.end_time) - (vc.last.end_time.nil? ? vc.last.updated_at : vc.last.end_time) }.compact.delete_if{|v| v.nil? || v<0}
   time_from_last_validate_to_gbrowse = gbrowse_projects.map{|p| vc =  p.commands.find_all{|c| c.type==ValidateIdf2chadoxml.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (vc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time.nil? ? pc.last.updated_at : pc.last.end_time) - (vc.last.end_time.nil? ? vc.last.updated_at : vc.last.end_time) }.delete_if{|v| v.nil? || v<0}
   time_from_release_to_gbrowse = gbrowse_projects.map{|p| rc = p.commands.find_all{|c| c.type==Release.name}; pc = p.commands.find_all{|c| c.type==PublishToGbrowse.name}; (rc.last.nil? || pc.last.nil?) ? nil : (pc.last.end_time - rc.last.end_time )}.compact.delete_if{|v| v.nil? || v<0}
 %>
@@ -126,4 +168,3 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
 <td>.</td>
 </tr>
 </table>
-</center>
