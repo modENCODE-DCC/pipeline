@@ -136,6 +136,10 @@ class ReportsController < ApplicationController
     @time_format = "%a, %b %d, %Y (%H:%M)"
     @released_projects = Project.find_all_by_status_and_deprecated_project_id(Project::Status::RELEASED, nil)
 
+
+    session[:show_filter_pis] = params[:pi].map { |p| p == "" ? nil : p }.compact unless params[:pi].nil?
+    @pis_to_view = (session[:show_filter_pis].nil? || session[:show_filter_pis] == "") ? [] : session[:show_filter_pis]
+
     @filter_by_ids = session[:filter_by_ids].nil? ? Array.new : session[:filter_by_ids]
     unless params[:filter_by_ids].nil?
       @filter_by_ids = params[:filter_by_ids].split(/,? /).reject { |i| i != i.to_i.to_s }.map { |i| i.to_i }
@@ -154,8 +158,8 @@ class ReportsController < ApplicationController
       params[:sort].each_pair { |column, direction| session[:sort_list][column] = [ direction, Time.now ] }
     end
     @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
-    if params[:pi] && params[:pi].length > 0 then
-      @released_projects.reject! { |p| p.pi != params[:pi] }
+    if @pis_to_view && @pis_to_view.length > 0 then
+      @released_projects = @released_projects.find_all { |p| @pis_to_view.include?(p.pi) }
     end
     if session[:sort_list] then
       sorts = session[:sort_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }

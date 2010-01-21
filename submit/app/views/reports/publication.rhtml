@@ -19,6 +19,10 @@ Publication dates for Released datasets for the modENCODE project, as of <%=Time
       checkboxes.each(function (e) { hidden_elem.appendChild(e); })
       return true;
     }
+    function selectAllCheckboxes(type) {
+      var checkboxes = $$('TABLE#data_matrix INPUT.publish_checkbox.' + type);
+      checkboxes.each(function (e) { e.checked = true; });
+    }
   </script>
   <div class="small_contents">
     <% form_tag url_for(:action => :publish), :method => :post do %>
@@ -63,15 +67,15 @@ Select page:
       <span style="font-size: 80%">(click for readme)</span>
     </th>
     <th class="contains_select"><%= link_to "PI:", :action => refresh_action_name, :sort => { 'pi' => @new_sort_direction['pi'] } %>&nbsp;<% form_tag url_for(:action => :publication), :method => :get, :style => "display:inline" do %>
-      <select class="header_select" onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, params[:pi] %></select>
+      <select class="header_select" onchange="this.form.submit()" name="pi"><%= options_for_select [ [ "All", "" ] ] + @pis.sort.map { |pi| [ pi.split(",")[0], pi ] }, @pis_to_view %></select>
     <% end %></th>
     <th>
       <%= link_to "Released", :action => refresh_action_name, :sort => { 'release_date' => @new_sort_direction['release_date'] } %>
       <br/>
     </th>
-    <th>To gbrowse</th>
-    <th>To modmine</th>
-    <th>To GEO</th>
+    <th>To Gbrowse<br/><%= "<a style=\"font-size: 80%\" href=\"javascript:selectAllCheckboxes('gbrowse')\">select all</a>" if current_user.is_a?(Moderator) %></th>
+    <th>To ModMine<br/><%= "<a style=\"font-size: 80%\" href=\"javascript:selectAllCheckboxes('modmine')\">select all</a>" if current_user.is_a?(Moderator) %></th>
+    <th>To GEO<br/><%= "<a style=\"font-size: 80%\" href=\"javascript:selectAllCheckboxes('geo')\">select all</a>" if current_user.is_a?(Moderator) %></th>
 </tr>
   <%
     colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
@@ -102,9 +106,9 @@ Select page:
     <%= released.updated_at.strftime("%Y %b %d") unless released.nil? %>
   </td>
   <% if current_user.is_a?(Moderator) then %>
-    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[gbrowse][<%=p.id%>]" name="publish[gbrowse][<%=p.id%>]" value="true"/><%= publish_gbrowse.nil? ? "<label class=\"light\" for=\"publish[gbrowse][#{p.id}]\">publish this</label>" : publish_gbrowse.end_time.strftime("%Y %b %d") %></td>
-    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[modmine][<%=p.id%>]" name="publish[modmine][<%=p.id%>]" value="true"/><%= publish_modmine.nil? ? "<label class=\"light\" for=\"publish[modmine][#{p.id}]\">publish this</label>" : publish_modmine.end_time.strftime("%Y %b %d") %></td>
-    <td style="width: 150px; text-align: center;"><input class="publish_checkbox" type="checkbox" id="publish[geo][<%=p.id%>]" name="publish[geo][<%=p.id%>]" value="true"/><%= publish_geo.nil?     ? "<label class=\"light\" for=\"publish[geo][#{p.id}]\">publish this</label>" : publish_geo.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox gbrowse" type="checkbox" id="publish[gbrowse][<%=p.id%>]" name="publish[gbrowse][<%=p.id%>]" value="true"/><%= publish_gbrowse.nil? ? "<label class=\"light\" for=\"publish[gbrowse][#{p.id}]\">publish this</label>" : publish_gbrowse.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox modmine" type="checkbox" id="publish[modmine][<%=p.id%>]" name="publish[modmine][<%=p.id%>]" value="true"/><%= publish_modmine.nil? ? "<label class=\"light\" for=\"publish[modmine][#{p.id}]\">publish this</label>" : publish_modmine.end_time.strftime("%Y %b %d") %></td>
+    <td style="width: 150px; text-align: center;"><input class="publish_checkbox geo" type="checkbox" id="publish[geo][<%=p.id%>]" name="publish[geo][<%=p.id%>]" value="true"/><%= publish_geo.nil?     ? "<label class=\"light\" for=\"publish[geo][#{p.id}]\">publish this</label>" : publish_geo.end_time.strftime("%Y %b %d") %></td>
   <% else %>
     <td style="width: 150px; text-align: center;"><%= publish_gbrowse.nil? ? "&nbsp;" : publish_gbrowse.end_time.strftime("%Y %b %d") %></td>
     <td style="width: 150px; text-align: center;"><%= publish_modmine.nil? ? "&nbsp;" : publish_modmine.end_time.strftime("%Y %b %d") %></td>
