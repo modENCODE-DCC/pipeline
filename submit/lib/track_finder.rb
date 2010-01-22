@@ -348,64 +348,58 @@ class TrackFinder
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
-                   fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
-                   src.name AS srcfeature,
-                   src.uniquename AS srcfeature_accession,
-                   src.feature_id AS srcfeature_id,
-                   srctype.name AS srctype,
-                   o.genus, o.species,
-                   af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
-                   a.program AS analysis
+                   o.genus, o.species
                    FROM data_feature df
                    INNER JOIN feature f ON f.feature_id = df.feature_id
                    INNER JOIN organism o ON f.organism_id = o.organism_id
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN data d ON df.data_id = d.data_id
-                   LEFT JOIN (featureprop fp
-                     INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
-                   ) ON fp.feature_id = f.feature_id
-                   LEFT JOIN (featureloc fl 
-                     LEFT JOIN (feature src
-                       INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
-                     ) ON src.feature_id = fl.srcfeature_id
-                   ) ON df.feature_id = fl.feature_id
-                   LEFT JOIN (analysisfeature af
-                     INNER JOIN analysis a ON af.analysis_id = a.analysis_id
-                   ) ON f.feature_id = af.feature_id
-                   WHERE df.data_id = ANY(?) ORDER BY f.feature_id, fl.rank")
+                   INNER JOIN generate_series(1, ?) idx(n) ON (CAST(? AS int[]))[idx.n] = df.data_id
+                   ORDER BY f.feature_id")
     }
+    @sth_get_featureprops_by_feature_id = dbh_safe {
+      @dbh.prepare("SELECT 
+                   fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname
+                   FROM featureprop fp
+                   INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
+                   WHERE fp.feature_id = ?")
+    }
+    @sth_get_featurelocs_by_feature_id = dbh_safe {
+      @dbh.prepare("SELECT 
+                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
+                   src.name AS srcfeature,
+                   src.uniquename AS srcfeature_accession,
+                   src.feature_id AS srcfeature_id,
+                   srctype.name AS srctype
+                   FROM featureloc fl
+                   LEFT JOIN (feature src
+                     INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
+                   ) ON src.feature_id = fl.srcfeature_id
+                   WHERE fl.feature_id = ? ORDER BY fl.rank")
+    }
+    @sth_get_analysisfeatures_by_feature_id = dbh_safe {
+      @dbh.prepare("SELECT 
+                   af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
+                   a.program AS analysis
+                   FROM analysisfeature af
+                     INNER JOIN analysis a ON af.analysis_id = a.analysis_id
+                   WHERE af.feature_id = ? LIMIT 1")
+    }
+
     @sth_get_parts_of_features = dbh_safe {
       @dbh.prepare("SELECT
                    fr.object_id AS parent_id,
                    f.feature_id,
                    f.name, f.uniquename,
                    cvt.name AS type,
-                   fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
-                   fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
-                   src.name AS srcfeature,
-                   src.uniquename AS srcfeature_accession,
-                   src.feature_id AS srcfeature_id,
-                   srctype.name AS srctype,
-                   frtype.name AS relationship_type,
-                   af.rawscore AS score, af.normscore AS normscore, af.significance AS significance, af.identity AS identity,
-                   a.program AS analysis
+                   frtype.name AS relationship_type
                    FROM feature f
                    INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
                    INNER JOIN feature_relationship fr ON fr.subject_id = f.feature_id
                    INNER JOIN cvterm frtype ON fr.type_id = frtype.cvterm_id
-                   LEFT JOIN (featureprop fp
-                     INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
-                   ) ON fp.feature_id = f.feature_id
-                   LEFT JOIN (featureloc fl 
-                     LEFT JOIN (feature src
-                       INNER JOIN cvterm srctype ON src.type_id = srctype.cvterm_id
-                     ) ON src.feature_id = fl.srcfeature_id
-                   ) ON f.feature_id = fl.feature_id
-                   LEFT JOIN (analysisfeature af
-                     INNER JOIN analysis a ON af.analysis_id = a.analysis_id
-                   ) ON f.feature_id = af.feature_id
-                   WHERE fr.object_id = ANY(?) ORDER BY f.feature_id, fl.rank")
+                   INNER JOIN generate_series(1, ?) idx(n) ON (CAST(? AS int[]))[idx.n] = fr.object_id
+                   UNION SELECT null, -1, 'eof', null, null, null
+                   ORDER BY feature_id DESC")
     }
     @sth_get_wiggles_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT 
@@ -414,6 +408,7 @@ class TrackFinder
                    wiggle_data.name, 
                    wiggle_data.wiggle_data_id,
                    wiggle_data.data AS wiggle_file,
+                   cleaned_wig.value AS cleaned_wiggle_file,
                    cv.name AS cvname,
                    cvt.name AS term
                    FROM wiggle_data
@@ -422,6 +417,10 @@ class TrackFinder
                    LEFT JOIN ( 
                      cvterm cvt INNER JOIN cv ON cvt.cv_id = cv.cv_id
                    ) ON cvt.cvterm_id = d.type_id
+                   LEFT JOIN (
+                     data_attribute da
+                     INNER JOIN attribute cleaned_wig ON da.attribute_id = cleaned_wig.attribute_id AND cleaned_wig.heading = 'Cleaned WIG File'
+                   ) ON d.data_id = da.data_id
                    WHERE dwd.data_id = ANY(?)") 
     }
     @sth_get_sam_by_data_ids = dbh_safe {
@@ -499,6 +498,7 @@ class TrackFinder
       attr.value AS attr_value, attr_type.name AS attr_type, attr.heading AS attr_name
 
       FROM applied_protocol cur
+      INNER JOIN generate_series(1, ?) idx(n) ON (CAST(? AS int[]))[idx.n] = cur.applied_protocol_id
       LEFT JOIN (applied_protocol_data cur_apd
         INNER JOIN (data cur_output_data
           LEFT JOIN cvterm cur_output_data_type ON cur_output_data.type_id = cur_output_data_type.cvterm_id
@@ -510,8 +510,7 @@ class TrackFinder
             INNER JOIN cvterm attr_type ON attr_type.cvterm_id = attr.type_id
           ) ON da.data_id = cur_output_data.data_id
         ) ON cur_apd.data_id = cur_output_data.data_id
-      ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'output'
-      WHERE cur.applied_protocol_id = ANY(?)"
+      ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'output'"
     }
   end
   def cmd_puts(message)
@@ -711,15 +710,16 @@ class TrackFinder
     history_depth = 0
     while ap_ids.size > 0
       prev_ap_ids = Array.new
-      dbh_safe {
-        seen = Array.new
+#      dbh_safe {
+        seen = Hash.new
         if history_depth == 0 then
           # Still at the protocol that makes these tracks, so check for sibling outputs
-          @sth_metadata_last.execute(ap_ids)
+          @sth_metadata_last.execute(ap_ids.size, ap_ids)
           @sth_metadata_last.fetch do |row|
-            unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
+            unless row['data_value'].nil? || row['data_value'].empty? || seen[row['data_value']] then
               # Datum name
-              begin
+              seen[row['data_value']] = true
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -729,10 +729,10 @@ class TrackFinder
                   :cvterm => row['data_type'],
                   :history_depth => history_depth
                 ).save
-              rescue
-              end
+#              rescue
+#              end
               # Datum URL prefix (for wiki links)
-              begin
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -742,9 +742,8 @@ class TrackFinder
                   :cvterm => 'data_url',
                   :history_depth => history_depth
                 ).save unless row['db_type'] != "URL_mediawiki_expansion"
-                seen.push row['data_value']
-              rescue
-              end
+#              rescue
+#              end
             end
             # Datum attributes
             begin
@@ -764,9 +763,10 @@ class TrackFinder
         # Get all of the metadata leading up to this protocol
         @sth_metadata.execute(ap_ids)
         @sth_metadata.fetch do |row|
-            unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
+            unless row['data_value'].nil? || row['data_value'].empty? || seen[row['data_value']] then
+              seen[row['data_value']] = true
               # Datum name
-              begin
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -776,10 +776,10 @@ class TrackFinder
                   :cvterm => row['data_type'],
                   :history_depth => history_depth
                 ).save
-              rescue
-              end
+#              rescue
+#              end
               # Datum URL prefix (for wiki links)
-              begin
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -789,9 +789,8 @@ class TrackFinder
                   :cvterm => 'data_url',
                   :history_depth => history_depth
                 ).save unless row['db_type'] != "URL_mediawiki_expansion"
-                seen.push row['data_value']
-              rescue
-              end
+#              rescue
+#              end
               # Datum attributes
             end
             begin
@@ -812,9 +811,10 @@ class TrackFinder
         # Get all of the metadata that comes out of this protocol and terminates
         @sth_leaf_metadata.execute(ap_ids)
         @sth_leaf_metadata.fetch do |row|
-            unless row['data_value'].nil? || row['data_value'].empty? || seen.member?(row['data_value']) then
+            unless row['data_value'].nil? || row['data_value'].empty? || seen[row['data_value']] then
+              seen[row['data_value']] = true
               # Datum name
-              begin
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -824,10 +824,10 @@ class TrackFinder
                   :cvterm => row['data_type'],
                   :history_depth => history_depth
                 ).save
-              rescue
-              end
+#              rescue
+#              end
               # Datum URL prefix (for wiki links)
-              begin
+#              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
                   :name => row['data_value'],
@@ -837,9 +837,8 @@ class TrackFinder
                   :cvterm => 'data_url',
                   :history_depth => history_depth
                 ).save unless row['db_type'] != "URL_mediawiki_expansion"
-                seen.push row['data_value']
-              rescue
-              end
+#              rescue
+#              end
               # Datum attributes
             end
             begin
@@ -857,21 +856,21 @@ class TrackFinder
             # And go through any attached previous applied protocols
             prev_ap_ids.push row['prev_applied_protocol_id'] unless row['prev_applied_protocol_id'].nil?
         end
-      }
+#      }
       ap_ids = prev_ap_ids.uniq
       history_depth = history_depth + 1
     end
 
     ### Citation stuff ###
     # Experiment properties
-    dbh_safe {
+#    dbh_safe {
       sth_idf_info = @dbh.prepare "SELECT ep.name, ep.value, ep.rank, c.name AS type FROM experiment_prop ep 
                                    INNER JOIN cvterm c ON ep.type_id = c.cvterm_id 
                                    WHERE experiment_id = ?
                                    GROUP BY ep.name, ep.value, ep.rank, c.name"
       sth_idf_info.execute(experiment_id)
       sth_idf_info.fetch do |row|
-        begin
+#        begin
           TrackTag.new(
             :experiment_id => experiment_id,
             :name => row['name'],
@@ -881,19 +880,19 @@ class TrackFinder
             :cvterm => row['type'],
             :history_depth => row['rank']
           ).save
-        rescue
-        end
+#        rescue
+#        end
       end
       sth_idf_info.finish
-    }
+#    }
 
     # Any referenced submissions
-    dbh_safe {
+#    dbh_safe {
       sth_idf_info = @dbh.prepare "SELECT DISTINCT url FROM db WHERE description = 'modencode_submission'"
       sth_idf_info.execute
       rank = 0
       sth_idf_info.fetch do |row|
-        begin
+#        begin
           TrackTag.new(
             :experiment_id => experiment_id,
             :name => "Referenced Submission",
@@ -903,15 +902,15 @@ class TrackFinder
             :cvterm => "referenced_submission",
             :history_depth => rank
           ).save
-        rescue
-        end
+#        rescue
+#        end
         rank += 1
       end
       sth_idf_info.finish
-    }
+#    }
 
     # Protocol types and names and links
-    dbh_safe {
+#    dbh_safe {
       sth_protocol_type = @dbh.prepare "SELECT p.protocol_id, p.name, a.value AS type, dbx.accession AS url FROM attribute a 
               INNER JOIN protocol_attribute pa ON a.attribute_id = pa.attribute_id 
               INNER JOIN protocol p ON pa.protocol_id = p.protocol_id 
@@ -919,37 +918,41 @@ class TrackFinder
               WHERE a.heading = 'Protocol Type' AND p.protocol_id = ANY(?)
               GROUP BY p.protocol_id, p.name, type, url"
 
+      seen = Hash.new
       protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_ids|
         sth_protocol_type.execute(protocol_ids)
         sth_protocol_type.fetch do |row|
-          begin
-          TrackTag.new(
-            :experiment_id => experiment_id,
-            :name => row['name'],
-            :project_id => project_id,
-            :track => tracknum,
-            :value => row['type'],
-            :cvterm => 'protocol_type',
-            :history_depth => col
-          ).save
-          rescue
-          end
-          begin
-          TrackTag.new(
-            :experiment_id => experiment_id,
-            :name => row['name'],
-            :project_id => project_id,
-            :track => tracknum,
-            :value => row['url'],
-            :cvterm => 'protocol_url',
-            :history_depth => col
-          ).save
-          rescue
+          unless seen[row["value"]] then
+            seen[row["value"]] = true
+#          begin
+            TrackTag.new(
+              :experiment_id => experiment_id,
+              :name => row['name'],
+              :project_id => project_id,
+              :track => tracknum,
+              :value => row['type'],
+              :cvterm => 'protocol_type',
+              :history_depth => col
+            ).save
+#          rescue
+#          end
+#          begin
+            TrackTag.new(
+              :experiment_id => experiment_id,
+              :name => row['name'],
+              :project_id => project_id,
+              :track => tracknum,
+              :value => row['url'],
+              :cvterm => 'protocol_url',
+              :history_depth => col
+            ).save
+#          rescue
+#          end
           end
         end
       end
       sth_protocol_type.finish
-    }
+#    }
 
     return tracknum
   end
@@ -961,6 +964,7 @@ class TrackFinder
 
     # Get datum objects attached to features or wiggle data
     usable_tracks = find_usable_tracks(experiment_id, project_id)
+    cmd_puts "    Found usable tracks; sorting."
     return nil if usable_tracks.nil?
     # Figure out the protocol order
     protocol_ids_by_column = Hash.new {|h, k| h[k] = Array.new }
@@ -1013,192 +1017,191 @@ class TrackFinder
           # Get any features associated with this track's data objects
           cmd_puts "      Getting features."
           cmd_puts "        Finding metadata for features."
+          $stderr.puts "ONE"
           tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
           cmd_puts "          Using tracknum #{tracknum}"
           cmd_puts "        Done."
 
 
-          analyses = Array.new
-          organisms = Array.new
+          analyses = Hash.new
+          organisms = Hash.new
           features_processed = 0 # Track number of features to determine if we want a wiggle file
 
           # Open GFF file for writing
           Dir.mkdir(output_dir) unless File.directory? output_dir
           gff_sqlite = DBI.connect("dbi:SQLite3:#{File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite")}")
+          gff_sqlite.do("PRAGMA temp_store = 1")
+          gff_sqlite.do("PRAGMA synchronous = OFF")
           gff_sqlite.do("CREATE TABLE gff (id INTEGER PRIMARY KEY, feature_id INTEGER UNIQUE, gff_string TEXT, parents TEXT, srcfeature VARCHAR(255), type VARCHAR(255), fmin INTEGER, fmax INTEGER)")
-          sth_add_gff_parents = gff_sqlite.prepare("UPDATE gff SET parents = parents || ? WHERE feature_id = ?")
+          gff_sqlite.do("BEGIN TRANSACTION")
           sth_add_gff = gff_sqlite.prepare("INSERT INTO gff (feature_id, gff_string, parents, srcfeature, type, fmin, fmax) VALUES(?, ?, ?, ?, ?, ?, ?)")
           sth_get_gff = gff_sqlite.prepare("SELECT gff_string, parents FROM gff WHERE feature_id = ?")
           sth_get_all_gff = gff_sqlite.prepare("SELECT srcfeature, type, fmin, fmax FROM gff")
+          sth_set_gff_parent = gff_sqlite.prepare("UPDATE gff SET parents = ? WHERE feature_id = ?")
 
           cmd_puts "        Getting top-level features."
-          seen_feature_ids = Array.new
-          parent_feature_ids = Array.new
-          current_feature_hash = Hash.new
+          seen_feature_ids = Hash.new
+          parent_feature_ids = Hash.new
           chromosome_located_features = false
           parsed_features = 0
           dbh_safe {
-            @sth_get_features_by_data_ids.execute data_ids_with_features.uniq
+            data_ids_with_features.uniq!
+            @sth_get_features_by_data_ids.execute data_ids_with_features.size, data_ids_with_features
             @sth_get_features_by_data_ids.fetch_hash { |row|
-              next if row['fmin'].nil? || row['fmax'].nil? # Skip features with no location
+              tracknum_to_data_name[tracknum] = row.delete('data_name')
+              next if seen_feature_ids[row['feature_id']]
 
-              if current_feature_hash['feature_id'] != row['feature_id'] then
-                unless current_feature_hash['feature_id'].nil? then
-                  parsed_features += 1
-                  cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
-                  # Write out the current feature
-                  sth_add_gff.execute(
-                    current_feature_hash['feature_id'], 
-                    feature_to_gff(current_feature_hash.dup, tracknum), 
-                    '',
-                    current_feature_hash['srcfeature'],
-                    current_feature_hash['type'],
-                    current_feature_hash['fmin'],
-                    current_feature_hash['fmax']
-                  )
-                  seen_feature_ids.push(current_feature_hash['feature_id'])
-                  # Metadata
-                  chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
-                  analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
-                  organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-                end
+              @sth_get_featurelocs_by_feature_id.execute(row["feature_id"])
+              loc_rows = @sth_get_featurelocs_by_feature_id.fetch_all
+              loc_rows = loc_rows.map { |loc_row| loc_row.nil? ? {} : loc_row.to_h }
+              next if loc_rows.find { |loc_row| loc_row['fmin'] || loc_row['fmax'] }.nil?  # Skip features with no location
 
-                # Reinitialize with the new row
-                current_feature_hash = row
-                current_feature_hash = current_feature_hash.reject { |column, value| col == 'propvalue' || col == 'propname' || col == 'proprank' || col == 'residue_info' }
-                current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
-                current_feature_hash['parents'] = Array.new # Top level features have no parents
-                tracknum_to_data_name[tracknum] = current_feature_hash.delete('data_name')
-                parent_feature_ids.push row['feature_id']
-              else
-                # We're still looking at rows for the same feature
-                if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
-                  if row['rank'].to_i then
-                    # The new row is the Target
-                    current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin'].to_i+1} #{row['fmax']}"
-                    current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
-                    current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
-                  elsif row['rank'].to_i == 0 then
-                    # The previously seen row is the Target; this shouldn't happen because of
-                    # an ORDER BY clause in the query, but just to be safe, swap the location entries
-                    current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin'].to_i+1} #{current_feature_hash['fmax']}"
-                    current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
-                    current_feature_hash['fmin'] = row['fmin']
-                    current_feature_hash['fmax'] = row['fmax']
-                    current_feature_hash['srcfeature'] = row['srcfeature']
-                  end
-                end
+              parent_feature_ids[row['feature_id']] = true
+              seen_feature_ids[row['feature_id']] = true
+
+              @sth_get_analysisfeatures_by_feature_id.execute(row["feature_id"])
+              af_row = @sth_get_analysisfeatures_by_feature_id.fetch
+              af_row = af_row.nil? ? {} : af_row.to_h
+
+              current_feature_hash = row.merge(loc_rows[0]).merge(af_row)
+              if loc_rows.size > 1 then
+                tgt_row = loc_rows[1]
+                current_feature_hash['target'] = "#{tgt_row['srcfeature']} #{tgt_row['fmin'].to_i+1} #{tgt_row['fmax']}"
+                current_feature_hash['target_accession'] = "#{tgt_row['srcfeature_accession']}"
+                current_feature_hash['gap'] = tgt_row['residue_info'] if tgt_row['residue_info']
               end
 
-              # Merge all featureprops for a single feature into one object
-              current_feature_hash['properties'][row['propname']][row['proprank'].to_i] = row['propvalue'] unless row['propvalue'].nil?
+              current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
+              @sth_get_featureprops_by_feature_id.execute(row["feature_id"])
+              @sth_get_featureprops_by_feature_id.fetch_hash { |fp_row|
+                current_feature_hash['properties'][fp_row['propname']][fp_row['proprank'].to_i] = fp_row['propvalue'] unless fp_row['propvalue'].nil?
+              }
+
+              current_feature_hash['parents'] = Array.new # Top level features have no parents
+
+              parsed_features += 1
+              cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
+              # Record metadata
+              chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+              analyses[current_feature_hash['analysis']] = true unless current_feature_hash['analysis'].nil?
+              organisms[current_feature_hash['genus'] + " " + current_feature_hash['species']] = true unless current_feature_hash['genus'].nil?
+
+              # Write feature to temp sqlite db
+              if parsed_features % 2000 == 0 then
+                gff_sqlite.do("END TRANSACTION")
+                gff_sqlite.do("BEGIN TRANSACTION")
+              end
+              sth_add_gff.execute(
+                current_feature_hash['feature_id'], 
+                feature_to_gff(current_feature_hash.dup, tracknum), 
+                      '',
+                      current_feature_hash['srcfeature'],
+                      current_feature_hash['type'],
+                      current_feature_hash['fmin'],
+                      current_feature_hash['fmax']
+              )
             }
-
-            # Make sure we actually wrote out the last feature
-            unless seen_feature_ids.include?(current_feature_hash['feature_id']) then
-              # We haven't yet written out current_feature_hash['feature_id']
-              unless current_feature_hash['feature_id'].nil? then
-                parsed_features += 1
-                cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
-                # Write out the current feature
-                sth_add_gff.execute(
-                  current_feature_hash['feature_id'], 
-                  feature_to_gff(current_feature_hash.dup, tracknum), 
-                  '',
-                  current_feature_hash['srcfeature'],
-                  current_feature_hash['type'],
-                  current_feature_hash['fmin'],
-                  current_feature_hash['fmax']
-                )
-                seen_feature_ids.push(current_feature_hash['feature_id'])
-                # Metadata
-                chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
-                analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
-                organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
-              end
-            end
           }
           cmd_puts "        Done fetching top-level features."
 
           # Child features
-          current_feature_hash = Hash.new
           parsed_features = 0
           if there_are_feature_relationships? && parent_feature_ids.size > 0 then
             cmd_puts "        Getting child features."
-            dbh_safe {
-              @sth_get_parts_of_features.execute parent_feature_ids.uniq
-              parent_feature_ids = Array.new
-              @sth_get_parts_of_features.fetch_hash { |row|
-                if current_feature_hash['feature_id'] != row['feature_id'] then
-                  unless current_feature_hash['feature_id'].nil? then
-                    current_feature_hash['parents'].uniq!
-                    # Write out the current feature
-                    if seen_feature_ids.member?(current_feature_hash['feature_id']) then
-                      sth_add_gff_parents.execute(
-                        current_feature_hash['parents'].map { |reltype, parent| "#{reltype}/#{parent}" }.join(',') + ',',
-                        current_feature_hash['feature_id']
-                      )
-                    else
+            round = 1
+            while parent_feature_ids.size > 0 do
+              cmd_puts "        Recursing child features at level #{round}, with #{parent_feature_ids.size} parent features"
+              round += 1
+
+              dbh_safe {
+                cmd_puts "BEFORE"
+                @sth_get_parts_of_features.execute parent_feature_ids.size, parent_feature_ids.keys
+                cmd_puts "AFTER"
+                parents = Array.new
+                parent_feature_ids = Hash.new
+                # This query is special; the last record will be a fake entry with a feature_id of -1
+                # This makes it easier to collect parent ids without having to print the last feature
+                # outside of the loop
+                current_feature_hash = Hash.new
+                @sth_get_parts_of_features.fetch_hash { |row|
+                  current_feature_hash = row if current_feature_hash.nil?
+                  break if current_feature_hash['feature_id'] == -1 # Only happens if no results
+
+                  cmd_puts "#{current_feature_hash['feature_id']} == #{row['feature_id']}"
+
+                  # Get all parent IDs
+                  if current_feature_hash['feature_id'] == row['feature_id'] then
+                    # Collect this parent id and do nothing else
+                    parents.push [row['relationship_type'], row['parent_id']] if row['parent_id']
+                  else
+                    # Got all the parent IDs for current_feature_hash['feature_id']
+                    parents.push [row['relationship_type'], row['parent_id']] if row['parent_id']
+                    current_feature_hash['parents'] = parents.map { |reltype, parent| "#{reltype}/#{parent}" }.join(',')
+                    parents = Array.new
+
+                    if seen_feature_ids[current_feature_hash['feature_id']] then
+                      # Just add the parents to the existing feature
                       parsed_features += 1
                       cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
-                      seen_feature_ids.push(current_feature_hash['feature_id'])
+                      cmd_puts "ASet feature parents to #{current_feature_hash["parents"]}"
+                      sth_set_gff_parent.execute(current_feature_hash['parents'], current_feature_hash['feature_id'])
+                    else
+                      # Get all the info for this new child feature
+                      @sth_get_featurelocs_by_feature_id.execute(current_feature_hash["feature_id"])
+                      loc_rows = @sth_get_featurelocs_by_feature_id.fetch_all
+                      loc_rows = loc_rows.map { |loc_row| loc_row.nil? ? {} : loc_row.to_h }
+                      next if loc_rows.find { |loc_row| loc_row['fmin'] || loc_row['fmax'] }.nil?  # Skip features with no location
+
+                      parent_feature_ids[current_feature_hash['feature_id']] = true
+                      seen_feature_ids[current_feature_hash['feature_id']] = true
+
+                      @sth_get_analysisfeatures_by_feature_id.execute(current_feature_hash["feature_id"])
+                      af_row = @sth_get_analysisfeatures_by_feature_id.fetch
+                      af_row = af_row.nil? ? {} : af_row.to_h
+
+                      current_feature_hash = current_feature_hash.merge(loc_rows[0]).merge(af_row)
+                      if loc_rows.size > 1 then
+                        tgt_row = loc_rows[1]
+                        current_feature_hash['target'] = "#{tgt_row['srcfeature']} #{tgt_row['fmin'].to_i+1} #{tgt_row['fmax']}"
+                        current_feature_hash['target_accession'] = "#{tgt_row['srcfeature_accession']}"
+                        current_feature_hash['gap'] = tgt_row['residue_info'] if tgt_row['residue_info']
+                      end
+
+                      current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
+                      @sth_get_featureprops_by_feature_id.execute(current_feature_hash["feature_id"])
+                      @sth_get_featureprops_by_feature_id.fetch_hash { |fp_row|
+                        current_feature_hash['properties'][fp_row['propname']][fp_row['proprank'].to_i] = fp_row['propvalue'] unless fp_row['propvalue'].nil?
+                      }
+
+                      parsed_features += 1
+                      cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
+                      # Record metadata
+                      chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+                      analyses[current_feature_hash['analysis']] = true unless current_feature_hash['analysis'].nil?
+                      organisms[current_feature_hash['genus'] + " " + current_feature_hash['species']] = true unless current_feature_hash['genus'].nil?
+
+                      cmd_puts "BSet feature parents to #{current_feature_hash["parents"]}"
                       sth_add_gff.execute(
                         current_feature_hash['feature_id'], 
                         feature_to_gff(current_feature_hash.dup, tracknum), 
-                        current_feature_hash['parents'].map { |reltype, parent| "#{reltype}/#{parent}" }.join(',') + ',',
+                        current_feature_hash['parents'],
                         current_feature_hash['srcfeature'],
-                        current_feature_hash['type'],
-                        current_feature_hash['fmin'],
-                        current_feature_hash['fmax']
+                          current_feature_hash['type'],
+                          current_feature_hash['fmin'],
+                          current_feature_hash['fmax']
                       )
                     end
-                    # Metadata
-                    chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
-                    analyses.push current_feature_hash['analysis'] unless current_feature_hash['analysis'].nil?
-                    organisms.push current_feature_hash['genus'] + " " + current_feature_hash['species'] unless current_feature_hash['genus'].nil?
+                    current_feature_hash = row;
                   end
-
-                  # Reinitialize with the new row
-                  current_feature_hash = row
-                  current_feature_hash = current_feature_hash.reject { |column, value| col == 'propvalue' || col == 'propname' || col == 'proprank' || col == 'residue_info' || col == 'object_id' }
-                  current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
-                  current_feature_hash['parents'] = Array.new # To be filled in
-                  parent_feature_ids.push row['feature_id']
-
-                  # Add parent relationship
-                  current_feature_hash['parents'].push [row['relationship_type'], row['parent_id']] if row['parent_id']
-                else
-                  # We're still looking at rows for the same feature
-                  if current_feature_hash['fmin'] != row['fmin'] || current_feature_hash['fmax'] != row['fmax'] || current_feature_hash['srcfeature'] != row['srcfeature'] then
-                    if row['rank'].to_i then
-                      # The new row is the Target
-                      current_feature_hash['target'] = "#{row['srcfeature']} #{row['fmin'].to_i+1} #{row['fmax']}"
-                      current_feature_hash['target_accession'] = "#{row['srcfeature_accession']}"
-                      current_feature_hash['gap'] = row['residue_info'] if row['residue_info']
-                    elsif row['rank'].to_i == 0 then
-                      # The previously seen row is the Target; this shouldn't happen because of
-                      # an ORDER BY clause in the query, but just to be safe, swap the location entries
-                      current_feature_hash['target'] = "#{current_feature_hash['srcfeature']} #{current_feature_hash['fmin'].to_i+1} #{current_feature_hash['fmax']}"
-                      current_feature_hash['target_accession'] = "#{current_feature_hash['srcfeature_accession']}"
-                      current_feature_hash['fmin'] = row['fmin']
-                      current_feature_hash['fmax'] = row['fmax']
-                      current_feature_hash['srcfeature'] = row['srcfeature']
-                    end
-                  end
-                  # Add any new parental relationships
-                  current_feature_hash['parents'].push [row['relationship_type'], row['parent_id']] if row['parent_id']
-                end
-
-                # Merge all featureprops for a single feature into one object
-                current_feature_hash['properties'][row['propname']][row['proprank'].to_i] = row['propvalue'] unless row['propvalue'].nil?
+                }
               }
-            }
+            end
             cmd_puts "        Done getting child features."
           end
 
           # Track the unique analyses used in this track so we can
           # color by them in the configure_tracks page
-          analyses.uniq.each { |analysis|
+          analyses.keys.each { |analysis|
             TrackTag.new(
               :experiment_id => experiment_id,
               :name => 'Analysis',
@@ -1211,7 +1214,7 @@ class TrackFinder
           }
           # Track the unique organisms used in this track so we can
           # guess which GBrowse configuration to use
-          organisms.uniq.each { |organism|
+          organisms.keys.each { |organism|
             TrackTag.new(
               :experiment_id => experiment_id,
               :name => 'Organism',
@@ -1284,10 +1287,11 @@ class TrackFinder
 
           sth_get_gff.finish
           sth_get_all_gff.finish
-          sth_add_gff_parents.finish
           sth_add_gff.finish
+          sth_set_gff_parent.finish
           gff_sqlite.disconnect
-          File.unlink(File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
+#          TODO: Uncomment
+#          File.unlink(File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
 
           cmd_puts "      Done getting features."
         end
@@ -1301,6 +1305,7 @@ class TrackFinder
               wiggle_filename = row["data_value"]
               seen_wiggles.push row["wiggle_data_id"]
               cmd_puts "        Finding metadata for wiggle files."
+              $stderr.puts "TWO"
               tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
               cmd_puts "          Using tracknum #{tracknum}"
               cmd_puts "        Done."
@@ -1312,9 +1317,14 @@ class TrackFinder
               cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_tmp_file_path}"
 
               # Put the wiggle in a temp file for parsing
-              wiggle_file = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
-              wiggle_file.puts row['wiggle_file']
-              wiggle_file.close
+              unless row["cleaned_wiggle_file"] then
+                wiggle_file = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
+                wiggle_file.puts row['wiggle_file']
+                wiggle_file.close
+              else
+                wiggle_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
+                wiggle_file = File.open(wiggle_file_path, "r")
+              end
 
               # TODO: Write the wiggle file locally, then move it to tracks dir
               # Do the conversion
@@ -1329,7 +1339,9 @@ class TrackFinder
 
 
               # Remove the temporary source file
-              wiggle_file.unlink
+              unless row["cleaned_wiggle_file"] then
+                wiggle_file.unlink
+              end
               # Move the output file to the output_dir
               wildcard_tmp = sprintf(wiggle_db_tmp_file_path, "*")
               cmd_puts "        Moving #{wildcard_tmp} to #{output_dir}."
@@ -1481,13 +1493,13 @@ class TrackFinder
     if !parent_id.nil? then
       sth_get_gff.execute parent_id
     else
-      return unless seen_feature_ids.size > 0
-      sth_get_gff.execute seen_feature_ids.shift
+      return unless seen_feature_ids.keys.size > 0
+      sth_get_gff.execute seen_feature_ids.shift[0]
     end
     row = sth_get_gff.fetch
     parents = row[1].nil? ? '' : row[1].split(',').map { |parent| parent.split('/') }
     parents.each { |reltype, parent_id|
-      if seen_feature_ids.include?(parent_id) then
+      if seen_feature_ids[parent_id] then
         seen_feature_ids.delete(parent_id)
         recursive_output(seen_feature_ids, sth_get_gff, gff_file, parent_id)
       end
