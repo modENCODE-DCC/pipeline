@@ -426,7 +426,7 @@ class PublicController < ApplicationController
       # Try to see if there's a base directory from the archive
       # (e.g. extracted/MySubmission/...)
       subdirs = Dir.entries(@root_directory).reject { |entry|
-        entry =~ /^\./  || entry == "ws180"
+        entry =~ /^\./  || entry =~ /ws\d\d\d/i
       }.find_all { |entry| File.directory?(File.join(@root_directory, entry)) }
       file = File.join(@root_directory, subdirs[0], params[:path]) if subdirs.size == 1
       unless File.file?(file) then
