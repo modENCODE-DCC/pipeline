@@ -13,17 +13,43 @@
     HR { margin-top: 4px; margin-bottom: 0px; width: 70%; text-align: left; margin: 0 auto 0 0; }
   </style>
   <%
-    gbrowse_source = "modencode_flybase_quick_#{@project.id}"
-    gbrowse_full_source = "modencode_flybase"
-    default_chr = "3L"
-    default_fmin = 6066513
-    default_fmax = 6266513
-    if @organism == "Caenorhabditis elegans" then
+    case @organism
+    when "Caenorhabditis elegans"
       gbrowse_source = "modencode_wormbase_quick_#{@project.id}"
       gbrowse_full_source = "modencode_wormbase"
       default_chr = "III"
       default_fmin = 4200000
       default_fmax = 4300000
+    when "Drosophila pseudoobscura pseudoobscura"
+      gbrowse_source = "modencode_dpse_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_dpse"
+      default_chr = "2"
+      default_fmin = 1000
+      default_fmax = 2000
+    when "Drosophila simulans"
+      gbrowse_source = "modencode_dsim_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_dsim"
+      default_chr = "3R"
+      default_fmin = 200000
+      default_fmax = 220000
+    when "Drosophila sechellia"
+      gbrowse_source = "modencode_dsec_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_dsec"
+      default_chr = "scaffold_0"
+      default_fmin = 115000
+      default_fmax = 125000
+    when "Drosophila persimilis"
+      gbrowse_source = "modencode_dper_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_dper"
+      default_chr = "2"
+      default_fmin = 1000
+      default_fmax = 50000
+    else
+      gbrowse_source = "modencode_flybase_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_flybase"
+      default_chr = "3L"
+      default_fmin = 6066513
+      default_fmax = 6266513
     end
   %>
   <script src="/gbrowse/js/prototype.js" type="text/javascript"></script>
@@ -328,7 +354,14 @@
         </span>
       </span>
       <select style="display:none" name="organism" id="organism">
-        <%= options_for_select [ 'Drosophila melanogaster', 'Caenorhabditis elegans'], @organism %>
+        <%= options_for_select [ 
+            'Drosophila melanogaster',
+            'Caenorhabditis elegans',
+            [ 'Drosophila pseudoobscura', 'Drosophila pseudoobscura pseudoobscura' ],
+            'Drosophila simulans',
+            'Drosophila sechellia',
+            'Drosophila persimilis'
+        ], @organism %>
       </select>
       <script type="text/javascript">
         Event.observe($('organism'), 'blur', hideField);

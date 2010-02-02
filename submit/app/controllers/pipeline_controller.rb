@@ -1057,7 +1057,15 @@ class PipelineController < ApplicationController
     end
 
     if params[:organism] then
-      params[:organism] = "Drosophila melanogaster" unless params[:organism] == "Caenorhabditis elegans"
+      case params[:organism]
+      when "Caenorhabditis elegans"
+      when "Drosophila pseudoobscura pseudoobscura"
+      when "Drosophila simulans"
+      when "Drosophila sechellia"
+      when "Drosophila persimilis"
+      else
+        params[:organism] = "Drosophila melanogaster"
+      end
       TrackStanza.find_all_by_project_id_and_user_id(@project.id, current_user.id).each { |ts|
         stanza = ts.stanza
         stanza.each { |track, config| config[:organism] = params[:organism] }
@@ -2101,11 +2109,14 @@ class PipelineController < ApplicationController
   end
 
   # --- file upload routines ---
-  def sanitize_filename(file_name)
+  def self.sanitize_filename(file_name)
     # get only the filename, not the whole path (from IE)
     just_filename = File.basename(file_name) 
     # replace all non-alphanumeric, underscore or periods with underscore
     just_filename.gsub(/[^\w\.\_]/,'_') 
+  end
+  def sanitize_filename(file_name)
+    PipelineController::sanitize_filename(file_name)
   end
 
   def path_to_project_dir(project = nil)
