@@ -918,12 +918,13 @@ class TrackFinder
               WHERE a.heading = 'Protocol Type' AND p.protocol_id = ANY(?)
               GROUP BY p.protocol_id, p.name, type, url"
 
-      seen = Hash.new
+      seen = { :value => Hash.new, :name => Hash.new }
       protocol_ids_by_column.to_a.sort { |p1, p2| p1[0] <=> p2[0] }.each do |col, protocol_ids|
         sth_protocol_type.execute(protocol_ids)
         sth_protocol_type.fetch do |row|
-          unless seen[row["value"]] then
-            seen[row["value"]] = true
+          unless seen[:value][row["value"]] && seen[:name][row["name"]] then
+            seen[:value][row["value"]] = true
+            seen[:name][row["name"]] = true
 #          begin
             TrackTag.new(
               :experiment_id => experiment_id,
