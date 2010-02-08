@@ -32,6 +32,7 @@ class TrackFinderFast < TrackFinder
     @dbh = DBI.connect(dbinfo[:dsn], dbinfo[:user], dbinfo[:password])
 
     # Track finding queries:
+    @sth_get_organism = @dbh.prepare("SELECT genus, species FROM organism WHERE organism_id = ?")
     @sth_get_data_by_applied_protocols = dbh_safe {
       @dbh.prepare("SELECT 
                    d.data_id,
@@ -547,6 +548,9 @@ class TrackFinderFast < TrackFinder
       # Track the unique organisms used in this track so we can
       # guess which GBrowse configuration to use
       organisms.keys.each { |organism|
+        @sth_get_organism.execute(organism)
+        organism = @sth_get_organism.fetch_hash
+        organism = "#{organism["genus"]} #{organism["species"]}" if organism
         TrackTag.new(
           :experiment_id => experiment_id,
           :name => 'Organism',
