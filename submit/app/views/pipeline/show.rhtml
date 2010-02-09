@@ -232,6 +232,15 @@
       ]
       @user_can_write = true
     end
+    if current_user.is_a?(Administrator) then
+    command_definitions.insert command_definitions.find_index { |i| i[0] == :find_tracks }+1, [
+        :find_tracks_fast,
+        Project::Status::FINDING,
+        "Find tracks quickly",
+        "Find tracks using shortcuts for specific submission types",
+        "(Requires the submission to be loaded into Chado.)"
+      ]
+    end
     is_running = !command_definitions.find { |cd| cd[1] == @project.status }.nil?
     command_definitions.each do |definition|
       (action, state, link, description, disabled_description, url) = definition

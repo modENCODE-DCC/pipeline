@@ -1668,7 +1668,9 @@ class TrackFinder
       if type !~ /^read_pair/ then
         # Make sure this feature type is located to a chromosome
         sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
+        puts "A" if @debugging
         next unless sth_get_num_located_types.fetch[0] > 0
+        puts "B" if @debugging
       end
 
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
@@ -1765,6 +1767,7 @@ class TrackFinder
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
       stanzaname.sub!(/^[^A-Za-z]*/, '')
 
+      
       if track_source !~ /\d*_details/ then
         # If this is not a details track...
         if types.find { |other_type| other_type == "#{track_type}:#{tracknum}_details" } then

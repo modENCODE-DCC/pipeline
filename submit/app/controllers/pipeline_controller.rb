@@ -1010,6 +1010,24 @@ class PipelineController < ApplicationController
     redirect_to :action => :show, :id => @project
   end
 
+  def find_tracks_fast
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::FINDING) then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    do_find_tracks_fast(@project)
+
+    redirect_to :action => :show, :id => @project
+  end
+
   def preview
     begin
       @project = Project.find(params[:id])
@@ -1830,6 +1848,14 @@ class PipelineController < ApplicationController
     # Get the *Controller class to be used to do track finding
     TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
     find_tracks_controller = FindTracksController.new(:project => project, :user_id => current_user.id)
+    options[:user] = current_user
+    find_tracks_controller.queue options
+  end
+
+  def do_find_tracks_fast(project, options = {})
+    # Get the *Controller class to be used to do track finding
+    TrackStanza.destroy_all(:user_id => current_user.id, :project_id => project.id)
+    find_tracks_controller = FindTracksFastController.new(:project => project, :user_id => current_user.id)
     options[:user] = current_user
     find_tracks_controller.queue options
   end

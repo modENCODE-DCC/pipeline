@@ -521,13 +521,15 @@ class TrackFinderFast < TrackFinder
             gff_file.puts feature_to_gff(srcfeature, tracknum)
           end
         }
-        srcfeature = srcfeatures.values.find { |sf| sf[:rank] == 1 }
+        tgtfeature = srcfeatures.values.find { |sf| sf[:rank] == 1 }
+        srcfeature = srcfeatures.values.find { |sf| sf[:rank] == 0 }
+        feature[:srcfeature] = srcfeature[:name]
         feature[:fmin] = feature[:loc][0][:fmin]
         feature[:fmax] = feature[:loc][0][:fmax]
         feature[:strand] = feature[:loc][0][:strand]
         feature[:phase] = feature[:loc][0][:phase]
-        feature[:target] = "#{srcfeature[:name]} #{feature[:loc][1][:fmin].to_i+1} #{feature[:loc][1][:fmax]}"
-        feature[:target_accession] = srcfeature[:uniquename]
+        feature[:target] = "#{tgtfeature[:name]} #{feature[:loc][1][:fmin].to_i+1} #{feature[:loc][1][:fmax]}"
+        feature[:target_accession] = tgtfeature[:uniquename]
         gff_file.puts feature_to_gff(feature, tracknum)
       end
       gff_file.close
