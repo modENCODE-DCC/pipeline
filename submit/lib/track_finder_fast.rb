@@ -773,13 +773,21 @@ class TrackFinderFast < TrackFinder
               cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" NOT FOUND, skipping this SAM file!"
               next
             end
-            cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" found."
-            cmd_puts "          Copying BAM file(s) to tracks dir."
+              cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" found."
+              tracks_dir = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks")
+
+              cmd_puts "          Copying BAM file(s) to tracks dir."
             [ row["sorted_bam_file"], "#{row["sorted_bam_file"]}.bai" ].each { |f|
-              FileUtils.cp(
-                File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", bam_file_subdir, f),
-                File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", File.basename(f))
-              )
+                tracks_subdir = tracks_dir
+                if (tracks_dir != File.dirname(File.join(tracks_dir, f))) then
+                  FileUtils.mkdir_p(File.dirname(File.join(tracks_dir, f)))
+                  tracks_subdir = File.dirname(File.join(tracks_dir, f))
+                end
+                src_bam = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", bam_file_subdir, f)
+                FileUtils.cp(
+                  src_bam,
+                  File.join(tracks_subdir, File.basename(f))
+                )
             }
             cmd_puts "          Done."
             cmd_puts "        Finding metadata for SAM files."

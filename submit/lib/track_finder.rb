@@ -1429,11 +1429,19 @@ class TrackFinder
                 next
               end
               cmd_puts "          Sorted BAM \"#{row["sorted_bam_file"]}\" found."
+              tracks_dir = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks")
+
               cmd_puts "          Copying BAM file(s) to tracks dir."
               [ row["sorted_bam_file"], "#{row["sorted_bam_file"]}.bai" ].each { |f|
+                tracks_subdir = tracks_dir
+                if (tracks_dir != File.dirname(File.join(tracks_dir, f))) then
+                  FileUtils.mkdir_p(File.dirname(File.join(tracks_dir, f)))
+                  tracks_subdir = File.dirname(File.join(tracks_dir, f))
+                end
+                src_bam = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", bam_file_subdir, f)
                 FileUtils.cp(
-                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", bam_file_subdir, f),
-                  File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "tracks", File.basename(f))
+                  src_bam,
+                  File.join(tracks_subdir, File.basename(f))
                 )
               }
               cmd_puts "          Done."
@@ -1448,7 +1456,7 @@ class TrackFinder
                 :name => 'BAM File',
                 :project_id => project_id,
                 :track => tracknum,
-                :value => row["sorted_bam_file"],
+                :value => File.join(bam_file_subdir, row["sorted_bam_file"]),
                 :cvterm => 'bam_file',
                 :history_depth => 0
               ).save
