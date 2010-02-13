@@ -410,6 +410,11 @@ class PipelineController < ApplicationController
       flash[:error] += "<br/>" unless flash[:error] == ""
       flash[:error] += "This project has been deprecated by project #{@project.deprecated_project_id}!"
     end
+    if @project.superseded? then
+      flash[:notice] = "" if flash[:notice].nil?
+      flash[:notice] += "<br/>" unless flash[:notice] == ""
+      flash[:notice] += "This project has been superseded by project #{@project.superseded_project_id}."
+    end
   end
 
   def download_chadoxml
@@ -1743,6 +1748,30 @@ class PipelineController < ApplicationController
           end
         end
         redirect_to :action => :publish
+      elsif params[:publish_type] == "supersede" then
+        flash.clear ; flash.discard
+        if params[:superseded_by] && params[:superseded_by].length > 0 && params[:superseded_by] != "no new project" then
+          begin
+            superseded_by = Project.find(params[:superseded_by].to_i)
+            @project.superseded_by_project = superseded_by
+            @project.save
+          rescue ActiveRecord::RecordNotFound => e
+            flash[:error] = "Couldn't find the submission that this submission was superseded by: #{e.message}"
+            return
+          end
+        else
+          @project.superseded_project_id = 0
+          @project.save
+          flash[:warning] = "Did not set a submission that this submission was superseded by. Please fill one in if it exists."
+        end
+        if params[:supersede_remove_published] == "true" then
+          @publish_types.each do |name, command|
+            unless command[:command].nil? then
+              command[:command].destroy
+            end
+          end
+        end
+        redirect_to :action => :publish
       else
         unpublish = false
         if params[:publish_type] =~ /_unpublish$/ then
@@ -2092,7 +2121,7 @@ class PipelineController < ApplicationController
       flash[:warning] = "Note: This project (#{project.name}) does not belong to you, but you are allowed to make changes." unless options[:skip_redirect] == true 
     end
     if project.status == Project::Status::RELEASED then
-      flash[:notice] = "This project has been released and cannot be modified."
+      flash[:notice] = flash[:notice].to_s + "This project has been released and cannot be modified."
       return false
     end
 

@@ -80,6 +80,29 @@ used by moderators to record when a given submission has been published to any o
           <td style="vertical-align: top; text-align: center; font-size: 80%; color: #777777">Deprecated by project #?</td>
           <td>&nbsp;</td>
         </tr>
+        <tr>
+          <td>Supersede</td>
+          <% 
+            superseded_by = params[:superseded_by] if params[:superseded_by]
+            superseded_by = @project.superseded_by_project.id if @project.superseded? && !superseded_by && @project.superseded_by_project
+            superseded_by = "no new project" unless superseded_by
+          %>
+          <td><%= text_field_tag (
+                    "superseded_by", 
+                    superseded_by,
+                    :onclick => "if ($(this).hasClassName('empty')) { $(this).value = ''; $(this).removeClassName('empty'); $(this).select(); }",
+                    :class => (params[:superseded_by] && params[:superseded_by] != "no new project" ? "" : "empty")) %>
+            </td>
+          <td>
+            <input type="hidden" name="supersede_remove_published" value=""/>
+            <%= button_to_function (@project.superseded? ? "Re-" : "") + "Supersede Project", "var remove_published = (confirm('Remove records of publication?') ? 'true' : 'false'); $(this).form.getInputs('hidden', 'supersede_remove_published').first().value = remove_published; $(this).form.getInputs('hidden', 'publish_type').first().value = 'supersede'; $(this).form.submit();", :style => "width: 12em" %>
+          </td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td style="vertical-align: top; text-align: center; font-size: 80%; color: #777777">Superseded by project #?</td>
+          <td>&nbsp;</td>
+        </tr>
       </table>
     <% end %>
   </center>

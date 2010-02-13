@@ -9,16 +9,21 @@ class Project < ActiveRecord::Base
   has_many :track_stanzas, :dependent => :destroy
   has_many :comments, :dependent => :destroy, :order => :created_at
   belongs_to :deprecated_by_project, :class_name => Project.name, :foreign_key => :deprecated_project_id
+  belongs_to :superseded_by_project, :class_name => Project.name, :foreign_key => :superseded_project_id
 
   validates_presence_of :name
   validates_presence_of :project_type_id
   validates_presence_of :status
   validates_presence_of :user_id
   validates_uniqueness_of   :name, :unless => :deprecated?, :scope => :deprecated_project_id
+  validates_uniqueness_of   :name, :unless => :superseded?, :scope => :superseded_project_id
 
   # Helper accessors
   def deprecated?
     !self.deprecated_project_id.nil?
+  end
+  def superseded?
+    !self.superseded_project_id.nil?
   end
   def released?
     self.status == Project::Status::RELEASED

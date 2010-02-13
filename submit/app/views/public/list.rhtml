@@ -116,14 +116,16 @@ If you want to download data in bulk, please try:
   <tr><th colspan="8" class="tophr">&nbsp;</th></tr>
     
   <% 
-    colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb' ]
+    colors = [ '#eeeeee', '#f2f2ff', '#bbbbbb', '#cceecc' ]
     i = 0
   %>
   <% @projects.each do |project| %>
     <%
       color = colors[i%2]
       i += 1
+      color = colors[3] if project.superseded?
       color = colors[2] if project.deprecated?
+
     %>
     <tr style="background-color: <%= color %>">
       <td style="text-align: left"><%= link_to "modENCODE_#{project.id}", {:action => 'show', :id => project.id, :controller => 'pipeline'} %></td>
@@ -146,6 +148,9 @@ If you want to download data in bulk, please try:
             <%= project.released? ? "vetted and released" : "unvetted" %>
           </span><br/>
           deprecated <%= "by #" + project.deprecated_project_id.to_s unless project.deprecated_by_project.nil? %>
+        <% elsif project.superseded? then %>
+          <%= project.released? ? "vetted and released" : "unvetted" %><br/>
+          superseded <%= "by #" + project.superseded_project_id.to_s unless project.superseded_by_project.nil? %>
         <% else %>
           <%= project.released? ? "vetted and released" : "unvetted" %>
         <% end %>
