@@ -321,6 +321,9 @@ class TrackFinder
     @dbh = DBI.connect(dbinfo[:dsn], dbinfo[:user], dbinfo[:password])
 
     # Track finding queries:
+    @sth_get_experiment_id = dbh_safe { 
+      @dbh.prepare("SELECT experiment_id FROM experiment")
+    }
     @sth_get_data_by_applied_protocols = dbh_safe {
       @dbh.prepare("SELECT 
                    d.data_id,
@@ -1625,10 +1628,10 @@ class TrackFinder
     dbinfo = TrackFinder.gbrowse_database
     gff_dbh = dbh_safe { DBI.connect(dbinfo[:ruby_dsn], dbinfo[:user], dbinfo[:password]) }
 
-    schemas = self.get_experiments
-    schema = "modencode_experiment_#{project_id}"
-    experiment_id = schemas[schema][0]
-    schema << "_data"
+    schema = "modencode_experiment_#{project_id}_data"
+    self.search_path = schema
+    @sth_get_experiment_id.execute
+    experiment_id = @sth_get_experiment_id.fetch_hash["experiment_id"]
 
     tags = TrackTag.find_all_by_experiment_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
 
