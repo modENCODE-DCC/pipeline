@@ -422,8 +422,235 @@ class TrackFinderFast < TrackFinder
                                GROUP BY cvt.name, cvt.cvterm_id ORDER BY COUNT(f.feature_id)") 
     @sth_get_type_prevalence.execute
     @sth_get_type_prevalence.fetch_hash { |row| prevalence[row["name"]] = row["count"] }
-    made_gff_file = nil
+
+    ##########################################
+    # polyA_site, SL*_acceptor_site, intron  #
+    ##########################################
+    if prevalence.keys.find { |k| k =~ /SL\d*_acceptor_site/ } then
+      made_gff_file = nil
+      cmd_puts "    Finding splice acceptor sites and other associated sites."
+      cmd_puts "      Finding metadata."
+      all_site_types = prevalence.keys.find_all { |k|
+        k =~ /_site/ || k == "TSS" || k == "intron" || k == "transcript" || k == "transcript_region"
+      }
+      site_types = all_site_types
+      tracknum = attach_generic_metadata(experiment_id, project_id, protocol_ids_by_column)
+      tracknum_to_data_name[tracknum] = site_types.pop
+      site_types.each { |type|
+        new_tracknum = self.get_next_tracknum
+        copy_track_metadata(project_id, tracknum, project_id, new_tracknum)
+        tracknum_to_data_name[new_tracknum] = type
+      }
+      cmd_puts "      Done."
+
+      # Everything that isn't a transcript (things with no structure to pull out)
+      @sth_get_simple_features = @dbh.prepare("
+                                              SELECT
+                                              f.feature_id, f.name, f.uniquename, f.organism_id,
+                                              cvt.name AS type,
+                                              fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
+                                              fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
+                                              a.program AS analysis, af.rawscore, af.normscore, af.significance, af.identity,
+                                              src.name AS src_name
+
+                                              FROM feature f
+                                              INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
+                                              INNER JOIN featureloc fl ON f.feature_id = fl.feature_id
+                                              INNER JOIN feature src ON fl.srcfeature_id = src.feature_id
+                                              LEFT JOIN (featureprop fp
+                                                INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
+                                              ) ON f.feature_id = fp.feature_id
+                                              LEFT JOIN (analysisfeature af 
+                                                INNER JOIN analysis a ON af.analysis_id = a.analysis_id
+                                              ) ON f.feature_id = af.feature_id
+                                              WHERE cvt.name = ?
+                                              ORDER BY f.feature_id
+                                              ")
+      @sth_get_child_features = @dbh.prepare("
+                                              SELECT
+                                              f.feature_id, f.name, f.uniquename, f.organism_id,
+                                              cvt.name AS type,
+                                              fl.fmin, fl.fmax, fl.strand, fl.phase, fl.rank, fl.residue_info,
+                                              fp.value AS propvalue, fp.rank AS proprank, fptype.name AS propname,
+                                              a.program AS analysis, af.rawscore, af.normscore, af.significance, af.identity,
+                                              src.name AS src_name,
+                                              parent.feature_id AS parent_id
+
+                                              FROM feature f
+                                              INNER JOIN cvterm cvt ON f.type_id = cvt.cvterm_id
+                                              INNER JOIN featureloc fl ON f.feature_id = fl.feature_id
+                                              INNER JOIN feature src ON fl.srcfeature_id = src.feature_id
+                                              INNER JOIN feature_relationship fr ON f.feature_id = fr.subject_id
+                                              INNER JOIN feature parent ON fr.object_id = parent.feature_id
+                                              INNER JOIN cvterm parent_type ON parent.type_id = parent_type.cvterm_id
+                                              LEFT JOIN (featureprop fp
+                                                INNER JOIN cvterm fptype ON fp.type_id = fptype.cvterm_id
+                                              ) ON f.feature_id = fp.feature_id
+                                              LEFT JOIN (analysisfeature af 
+                                                INNER JOIN analysis a ON af.analysis_id = a.analysis_id
+                                              ) ON f.feature_id = af.feature_id
+                                              WHERE parent_type.name = ? AND fl.rank = 0
+                                              ORDER BY f.feature_id
+                                             ")
+
+      all_site_types.each { |type|
+        cmd_puts "      Getting simple features of type #{type}."
+        organisms = Hash.new
+        found_any_tracks = true
+        @sth_get_simple_features.execute(type)
+        row = @sth_get_simple_features.fetch_hash
+        tracknum = tracknum_to_data_name.find { |n, t| t == type }[0]
+        made_gff_file = File.join(output_dir, "#{tracknum}.gff")
+        i=0
+        gff_file = File.new(made_gff_file, "w")
+        gff_file.puts "##gff-version 3"
+        cmd_puts "        Creating GFF file #{made_gff_file}."
+        while (!row.nil?) do
+          i += 1
+          cmd_puts "          #{i.to_s}" if (i % 10000 == 0)
+          feature = {
+            :feature_id => row["feature_id"],
+            :name => row["name"],
+            :uniquename => row["uniquename"],
+            :type => row["type"],
+            :analysis => row["analysis"],
+            :score => row["rawscore"],
+            :normscore => row["normscore"],
+            :identity => row["identity"],
+            :significance => row["significance"],
+            :props => Hash.new { |h, k| h[k] = Array.new },
+            :srcfeature => row["src_name"],
+            :loc => Hash.new
+          }
+          organisms[row["organism_id"]] = true
+          while (!row.nil? && row["feature_id"] == feature[:feature_id]) do
+            feature[:props][row["propname"]].push row["propvalue"] unless row["propvalue"].nil?
+            feature[:loc][row["rank"].to_i] = { :fmin => row["fmin"], :fmax => row["fmax"], :strand => row["strand"], :phase => row["phase"], :residue => row["residue_info"] }
+            row = @sth_get_simple_features.fetch_hash
+          end
+          feature[:fmin] = feature[:loc][0][:fmin]
+          feature[:fmax] = feature[:loc][0][:fmax]
+          feature[:strand] = feature[:loc][0][:strand]
+          feature[:phase] = feature[:loc][0][:phase]
+          gff_file.puts feature_to_gff(feature, tracknum)
+        end
+        if type =~ /^transcript(_region)?$/ then
+          # Get child features
+          cmd_puts "          Getting child features of parents of type #{type}"
+          @sth_get_child_features.execute(type)
+          i=0
+          row = @sth_get_child_features.fetch_hash
+          while (!row.nil?) do
+            i += 1
+            cmd_puts "          #{i.to_s}" if (i % 10000 == 0)
+            feature = {
+              :feature_id => row["feature_id"],
+              :name => row["name"],
+              :uniquename => row["uniquename"],
+              :type => row["type"],
+              :analysis => row["analysis"],
+              :score => row["rawscore"],
+              :normscore => row["normscore"],
+              :identity => row["identity"],
+              :significance => row["significance"],
+              :props => Hash.new { |h, k| h[k] = Array.new },
+              :srcfeature => row["src_name"],
+              :loc => Hash.new,
+              :parents => Hash.new
+            }
+            organisms[row["organism_id"]] = true
+            while (!row.nil? && row["feature_id"] == feature[:feature_id]) do
+              feature[:props][row["propname"]].push row["propvalue"] unless row["propvalue"].nil?
+              feature[:loc][row["rank"].to_i] = { :fmin => row["fmin"], :fmax => row["fmax"], :strand => row["strand"], :phase => row["phase"], :residue => row["residue_info"] }
+              feature[:parents][row["parent_id"]] = "part_of"
+              row = @sth_get_child_features.fetch_hash
+            end
+            next unless feature[:loc][0]
+            feature[:fmin] = feature[:loc][0][:fmin]
+            feature[:fmax] = feature[:loc][0][:fmax]
+            feature[:strand] = feature[:loc][0][:strand]
+            feature[:phase] = feature[:loc][0][:phase]
+            gff_file.puts feature_to_gff(feature, tracknum)
+          end
+          cmd_puts "          Done."
+        end
+        gff_file.close
+        # Track the unique organisms used in this track so we can
+        # guess which GBrowse configuration to use
+        organisms.keys.each { |organism|
+          @sth_get_organism.execute(organism)
+          organism = @sth_get_organism.fetch_hash
+          organism = "#{organism["genus"]} #{organism["species"]}" if organism
+          TrackTag.new(
+                       :experiment_id => experiment_id,
+                       :name => 'Organism',
+                       :project_id => project_id,
+                       :track => tracknum,
+                       :value => organism,
+                       :cvterm => 'organism',
+                       :history_depth => 0
+                      ).save
+        }
+        # Label this as a feature track
+        TrackTag.new(
+                     :experiment_id => experiment_id,
+                     :name => 'Track Type',
+                     :project_id => project_id,
+                     :track => tracknum,
+                     :value => 'feature',
+                     :cvterm => 'track_type',
+                     :history_depth => 0
+                    ).save
+        # Generate a wiggle file
+        cmd_puts "        Generating a wiggle file for zoomed-out views."
+        wiggle_writers = Hash.new { |hash, chromosome| 
+          hash[chromosome] = Hash.new { |chrhash, type|
+            wiggle_db_file_path = File.join(output_dir, "#{tracknum}_#{chromosome}_#{type}.wigdb")
+            wiggle_writer = IO.popen("perl", "w")
+            wiggle_writer.puts GFF_TO_WIGDB_PERL + "\n\n"
+            wiggle_writer.puts wiggle_db_file_path
+            wiggle_writer.puts chromosome
+            wiggle_writer.puts "0 255"
+            chrhash[type] = { :fmin => nil, :fmax => nil, :writer => wiggle_writer, :path => wiggle_db_file_path }
+          }
+        }
+        gff_file = File.open(made_gff_file, "r")
+        gff_file.each { |line|
+          cols = line.split(/\t/)
+          row = { :type => cols[2], :fmin => cols[3], :fmax => cols[4], :srcfeature => cols[0] }
+          if row[:fmin] && row[:fmax] && CHROMOSOMES.include?(row[:srcfeature]) then
+            wiggle_writer = wiggle_writers[row[:srcfeature]][row[:type]]
+            wiggle_writer[:writer].puts "#{(row[:fmin].to_i+1).to_s} #{row[:fmax]} 255"
+            wiggle_writer[:fmin] = [ row[:fmin].to_i, row[:fmax].to_i, wiggle_writer[:fmin].to_i ].reject { |a| a <= 0 }.min
+            wiggle_writer[:fmax] = [ row[:fmax].to_i, row[:fmax].to_i, wiggle_writer[:fmax].to_i ].reject { |a| a <= 0 }.max
+          end
+        }
+        gff_file.close
+
+        # Generate GFF file that refers to wigdb files
+        gff_file = File.new(File.join(output_dir, "#{tracknum}_wiggle.gff"), "w")
+        gff_file.puts "##gff-version 3"
+        wiggle_writers.each { |chromosome, types|
+          types.each { |type, writer|
+            writer[:writer].close
+            track_name = type + " features from " +  tracknum_to_data_name[tracknum]
+            gff_file.puts "#{chromosome}\t#{tracknum}\t#{type}\t#{writer[:fmin]}\t#{writer[:fmax]}\t.\t.\t.\tName=#{track_name};wigfile=#{writer[:path]}"
+          }
+        }
+        gff_file.close
+        cmd_puts "        Done."
+        cmd_puts "      Done."
+
+                    cmd_puts "      Done."
+      }
+
+    end
+
+    #########################################
+    # match and match_part                  #
+    #########################################
     if (prevalence.keys & [ "match", "match_part" ]).size > 0 then
+      made_gff_file = nil
       cmd_puts "    Finding match and match_part features."
       # Has some ESTs and/or matches
       cmd_puts "      Finding metadata."
@@ -591,9 +818,9 @@ class TrackFinderFast < TrackFinder
         gff_file = File.open(made_gff_file, "r")
         gff_file.each { |line|
           cols = line.split(/\t/)
-          row = { :fmin => line[3], :fmax => line[4], :srcfeature => line[0] }
+          row = { :type => cols[2], :fmin => cols[3], :fmax => cols[4], :srcfeature => cols[0] }
           if row[:fmin] && row[:fmax] && CHROMOSOMES.include?(row[:srcfeature]) then
-            wiggle_writer = wiggle_writers[row['srcfeature']][row['type']]
+            wiggle_writer = wiggle_writers[row[:srcfeature]][row[:type]]
             wiggle_writer[:writer].puts "#{(row[:fmin].to_i+1).to_s} #{row[:fmax]} 255"
             wiggle_writer[:fmin] = [ row[:fmin].to_i, row[:fmax].to_i, wiggle_writer[:fmin].to_i ].reject { |a| a <= 0 }.min
             wiggle_writer[:fmax] = [ row[:fmax].to_i, row[:fmax].to_i, wiggle_writer[:fmax].to_i ].reject { |a| a <= 0 }.max
@@ -616,11 +843,11 @@ class TrackFinderFast < TrackFinder
         cmd_puts "      Done."
       end
 
-#          TODO: Uncomment
-#          File.unlink(File.join(TrackFinderFast::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
+    end
 
       cmd_puts "      Done getting features."
 
+      # Any wiggle or SAM files attached?
       data_ids_with_wiggles = Array.new
       data_ids_with_sam_files = Array.new
       @sth_get_data = @dbh.prepare("SELECT d.data_id, COUNT(wig.*) AS number_of_wiggles, c.name AS type
@@ -818,7 +1045,6 @@ class TrackFinderFast < TrackFinder
         }
         cmd_puts "      Done getting SAM files."
       end
-    end
     unless found_any_tracks then
       # Generate a citation even though we didn't find any tracks
       cmd_puts "    No tracks found for this submission; generating generic metadata for citation."
@@ -846,7 +1072,7 @@ class TrackFinderFast < TrackFinder
     # Format GFF fields for output
     feature[:uniquename] = (feature[:uniquename].gsub(/[;=\[\]\/, ]/, '_'))
     feature[:name] = (feature[:name].gsub(/[;=\[\]\/, ]/, '_')) unless feature[:name].nil?
-    feature[:strand] = 0 if feature['strand'].nil?
+    feature[:strand] = 0 if feature[:strand].nil?
     case feature[:strand].to_i
     when -1 then feature[:strand] = '-'
     when 1 then feature[:strand] = '+'
@@ -875,11 +1101,13 @@ class TrackFinderFast < TrackFinder
     out = out + ";significance=#{feature[:significance]}" unless feature[:significance].nil?
 
     # Parental relationships
-#    feature["parents"].each do |reltype, parent|
-#      # Write the parental relationship
-#      out = out + ";Parent=#{parent}"
-#      out = out + ";parental_relationship=#{reltype}/#{parent}"
-#    end
+    if feature[:parents] then
+      feature[:parents].each do |parent, reltype|
+        # Write the parental relationship
+        out = out + ";Parent=#{parent}"
+        out = out + ";parental_relationship=#{reltype}/#{parent}" unless (reltype.nil? || reltype == "part_of")
+      end
+    end
 
     # Attributes
     feature[:props].each do |propname, propvalues|
@@ -888,5 +1116,25 @@ class TrackFinderFast < TrackFinder
     end
 
     out
+  end
+
+  def copy_track_metadata(from_project, from_tracknum, to_project, to_tracknum)
+#    @sth_copy = @dbh.prepare(
+#                "INSERT INTO track_tags (experiment_id, track, value, cvterm, history_depth, project_id, name)
+#                 SELECT experiment_id, ?, value, cvterm, history_depth, ?, name FROM
+#                 track_tags WHERE project_id = ? AND track = ?")
+#    @sth_copy.execute(to_tracknum, to_project, from_project, from_tracknum)
+#    @sth_copy.finish
+    TrackTag.find_all_by_project_id_and_track(from_project, from_tracknum).each { |tt|
+      TrackTag.new(
+                   :track => to_tracknum,
+                   :project_id => to_project,
+                   :name => tt.name,
+                   :experiment_id => tt.experiment_id,
+                   :history_depth => tt.history_depth,
+                   :value => tt.value,
+                   :cvterm => tt.cvterm
+                  ).save
+    }
   end
 end
