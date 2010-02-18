@@ -1118,9 +1118,7 @@ class TrackFinder
               round += 1
 
               dbh_safe {
-                cmd_puts "BEFORE"
                 @sth_get_parts_of_features.execute parent_feature_ids.size, parent_feature_ids.keys
-                cmd_puts "AFTER"
                 parents = Array.new
                 parent_feature_ids = Hash.new
                 # This query is special; the last record will be a fake entry with a feature_id of -1
@@ -1130,8 +1128,6 @@ class TrackFinder
                 @sth_get_parts_of_features.fetch_hash { |row|
                   current_feature_hash = row if current_feature_hash.nil?
                   break if current_feature_hash['feature_id'] == -1 # Only happens if no results
-
-                  cmd_puts "#{current_feature_hash['feature_id']} == #{row['feature_id']}"
 
                   # Get all parent IDs
                   if current_feature_hash['feature_id'] == row['feature_id'] then
