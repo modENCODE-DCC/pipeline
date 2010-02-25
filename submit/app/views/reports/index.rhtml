@@ -82,7 +82,7 @@ Numbers in parentheses indicate the total for that particular project PI.
 </td>
 
 <td align="center">
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 500, :legend => legend, :color =>pi_colors.join(","), :show_legend => true) %>
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "New submissions initiated by quarter", :width => 800, :legend => legend, :color =>pi_colors.join(","), :show_legend => true) %>
 </td>
 </tr>
 <tr colspan="2" style="height: 25px;" ><td>&nbsp</td></tr>
@@ -102,8 +102,7 @@ Numbers in parentheses indicate the total for that particular project PI.
 
     <%
       data_hash = Hash.new{|k,v| k[v] = []}
-      @all_released_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]\
-}}
+      @all_released_projects_per_group_per_quarter.sort.each{|quarter,dist| dist.sort.map{|k,v| data_hash[k] += [v]}}
       legend = @all_released_projects_per_group_per_quarter.map{|quarter,d| quarter}.sort
 
     %>
@@ -119,7 +118,7 @@ Numbers in parentheses indicate the total for that particular project PI.
   </table>
 </td>
 <td align="center">
-      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 500, :legend => legend, :color => pi_colors.join(","), :show_legend => true) %>
+      <%= google_stacked_vert_bar_chart([], :data => data_hash.sort, :title => "Released submissions by quarter", :width => 800, :legend => legend, :color => pi_colors.join(","), :show_legend => true) %>
 </td>
 </tr>
   </table>
