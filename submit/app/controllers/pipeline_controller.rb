@@ -63,7 +63,7 @@ class PipelineController < ApplicationController
     'glyph' => [
       'generic', 'segments', 'arrow', 'anchored_arrow', 'box', 'gene', 'CDS',
       'crossbox', 'dashed_line', 'diamond', 'dna', 'dot', 'dumbbell', 'ellipse' 'ex',
-      'line', 'processed_transcript', 'primers', 'saw_teeth', 'span', 'splice_site',
+      'line', 'processed_transcript', 'primers', 'rainbow_gene', 'saw_teeth', 'span', 'splice_site',
       'translation', 'triangle' 'two_bolts', 'wave', 'wiggle_density', 'wiggle_xyplot'
     ],
     'connector' => [ 'solid', 'dashed', 'quill', 'none' ],
