@@ -4,6 +4,7 @@ require 'dbi'
 require 'cgi'
 require 'pg_database_patch'
 require 'find'
+require 'pp'
 
 class Citation < ActionView::Base
   def initialize(project_id)
@@ -294,7 +295,9 @@ class TrackFinder
     dbh_safe {
       sth_get_num_feature_relationships = @dbh.prepare("SELECT COUNT(fr.feature_relationship_id) FROM feature_relationship fr INNER JOIN data_feature df ON fr.object_id = df.feature_id")
       sth_get_num_feature_relationships.execute
-      (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
+      ret = (sth_get_num_feature_relationships.fetch[0] > 0) ? true : false
+      sth_get_num_feature_relationships.finish
+      return ret
     }
   end
   def dbh_safe
@@ -401,7 +404,6 @@ class TrackFinder
                    INNER JOIN feature_relationship fr ON fr.subject_id = f.feature_id
                    INNER JOIN cvterm frtype ON fr.type_id = frtype.cvterm_id
                    INNER JOIN generate_series(1, ?) idx(n) ON (CAST(? AS int[]))[idx.n] = fr.object_id
-                   UNION SELECT null, -1, 'eof', null, null, null
                    ORDER BY feature_id DESC")
     }
     @sth_get_wiggles_by_data_ids = dbh_safe {
@@ -1021,7 +1023,6 @@ class TrackFinder
           # Get any features associated with this track's data objects
           cmd_puts "      Getting features."
           cmd_puts "        Finding metadata for features."
-          $stderr.puts "ONE"
           tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
           cmd_puts "          Using tracknum #{tracknum}"
           cmd_puts "        Done."
@@ -1119,84 +1120,87 @@ class TrackFinder
 
               dbh_safe {
                 @sth_get_parts_of_features.execute parent_feature_ids.size, parent_feature_ids.keys
+                row = @sth_get_parts_of_features.fetch_hash
                 parents = Array.new
                 parent_feature_ids = Hash.new
-                # This query is special; the last record will be a fake entry with a feature_id of -1
-                # This makes it easier to collect parent ids without having to print the last feature
-                # outside of the loop
-                current_feature_hash = Hash.new
-                @sth_get_parts_of_features.fetch_hash { |row|
-                  current_feature_hash = row if current_feature_hash.nil?
+                current_feature_hash = nil
+                while (!row.nil?) do
+                  current_feature_hash = row
+                  current_feature_hash['parents'] = Array.new
                   break if current_feature_hash['feature_id'] == -1 # Only happens if no results
 
-                  # Get all parent IDs
-                  if current_feature_hash['feature_id'] == row['feature_id'] then
-                    # Collect this parent id and do nothing else
-                    parents.push [row['relationship_type'], row['parent_id']] if row['parent_id']
-                  else
-                    # Got all the parent IDs for current_feature_hash['feature_id']
-                    parents.push [row['relationship_type'], row['parent_id']] if row['parent_id']
-                    current_feature_hash['parents'] = parents.map { |reltype, parent| "#{reltype}/#{parent}" }.join(',')
-                    parents = Array.new
-
-                    if seen_feature_ids[current_feature_hash['feature_id']] then
-                      # Just add the parents to the existing feature
-                      parsed_features += 1
-                      cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
-                      cmd_puts "ASet feature parents to #{current_feature_hash["parents"]}"
-                      sth_set_gff_parent.execute(current_feature_hash['parents'], current_feature_hash['feature_id'])
-                    else
-                      # Get all the info for this new child feature
-                      @sth_get_featurelocs_by_feature_id.execute(current_feature_hash["feature_id"])
-                      loc_rows = @sth_get_featurelocs_by_feature_id.fetch_all
-                      loc_rows = loc_rows.map { |loc_row| loc_row.nil? ? {} : loc_row.to_h }
-                      next if loc_rows.find { |loc_row| loc_row['fmin'] || loc_row['fmax'] }.nil?  # Skip features with no location
-
-                      parent_feature_ids[current_feature_hash['feature_id']] = true
-                      seen_feature_ids[current_feature_hash['feature_id']] = true
-
-                      @sth_get_analysisfeatures_by_feature_id.execute(current_feature_hash["feature_id"])
-                      af_row = @sth_get_analysisfeatures_by_feature_id.fetch
-                      af_row = af_row.nil? ? {} : af_row.to_h
-
-                      current_feature_hash = current_feature_hash.merge(loc_rows[0]).merge(af_row)
-                      if loc_rows.size > 1 then
-                        tgt_row = loc_rows[1]
-                        current_feature_hash['target'] = "#{tgt_row['srcfeature']} #{tgt_row['fmin'].to_i+1} #{tgt_row['fmax']}"
-                        current_feature_hash['target_accession'] = "#{tgt_row['srcfeature_accession']}"
-                        current_feature_hash['gap'] = tgt_row['residue_info'] if tgt_row['residue_info']
-                      end
-
-                      current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
-                      @sth_get_featureprops_by_feature_id.execute(current_feature_hash["feature_id"])
-                      @sth_get_featureprops_by_feature_id.fetch_hash { |fp_row|
-                        current_feature_hash['properties'][fp_row['propname']][fp_row['proprank'].to_i] = fp_row['propvalue'] unless fp_row['propvalue'].nil?
-                      }
-
-                      parsed_features += 1
-                      cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
-                      # Record metadata
-                      chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
-                      analyses[current_feature_hash['analysis']] = true unless current_feature_hash['analysis'].nil?
-                      organisms[current_feature_hash['genus'] + " " + current_feature_hash['species']] = true unless current_feature_hash['genus'].nil?
-
-                      cmd_puts "BSet feature parents to #{current_feature_hash["parents"]}"
-                      sth_add_gff.execute(
-                        current_feature_hash['feature_id'], 
-                        feature_to_gff(current_feature_hash.dup, tracknum), 
-                        current_feature_hash['parents'],
-                        current_feature_hash['srcfeature'],
-                          current_feature_hash['type'],
-                          current_feature_hash['fmin'],
-                          current_feature_hash['fmax']
-                      )
-                    end
-                    current_feature_hash = row;
+                  # Get all the parent feature IDs
+                  while (!row.nil? && row["feature_id"] == current_feature_hash["feature_id"]) do
+                    current_feature_hash['parents'].push [row['relationship_type'], row['parent_id']] if row['parent_id']
+                    row = @sth_get_parts_of_features.fetch_hash
                   end
-                }
+                  current_feature_hash['parents'] = current_feature_hash['parents'].map { |reltype, parent| "#{reltype}/#{parent}" }.join(',')
+
+                  parsed_features += 1
+                  cmd_puts "          Parsed #{parsed_features} features." if parsed_features % 2000 == 0
+
+                  if seen_feature_ids[current_feature_hash['feature_id']] then
+                    cmd_puts "Setting parents, but not updating anything else for #{current_feature_hash['feature_id']}, seen it" if @debugging
+                    sth_set_gff_parent.execute(current_feature_hash['parents'], current_feature_hash['feature_id'])
+                    next # We've seen this feature before and don't yet support relationship loops
+                  end
+                  seen_feature_ids[current_feature_hash['feature_id']] = true
+
+                  # Record that we've seen this feature and can use it as a parent of other features (e.g. we started with genes, and this is a transcript)
+                  parent_feature_ids[current_feature_hash['feature_id']] = true
+
+                  # Get any locations for this feature and attach them to the object
+                  @sth_get_featurelocs_by_feature_id.execute(current_feature_hash["feature_id"])
+                  loc_rows = @sth_get_featurelocs_by_feature_id.fetch_all.map { |loc_row| loc_row.nil? ? {} : loc_row.to_h }
+                  if (loc_rows.size == 0 || loc_rows.find { |loc_row| loc_row['fmin'] || loc_row['fmax'] }.nil?) then
+                    cmd_puts "Skipping #{current_feature_hash['feature_id']}, it has no locations" if @debugging
+                    next # Skip features with no location 
+                  end
+                  current_feature_hash.merge(loc_rows[0]) # Attach the location info to this feature
+
+
+                  # Get analysisfeature and thus scores for this feature
+                  @sth_get_analysisfeatures_by_feature_id.execute(current_feature_hash["feature_id"])
+                  af_row = @sth_get_analysisfeatures_by_feature_id.fetch
+                  af_row = af_row.nil? ? {} : af_row.to_h
+                  current_feature_hash = current_feature_hash.merge(af_row) # Attach the analysis info to this feature
+
+                  # If there's a second location, then it's for a target feature
+                  if loc_rows.size > 1 then
+                    tgt_row = loc_rows[1]
+                    current_feature_hash['target'] = "#{tgt_row['srcfeature']} #{tgt_row['fmin'].to_i+1} #{tgt_row['fmax']}"
+                    current_feature_hash['target_accession'] = "#{tgt_row['srcfeature_accession']}"
+                    current_feature_hash['gap'] = tgt_row['residue_info'] if tgt_row['residue_info']
+                  end
+
+                  # Get feature properties
+                  current_feature_hash['properties'] = Hash.new { |props, prop| props[prop] = Hash.new }
+                  @sth_get_featureprops_by_feature_id.execute(current_feature_hash["feature_id"])
+                  @sth_get_featureprops_by_feature_id.fetch_hash { |fp_row|
+                    current_feature_hash['properties'][fp_row['propname']][fp_row['proprank'].to_i] = fp_row['propvalue'] unless fp_row['propvalue'].nil?
+                  }
+
+                  # Make sure that at least one feature is located to the chromosome
+                  chromosome_located_features = true if !current_feature_hash['srcfeature_id'].nil? && current_feature_hash['srcfeature_id'] != current_feature_hash['feature_id']
+
+                  # Keep track of which analyses and organisms we've seen
+                  analyses[current_feature_hash['analysis']] = true unless current_feature_hash['analysis'].nil?
+                  organisms[current_feature_hash['genus'] + " " + current_feature_hash['species']] = true unless current_feature_hash['genus'].nil?
+
+                  cmd_puts "Set feature parents to #{current_feature_hash["parents"]}"
+                  sth_add_gff.execute(
+                                      current_feature_hash['feature_id'], 
+                                      feature_to_gff(current_feature_hash.dup, tracknum), 
+                                      current_feature_hash['parents'],
+                                      current_feature_hash['srcfeature'],
+                                      current_feature_hash['type'],
+                                      current_feature_hash['fmin'],
+                                      current_feature_hash['fmax']
+                                     )
+                end
               }
             end
-            cmd_puts "        Done getting child features."
+            cmd_puts "        Done getting #{parsed_features} child features."
           end
 
           # Track the unique analyses used in this track so we can
@@ -1305,7 +1309,6 @@ class TrackFinder
               wiggle_filename = row["data_value"]
               seen_wiggles.push row["wiggle_data_id"]
               cmd_puts "        Finding metadata for wiggle files."
-              $stderr.puts "TWO"
               tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
               cmd_puts "          Using tracknum #{tracknum}"
               cmd_puts "        Done."
@@ -1675,9 +1678,7 @@ class TrackFinder
       if type !~ /^read_pair/ then
         # Make sure this feature type is located to a chromosome
         sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
-        puts "A" if @debugging
         next unless sth_get_num_located_types.fetch[0] > 0
-        puts "B" if @debugging
       end
 
       matchdata = type.match(/(.*):((\d*)(_details)?)$/)
