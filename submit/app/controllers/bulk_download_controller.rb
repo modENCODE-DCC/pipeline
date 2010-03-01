@@ -151,6 +151,7 @@ private
         freeze_files[organism].push [ date, fname ]
       }
     end
+    freeze_files.values.each { |dates| dates.sort! { |d1, d2| Date.parse(d2[0]) <=> Date.parse(d1[0]) }; dates.first[0] += " (newest)" if dates.first }
     return freeze_files
   end
   def get_freeze_data(freeze_file)

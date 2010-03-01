@@ -99,7 +99,6 @@ If you have Perl and XML::Simple installed, and you want to name the files after
 
 <h1>URLs:</h1>
 <div id="urllist">
-  <%= require 'pp'; @selected_data.first.pretty_inspect %>
   <% @selected_data.each do |project_info| %>
     <span style="float: left; width: 5em;"><%= project_info["Submission ID"] %></span>
     <%= link_to(project_info["Name"], { :controller => :public, :action => :download_tarball, :id => project_info["Submission ID"], :structured => true } ) %><br/>
