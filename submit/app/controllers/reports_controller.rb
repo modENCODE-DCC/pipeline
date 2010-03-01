@@ -263,20 +263,23 @@ class ReportsController < ApplicationController
     pis.each {|p| all_distribution_levels_by_pi[p]}
     levels.each{|l| pis.each {|p| all_distribution_levels_by_pi[p][l] = 0}}
 
+    undeprecated_projects = Project.all.reject { |p| p.deprecated? }
+
+
     # Only use the first version of any project, since it's impossible to "unrelease" a project.
     # This means finding all projects that do not deprecate another project.
-    projects = Project.all
-    projects.clone.each { |p|
-      if p.deprecated_by_project then
-       if p.level >= p.deprecated_by_project.level then
-        projects.delete(p.deprecated_by_project)
-       else
-         projects.delete(p)
-       end
-      end
-    }
+    #projects = Project.all
+    #projects.clone.each { |p|
+    #  if p.deprecated_by_project then
+    #   if p.level >= p.deprecated_by_project.level then
+    #    projects.delete(p.deprecated_by_project)
+    #   else
+    #     projects.delete(p)
+    #   end
+    #  end
+    #}
 
-    projects.each { |p|
+    undeprecated_projects.each { |p|
       all_distribution_levels_by_pi[p.pi.split(",")[0]][p.level] += 1  unless pis.index(p.pi.split(",")[0]).nil?
     }
 
@@ -296,7 +299,7 @@ class ReportsController < ApplicationController
     active_status.each{|s| pis.each {|p| @all_active_by_status[s][p] = 0}}
 
 
-    projects.each do |p| 
+    undeprecated_projects.each do |p| 
           step = 1
 	  #identify what step its at
           step = case p.status  
@@ -323,7 +326,7 @@ class ReportsController < ApplicationController
             when (Project::Status::USER_RELEASED ) : 8
             when (Project::Status::DCC_RELEASED) : 9
             when (Project::Status::RELEASED) : 10   #released to the public
-	    when 'Published' : 11
+	    when 'Published' : 10
           else 1
           end 
 	all_distributions_by_pi[p.pi.split(",")[0]][status[step-1]] += 1 unless pis.index(p.pi.split(",")[0]).nil? 
@@ -338,7 +341,6 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_new_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    undeprecated_projects = Project.all.reject { |p| p.deprecated? }
     undeprecated_projects.each {|p| @all_new_projects_per_group_per_quarter[quarters.find {|k,v| p.created_at.to_date <= v["end"] && p.created_at.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1 unless pis.index(p.pi.split(",")[0]).nil? }
 
 
