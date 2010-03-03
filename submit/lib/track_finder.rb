@@ -1294,8 +1294,8 @@ class TrackFinder
           sth_add_gff.finish
           sth_set_gff_parent.finish
           gff_sqlite.disconnect
-#          TODO: Uncomment
-#          File.unlink(File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
+
+          File.unlink(File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_tracks.sqlite"))
 
           cmd_puts "      Done getting features."
         end
