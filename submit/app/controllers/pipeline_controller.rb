@@ -745,11 +745,14 @@ class PipelineController < ApplicationController
     upfile = params[:upload_file]
     upcomment = params[:upload_comment]
     upftp = params[:ftp]
+    uprsync = params[:upload_rsync]
     upurl = "" if upurl.nil? or upurl == "http://" # If it's the default value, ignore it
     upftp = "" unless upftp # Don't let upftp be nil
+    uprsync = "" if uprsync.nil? or uprsync =="rsync://" # Ignore default value
 
+	
     # If nothing was submitted, return
-    if upfile.blank? && upurl.blank? && upftp.blank? then
+    if upfile.blank? && upurl.blank? && upftp.blank? && uprsync.blank? then
       flash[:warning] = "No file submitted. Please upload a file to continue."
       return 
     end
@@ -761,10 +764,15 @@ class PipelineController < ApplicationController
     elsif !upftp.blank? then
       # Use a file uploaded from FTP
       filename = sanitize_filename(upftp)
+    elsif !uprsync.blank? then
+      # Use a file uploaded through rsync
+      filename = sanitize_filename(uprsync)
     else # !upfile.blank?
       # Use a file uploaded through the browser
       filename = sanitize_filename(upfile.original_filename)
-      extensionsByMIME = {
+    end
+    # Validate content type (browser upload) or extension (other uploads)
+    extensionsByMIME = {
           "application/zip" => ["zip", "ZIP"],
           "application/x-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
           "application/x-compressed-tar" => ["tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"],
@@ -775,23 +783,24 @@ class PipelineController < ApplicationController
           "application/gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
           "application/x-gzip" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"],
           "application/x-gtar" => ["tar.gz", "TAR.GZ", "tgz", "TGZ"]
-      }
+    }
+    # If it's a browser upload, check content type unless we're skipping the check
+    if (!upfile.blank?) and (params["skip_content_check"] != "yes") then 
       extensions = extensionsByMIME[upfile.content_type.chomp]
-      if params["skip_content_check"] == "yes" then
-        extensions = extensionsByMIME.values.flatten.find_all { |ext| filename.ends_with?(".#{ext}") }
-      end
+    else # Otherwise, either it's a different upload type OR we're skipping content check 
+      extensions = extensionsByMIME.values.flatten.find_all { |ext| filename.ends_with?(".#{ext}") }
+    end
 
-      unless extensions 
-        flash[:error] = "Invalid content_type=#{upfile.content_type.chomp}."
-        @allow_skip_content_type = true
-        return
-      end
+    unless extensions 
+      flash[:error] = "Invalid content_type=#{upfile.content_type.chomp}."
+      @allow_skip_content_type = true
+      return
+    end
 
-      unless extensions.any? {|ext| filename.ends_with?("." + ext) }
-        flash[:error] = "File name <strong>#{filename}</strong> is invalid. " +
-        "Only a compressed archive file (tar.gz, tar.bz2, zip) is allowed."
-        return
-      end
+    unless extensions.any? {|ext| filename.ends_with?("." + ext) }
+      flash[:error] = "File name <strong>#{filename}</strong> is invalid. " +
+      "Only a compressed archive file (tar.gz, tar.bz2, zip) is allowed."
+      return
     end
 
     # Create a directory for putting the uploaded file into
@@ -802,7 +811,8 @@ class PipelineController < ApplicationController
     redirect_to :action => 'show', :id => @project
 
     # Upload in background
-    do_upload(upurl, upftp, upfile, upcomment, filename, ftpFullPath)
+    do_upload(upurl, upftp, upfile, uprsync, 
+              upcomment, filename, ftpFullPath)
  
   end
 
@@ -2045,11 +2055,13 @@ class PipelineController < ApplicationController
     options[:user] = current_user
     expand_controller.queue options
   end
-  def do_upload(upurl, upftp, upfile, upcomment, filename, ftpFullPath)
+  def do_upload(upurl, upftp, upfile, uprsync, 
+                upcomment, filename, ftpFullPath)
     # TODO: Make this function private
 
     # Create a ProjectArchive to handle the upload
-    (project_archive = @project.project_archives.new).save # So we get an archive_no
+    (project_archive = @project.project_archives.new).save 
+    # We save it so we get an archive_no
     project_archive.file_name = "#{"%03d" % project_archive.attributes[project_archive.position_column]}_#{filename}"
     project_archive.file_date = Time.now
     project_archive.is_active = false
@@ -2059,13 +2071,16 @@ class PipelineController < ApplicationController
 
     # Build a Command::Upload object to fetch the file
     if !upurl.blank? || upurl == "http://" then
-      # Uploading from a remote URL; use open-uri (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
+      # Uploading from a remote URL; use open-uri
+      # (http://www.ruby-doc.org/stdlib/libdoc/open-uri/rdoc/)
       projectDir = path_to_project_dir(@project)
 
-      upload_controller = UrlUploadController.new(:source => upurl, :filename => path_to_file(project_archive.file_name), :project => @project)
+      upload_controller = UrlUploadController.new(:source => upurl,
+        :filename => path_to_file(project_archive.file_name),
+        :project => @project)
       upload_controller.timeout = 36000 # 10 hours
 
-      # Queue upload command
+      # Queue url upload command
       upload_controller.queue(:user => current_user)
     elsif !upftp.blank?
       # Uploading from the FTP site
@@ -2073,8 +2088,17 @@ class PipelineController < ApplicationController
       upload_controller = FileUploadController.new(:source => File.join(ftpFullPath,upftp), :filename => path_to_file(project_archive.file_name), :project => @project) 
       upload_controller.timeout = 600 # 10 minutes
 
-      # Queue upload command
+      # Queue ftp upload command
       upload_controller.queue(:user => current_user)
+
+    elsif !uprsync.blank? || uprsync == "rsync://"
+      # Uploading via rsync - similar to URL
+      upload_controller = RsyncUploadController.new(:source => uprsync, 
+        :filename => path_to_file(project_archive.file_name),
+        :project => @project)
+     upload_controller.timeout = 36000 # 10 hours
+     # Queue rsync upload command
+     upload_controller.queue( :user => current_user )  
     else
       # Uploading from the browser
       if !upfile.local_path

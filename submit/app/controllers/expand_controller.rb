@@ -33,8 +33,12 @@ class ExpandController < CommandController
       end
 
       project_archive.status = ProjectArchive::Status::EXPANDING
-      project_archive.file_size = File.size(File.join(path_to_project_dir, command_object.command))
-      project_archive.file_date = Time.now
+      project_archive.file_size = File.size(File.join(path_to_project_dir,
+                                                      command_object.command))
+      # Update the date only if the archive has none
+      unless project_archive.attribute_present? "file_date" then
+        project_archive.file_date = Time.now
+      end
       project_archive.save
 
       begin
@@ -227,6 +231,9 @@ class ExpandController < CommandController
         }
 
         # Create our new ProjectFile entry
+        # TODO: If we wanted the new files to preserve the time they were
+        # created (or more reasonably, the time the archive was uploaded)
+        # this is where we should put it.
         (project_file = project_archive.project_files.new(
           :file_name => relative_entry_path,
           :file_size => File.size(current_entry_path),

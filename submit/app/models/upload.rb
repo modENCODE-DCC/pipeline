@@ -124,6 +124,47 @@ class Upload < Command
       @controller
     end
   end
+
+  class Rsync < Upload::Url
+   def controller
+     @controller = ::RsyncUploadController.new(:command => self) unless @controller 
+     @controller = ::CommandController.new(:command => self) unless @controller
+     @controller
+   end
+   def formatted_status
+   # Outputs the status of rsync; updates progress bar as new progress is passed
+    (upuri, destfile) = self.command.split(/ to /).map { |i| URI.unescape(i) }
+    output_string = "Uploading #{upuri} via rsync.<br/>" 
+    if (self.stdout.nil?) or (self.stdout == "") then
+      if (self.stderr.nil?) or (self.stderr == "") then
+        return output_string
+      end
+      return output_string +  "<br/>Error! #{self.stderr.gsub!("\n","<br/>")}"
+    end
+    # Separate out the lines of output
+    output = progress.split("\n") # Separate on newline
+  
+    # Note : the following block is mostly unnecessary--atm only the most recent
+    # line of the progress bar is stored so we don't need to parse through to find
+    # what's after the last carriage return. But it shouldn't be harmful.
+    output.each{ |line|
+      # If the last character is \r, remove it - it doesn't overwrite anything
+      line.chomp!("\r")
+      # Then, keep only text after the last \r - everything else's overwritten
+      exclude = line.scan(/.*\r/) # Will have no more than one element
+      line_start = 0
+      exclude.each{|i| line_start = i.length - 1 } # Start after last \r
+      line = line[line_start...line.length] # Remove info that's \r'd over 
+      output_string += "#{line}<br/>"  # Add <br/> in place of \n
+    }
+    # Add any errors
+    unless (self.stderr.nil?) or (self.stderr == "")  then
+      output_string += "<br/>Error! #{self.stderr.gsub!("\n","<br/>")}"
+    end
+   output_string
+   end
+  end
+
   def fail
     self.status = Upload::Status::UPLOAD_FAILED
   end

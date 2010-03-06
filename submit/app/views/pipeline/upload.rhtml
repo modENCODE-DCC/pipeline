@@ -19,6 +19,10 @@
     </li>
 
     <li>
+    <label for "upload_rsync">Upload a tarball or zip via rsync daemon:</label><br/>
+    <%= text_field_tag 'upload_rsync', "rsync://", :size => 40 %>
+    </li>
+    <li>
     <label for="upload_comment">Comment (optional):</label><br/>
     <%= text_field_tag 'upload_comment', "", :size => 40 %>
     </li>
