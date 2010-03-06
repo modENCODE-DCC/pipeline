@@ -1,0 +1,24 @@
+<% @data_by_split.each do |splitkey, data_by_group| -%>
+<%   if splitkey then %><%= splitkey %><% end %>
+<%   if @groups.size > 1 then -%>
+<%     @groups.each do |group| -%>
+<%=       "\t" -%>
+<%=       ([group]*data_by_group[group].size).join("\t") -%>
+<%     end -%>
+<%   end %>
+<%   @groups.each do |group| -%>
+<%      data_by_group[group].each do |restriction, data| -%>
+<%=       "\t" + restriction.values.join(", ") -%>
+<%      end -%>
+<%    end %>
+<%   @rows_product[splitkey].each do |rowrestr| -%>
+<%=    rowrestr.values.join(", ") -%>
+<%     @groups.each do |group| -%>
+<%       data_by_group[group].each do |colrestr, data| -%>
+<%=        "\t" -%>
+<%=        data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d["Submission ID"] }.join(", ") -%>
+<%       end -%>
+<%     end %>
+<%   end %>
+<% end -%>
+

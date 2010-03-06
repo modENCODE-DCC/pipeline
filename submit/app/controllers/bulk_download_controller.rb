@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'tree'
 module ActionView
   module Helpers
     module FormOptionsHelper
@@ -28,21 +30,21 @@ module ActionView
   end
 end
 class BulkDownloadController < ApplicationController
-  FREEZE_FILES = {
-    "" => [ nil ],
-    "D. melanogaster" => [
-      [ "2009-10-19", "dmelanogaster_2009-10-19" ],
-      [ "2009-11-04", "dmelanogaster_2009-11-04" ]
-    ],
-    "C. elegans" => [ ]
-  }
   def index
     @freeze_files = get_freeze_files
-    just_filenames = @freeze_files.values.map { |v| v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
-    @freeze_file = params[:selected_freeze] if just_filenames.include?(params[:selected_freeze])
-    @freeze_data = get_freeze_data(@freeze_file)
+    just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
+    @selected_freeze_id = params[:selected_freeze]
+    @selected_freeze_files = just_filenames.find_all { |fname| fname == params[:selected_freeze] }.map { |fname| 
+      if fname =~ /^combined_/ then
+        date = fname.match(/^combined_(.*)/)[1]
+        [ "dmelanogaster_#{date}", "celegans_#{date}" ]
+      else
+        fname
+      end
+    }.flatten
+    @freeze_data = get_freeze_data(@selected_freeze_files)
 
-    if (@freeze_file == params[:prev_selected_freeze]) then
+    if (params[:selected_freeze] == params[:prev_selected_freeze]) then
       @experiment_type = params[:selected_experiment_type]
       @data_type = params[:selected_data_type]
       @tissue = params[:selected_tissue]
@@ -82,6 +84,7 @@ class BulkDownloadController < ApplicationController
 
     @stages = @freeze_data.map { |project_info| project_info["Stage/Treatment"].split(/, /) }.flatten.uniq.sort { |a, b| a.sub(/^N\/A/, " ") <=> b.sub(/^N\/A/, " ") }
     @stage = @stages if (@stage.nil? || @stage.size == 0)
+    # TODO: Figure out some least-common-ancestors to add to the list of embryos
 
     @antibodies = @freeze_data.map { |project_info| project_info["Antibody"].split(/, /) }.flatten.uniq.sort { |a, b| a.sub(/^N\/A/, " ") <=> b.sub(/^N\/A/, " ") }
     @antibody = @antibodies if (@antibody.nil? || @antibody.size == 0)
@@ -101,7 +104,7 @@ class BulkDownloadController < ApplicationController
     @rnai_targets = @freeze_data.map { |project_info| project_info["RNAi Target"].split(/, /) }.flatten.uniq.sort { |a, b| a.sub(/^N\/A/, " ") <=> b.sub(/^N\/A/, " ") }
     @rnai_target = @rnai_targets if (@rnai_target.nil? || @rnai_target.size == 0)
 
-    if (@freeze_file == params[:prev_selected_freeze]) then
+    if (params[:selected_freeze] == params[:prev_selected_freeze]) then
       @reduced_params = params
       @reduced_params.delete(:selected_experiment_type) if @reduced_params[:selected_experiment_type] == @experiment_types
       @reduced_params.delete(:selected_data_type) if @reduced_params[:selected_data_type] == @data_types
@@ -136,9 +139,183 @@ class BulkDownloadController < ApplicationController
       }
     end
   end
+  def define_matrix
+    @freeze_files = get_freeze_files
+    just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
+    @selected_freeze_id = params[:selected_freeze]
+    @selected_freeze_files = just_filenames.find_all { |fname| fname == params[:selected_freeze] }.map { |fname| 
+      if fname =~ /^combined_/ then
+        date = fname.match(/^combined_(.*)/)[1]
+        [ "dmelanogaster_#{date}", "celegans_#{date}" ]
+      else
+        fname
+      end
+    }.flatten
+    @freeze_data = get_freeze_data(@selected_freeze_files)
 
-private
+    @col_types = [
+      "Compound", "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay"
+    ]
+    @row_types = @col_types
+    @group_by_types = [ ["None", ""], "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay" ]
+    @split_by_types = [ ["None", ""], "Organism", "Assay" ]
+    @show_attrs_types = [ ["None", ""] ] + @col_types
 
+    @selected_row_types = params[:rows] || []
+    @selected_col_types = params[:cols] || []
+    @selected_show_attrs_types = params[:cols] || []
+
+    @stage_onto = get_stage_ontologies
+
+    render :partial => "define_matrix"
+  end
+  def matrix
+    @freeze_files = get_freeze_files
+    just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
+    @selected_freeze_id = params[:selected_freeze]
+    @selected_freeze_files = just_filenames.find_all { |fname| fname == params[:selected_freeze] }.map { |fname| 
+      if fname =~ /^combined_/ then
+        date = fname.match(/^combined_(.*)/)[1]
+        [ "dmelanogaster_#{date}", "celegans_#{date}" ]
+      else
+        fname
+      end
+    }.flatten
+    @freeze_data = get_freeze_data(@selected_freeze_files)
+
+    @experiment_type = params[:selected_experiment_type]
+    @data_type = params[:selected_data_type]
+    @tissue = params[:selected_tissue]
+    @strain = params[:selected_strain]
+    @cell_line = params[:selected_cell_line]
+    @stage = params[:selected_stage]
+    @antibody = params[:selected_antibody]
+    @array_platform = params[:selected_array_platform]
+    @project = params[:selected_project]
+    @lab = params[:selected_lab]
+    @compound = params[:selected_compound]
+    @rnai_target = params[:selected_rnai_target]
+
+    @freeze_data = get_selected_freeze_data(@freeze_data, @experiment_type, @data_type, @tissue, @strain, @cell_line, @stage, @antibody, @array_platform, @project, @lab, @compound, @rnai_target)
+
+    @groups = params[:group_by].empty? ? [ nil ] : @freeze_data.map { |e| e[params[:group_by]].split(/, /) }.flatten.uniq
+    @splits = params[:split_by].empty? ? [ nil ] : @freeze_data.map { |e| e[params[:split_by]].split(/, /) }.flatten.uniq
+
+
+    if (@splits.size > 0) then
+      @data_by_split = Hash.new
+      @splits.each { |split|
+        @data_by_split[split] = split.nil? ? @freeze_data : @freeze_data.find_all { |e| e[params[:split_by]].split(/, /).include?(split) }
+      }
+    else
+      @data_by_split = @freeze_data
+    end
+
+    @cols_product = Hash.new
+    @rows_product = Hash.new
+
+    @data_by_split.each { |splitkey, splitdata|
+
+      data_by_group = Hash.new
+      if (@groups.size > 0) then
+        @groups.each { |group|
+          data_by_group[group] = group.nil? ? splitdata : splitdata.find_all { |e| e[params[:group_by]].split(/, /).include?(group) }
+        }
+      else
+        data_by_group = splitdata
+      end
+
+      @cols = Array.new
+      uniq_by_col = Hash.new { |h, k| h[k] = Array.new }
+      params[:cols].each { |col|
+        splitdata.each { |e|
+          uniq_by_col[col].push e[col].split(/, /) if e[col]
+        }
+      }
+      uniq_by_col.values.each { |v| v.flatten!.uniq! }
+      @cols = uniq_by_col
+      @numcols = @cols.values.map { |v| v.size }.inject { |numcols, s| numcols * s }
+
+      @rows = Array.new
+      uniq_by_row = Hash.new { |h, k| h[k] = Array.new }
+      params[:rows].each { |row|
+        splitdata.each { |e|
+          uniq_by_row[row].push e[row].split(/, /) if e[row]
+        }
+      }
+      uniq_by_row.values.each { |v| v.flatten!.uniq! }
+      @rows = uniq_by_row
+      @numrows = @rows.values.map { |v| v.size }.inject { |numrows, s| numrows * s }
+    
+      @cols_product[splitkey] = uniq_by_col.map { |col, vals| vals.map { |val| { col => val } } }.inject { |prod, cols| prod.product(cols) }.map { |prod| prod.is_a?(Array) ? prod : [ prod ] }.each { |prod| prod.flatten! }.uniq.map { |prod| prod.inject { |h, i| h.merge(i) } }
+      @rows_product[splitkey] = uniq_by_row.map { |row, vals| vals.map { |val| { row => val } } }.inject { |prod, rows| prod.product(rows) }.map { |prod| prod.is_a?(Array) ? prod : [ prod ] }.each { |prod| prod.flatten! }.uniq.map { |prod| prod.inject { |h, i| h.merge(i) } }
+      data_by_group.each { |group, data|
+        data_by_col_combos = Hash.new
+        @cols_product[splitkey].each { |restriction|
+          matching = data.find_all { |e|
+            restriction.find { |k, v| 
+              e[k].nil? || !e[k].split(/, /).include?(v) 
+            }.nil?
+          }
+          data_by_col_combos[restriction] = matching if matching.size > 0
+        }
+        data_by_col_combos.each { |colrestr, data|
+          data_by_row_combos = Hash.new
+          @rows_product[splitkey].each { |restriction|
+            matching = data.find_all { |e|
+              restriction.find { |k, v| 
+                e[k].nil? || !e[k].split(/, /).include?(v) 
+              }.nil?
+            }
+            data_by_row_combos[restriction] = matching if matching.size > 0
+          }
+          data_by_col_combos[colrestr] = data_by_row_combos
+        }
+        data_by_group[group] = data_by_col_combos
+      }
+
+      @data_by_split[splitkey] = data_by_group
+    }
+
+    respond_to do |format|
+      format.html {
+      }
+      format.text {
+        render :partial => "matrix_csv"
+      }
+    end
+
+  end
+
+#private
+  def get_stage_ontologies
+    freeze_dir = "#{RAILS_ROOT}/config/freeze_data/"
+    worm_obo = File.read(File.join(freeze_dir, "worm_development.obo"))
+    fly_obo = File.read(File.join(freeze_dir, "fly_development.obo"))
+    worm_tree = parse_obo(worm_obo)
+    fly_tree = parse_obo(fly_obo)
+    return { "Caenorhabditis elegans" => worm_tree, "Drosophila melanogaster" => fly_tree }
+  end
+  def parse_obo(obo_data)
+    stanzas = obo_data.split(/^(\[\w*\])/)
+    stanzas.shift
+    tree_lookup = Hash.new { |h, k| h[k] = Tree::TreeNode.new(k) }
+    while (stanza = stanzas.shift) do
+      stanza += stanzas.shift
+      stanza = stanza.split(/[\r\n]+/)
+      if stanza[0] == "[Term]" then
+        stanza = stanza.map { |row| row.split(/: /, 2) }
+        name = stanza.find { |term| term[0] == "name" }[1]
+        relationships = stanza.find_all { |term| term[0] == "relationship" && term[1] =~ /^part_of/ }
+        relationships = stanza.find_all { |term| term[0] == "is_a" } unless relationships.size > 0
+        relationships = relationships.map { |term| term[1].split(/ ! /).last }
+        relationships.each { |other_term|
+          tree_lookup[other_term].add(tree_lookup[name])
+        }
+      end
+    end
+    return tree_lookup.values.first.root
+  end
   def get_freeze_files()
     freeze_files = Hash.new { |h, k| h[k] = Array.new }
     freeze_files[""] = [ nil ]
@@ -151,21 +328,26 @@ private
         freeze_files[organism].push [ date, fname ]
       }
     end
-    freeze_files.values.each { |dates| dates.sort! { |d1, d2| Date.parse(d2[0]) <=> Date.parse(d1[0]) }; dates.first[0] += " (newest)" if dates.first }
+    freeze_files = freeze_files.to_a
+    freeze_files = freeze_files + { "Combined" => freeze_files.map { |k, v| v }.flatten(1).reject { |f| f.nil? }.map { |f| [ f[0], "combined_#{f[0]}" ] }.uniq }.to_a
+    freeze_files.each { |file, dates| dates.sort! { |d1, d2| Date.parse(d2[0]) <=> Date.parse(d1[0]) } }
+    freeze_files.each { |file, dates| dates.each { |date| date[0] += " #{date[1][0..3]}" unless date.nil?; }; dates.first[0] += " (newest)" if dates.first }
     return freeze_files
   end
-  def get_freeze_data(freeze_file)
+  def get_freeze_data(freeze_files)
     data = Array.new
-    if File.exists? "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv" then
-      File.open("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") { |f|
-        headers = f.gets.chomp.split(/\t/)
-        while ((line = f.gets) != nil) do
-          fields = line.chomp.split(/\t/).map { |field| (field == "" ? "N/A" : field) }
-          d = Hash.new; headers.each_index { |n| d[headers[n]] = fields[n] }
-          data.push d
-        end
-      }
-    end
+    freeze_files.each { |freeze_file|
+      if File.exists? "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv" then
+        File.open("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") { |f|
+          headers = f.gets.chomp.split(/\t/)
+          while ((line = f.gets) != nil) do
+            fields = line.chomp.split(/\t/).map { |field| (field == "" ? "N/A" : field) }
+            d = Hash.new; headers.each_index { |n| d[headers[n]] = fields[n] }
+            data.push d
+          end
+        }
+      end
+    }
     return data
   end
 

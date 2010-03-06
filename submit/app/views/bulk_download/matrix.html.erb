@@ -1,0 +1,52 @@
+<style type="text/css">
+  TABLE { border-collapse: collapse }
+  TABLE TD { border: thin solid black; vertical-align: top }
+  TABLE TH { border: thin solid black; border-bottom: 4px solid black; padding: 4px; text-align: left }
+  TABLE TD.header { padding: 2px; }
+  TABLE TD.header DIV { white-space: nowrap }
+  TABLE TH DIV { white-space: nowrap }
+</style>
+
+<% @data_by_split.each do |splitkey, data_by_group| %>
+  <% if splitkey then %>
+    <h2><%= splitkey %></h2>
+  <% end %>
+  <table border="0">
+    <% if @groups.size > 1 then %>
+      <tr>
+        <td class="header">&nbsp;</td>
+        <% @groups.each do |group| %>
+          <th colspan="<%=data_by_group[group].size%>"><%= group %></th>
+        <% end %>
+      </tr>
+    <% end %>
+    <tr>
+      <td class="header">&nbsp;</td>
+      <% @groups.each do |group| %>
+        <% border = true %>
+        <% data_by_group[group].each do |restriction, data| %>
+          <th<%= " style=\"border-left: 4px solid black\"" if border %>>
+            <div><%= restriction.values.join(",</div><div>") %></div>
+          </th>
+          <% border = false %>
+        <% end %>
+      <% end %>
+    </tr>
+    <% @rows_product[splitkey].each do |rowrestr| %>
+      <tr class="data_row">
+        <td class="header">
+          <div><%= rowrestr.values.join(",</div><div>") %></div>
+        </td>
+        <% @groups.each do |group| %>
+          <% border = true %>
+          <% data_by_group[group].each do |colrestr, data| %>
+            <td<%= " style=\"border-left: 4px solid black\"" if border %>>
+              <%= data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d["Submission ID"] }.join(", ") %>
+            </td>
+            <% border = false %>
+          <% end %>
+        <% end %>
+      </tr>
+    <% end %>
+  </table>
+<% end %>

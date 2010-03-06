@@ -1,3 +1,15 @@
+<script type="text/javascript">
+  function loadDefineMatrix() {
+    //$('bulk_select_form').action = "<%= url_for :action => :define_matrix %>";
+    //$('bulk_select_form').submit();
+    new Ajax.Updater(
+        'definematrix',
+        '<%= url_for(:action => :define_matrix) %>',
+        { asynchronous:true, evalScripts:true, parameters:Form.serialize($('bulk_select_form')) }
+        );
+    $('definematrix').show();
+  }
+</script>
 <h1>Instructions</h1>
 Select the freeze dataset you wish to download and adjust the filters to focus
 on the datasets of interest. The URL links at the bottom of the page will be
@@ -27,12 +39,15 @@ If you have Perl and XML::Simple installed, and you want to name the files after
   foreach $record (@records) { system("wget '\''" . $record->{"url"} . "'\''"); system("mv -v '\''" . $record->{"ID"} . ".tgz'\''* '\''" . $record->{"Name"} . ".tgz'\''"); }
   '
 </code>
+
 <h1>Filter data</h1>
 <%= link_to "Reset", :action => :index %><br/><br/>
-<%= form_tag url_for(:action => :index), { :method => :post, :class => "bulk_select" } %>
+<%= link_to_function "Generate matrix view", "loadDefineMatrix()" %><br/><br/>
+<div id="definematrix" style="display:none; margin: 8px; padding: 8px; border: thin dashed black">Loading...</div>
+<%= form_tag url_for(:action => :index), { :method => :post, :class => "bulk_select", :id => "bulk_select_form" } %>
   <label for"selected_freeze" class="bulk_select">Select freeze date:</label>
-  <%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, @freeze_file), :onchange => "this.form.submit()") %>
-  <%= hidden_field_tag("prev_selected_freeze", @freeze_file) %>
+  <%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, params[:selected_freeze]), :onchange => "this.form.submit()") %>
+  <%= hidden_field_tag("prev_selected_freeze", @selected_freeze_id) %>
   <br/>
   <label for="selected_experiment_type" class="bulk_select">Select experiment type:</label>
   <%= select_tag("selected_experiment_type[]", options_for_select(@experiment_types, :selected => @experiment_type, :disabled => @disabled_experiment_types), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>

@@ -1,0 +1,108 @@
+<script type="text/javascript">
+  var updating_constraints = false;
+  var redrawSample = function() {
+    cols = $('cols').getValue();
+    rows = $('rows').getValue();
+    var split_tables = new Element('span');
+    var num_split = $('split_by').getValue() ? 2 : 1;
+    $('sample_div').update();
+    for (var spliti = 0; spliti < num_split; spliti++) {
+      var table = new Element('table', { border: 1});
+      var header = new Element('tr').update(new Element('td').update("&nbsp;"));
+      var group_by = [ null ];
+      if ($('group_by').getValue()) {
+        group_by = [ $('group_by').getValue() + "1", $('group_by').getValue() + "2" ];
+        group_row = new Element("tr").update(new Element('td').update("&nbsp;"));
+        group_by.each(function(g) {
+          group_row.appendChild(new Element("th", { colspan: Math.pow(2, cols.size()) }).update(g));
+          });
+          table.appendChild(group_row);
+      }
+      for (var g = 0; g < group_by.size(); g++) {
+        for (var i = 0; i < Math.pow(2, cols.size()); i++) {
+          cell = new Element('td');
+          out = cols[0] + ((i&1)+1);
+          for (var j = 1; j < cols.size(); j++) {
+            out = cols[j] + (((i>>j)&1)+1) + ", " + out;
+          }
+          cell.update(out);
+          header.appendChild(cell);
+        }
+      }
+      table.appendChild(header);
+      for (var i = 0; i < Math.pow(2, rows.size()); i++) {
+        cell = new Element('td');
+        out = rows[0] + ((i&1)+1);
+        for (var j = 1; j < rows.size(); j++) {
+          out = rows[j] + (((i>>j)&1)+1) + ", " + out;
+        }
+        cell.update(out);
+        row = new Element('tr').update(cell);
+        for (var k = 0; k < Math.pow(2, cols.size())*group_by.size(); k++) {
+          row.appendChild(new Element('td').update('X'));
+        }
+        table.appendChild(row);
+      }
+      if (num_split > 1) { $('sample_div').appendChild(new Element('b').update($('split_by').getValue() + (spliti+1))) };
+      $('sample_div').appendChild(table);
+    }
+  };
+  updateFormConstraints = function(changed_elem) {
+    if (updating_constraints) { return; }
+    updating_constraints = true;
+    first_update = [ 'split_by', 'rows', 'cols', 'group_by', 'show_attrs' ];
+    selected_vals = $(changed_elem).getValue() || [];
+    enabled_vals = $(changed_elem).childElements().findAll( function(e) { return e.disabled == false; } ).map( function(e) { return e.value; } ) || [];
+    first_update = first_update.without(changed_elem.identify());
+    first_update.each( function (elem_name) {
+      $(elem_name).childElements().each( function (e) {
+        if (e.value != "" && selected_vals.include(e.value)) { e.disabled = true; if (e.selected) { e.selected = false; } }
+        else if (enabled_vals.include(e.value)) { e.disabled = false; }
+      } );
+    } );
+    default_none = [ 'split_by', 'group_by', 'show_attrs' ];
+    default_none.each(function (e) {
+        if (!$(e).getValue()) {
+          $(e).childElements().find ( function(e) { return e.value == "" } ).selected = true;
+        }
+      }
+    );
+        
+    $('generate_html_button').disabled = $('generate_csv_button').disabled = ($('cols').getValue().size() == 0 || $('rows').getValue().size() == 0);
+    updating_constraints = false;
+    if (!$('generate_csv_button').disabled) {
+      redrawSample();
+    }
+  };
+</script>
+<% form_tag(:action => :matrix) do %>
+  <!-- <%= label_tag :date, "Freeze date: "%><%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, params[:selected_freeze]), :disabled => "disabled") %> -->
+  <span style="display:none">
+    <% params.each do |k, v| %>
+      <% next unless k =~ /^(prev_)?selected_/ %>
+      <% if v.is_a?(Array) then %>
+        <%= select_tag(k + "[]", options_for_select(v, v), :multiple => true) %><br/>
+      <% else %>
+        <%= hidden_field_tag(k, v) %>
+      <% end %>
+    <% end %>
+  </span>
+  <% if @freeze_data.size > 0 %>
+    <%= label_tag :split_by, "Split by: "%><%= select_tag :split_by, options_for_select(@split_by_types, @selected_split_by_types), :onchange => "updateFormConstraints(this)", :size => 8 %>
+    <%= label_tag :rows, "Rows are: "%><%= select_tag :rows, options_for_select(@row_types, @selected_row_types), :multiple => true, :onchange => "updateFormConstraints(this)", :size => 8, :name => "rows[]" %>
+    <%= label_tag :cols, "Columns are: "%><%= select_tag :cols, options_for_select(@col_types, @selected_col_types), :multiple => true, :onchange => "updateFormConstraints(this)", :size => 8, :name => "cols[]" %>
+    <%= label_tag :group_by, "Group by: "%><%= select_tag :group_by, options_for_select(@group_by_types, @selected_group_by_types), :onchange => "updateFormConstraints(this)", :size => 8 %>
+    <%= label_tag :show_attrs, "Show attributes: "%><%= select_tag :show_attrs, options_for_select(@show_attrs_types, @selected_show_attrs_types), :onchange => "updateFormConstraints(this)", :size => 8, :name => "show_attrs[]" %>
+    <br/>
+    <%= submit_tag "Generate HTML", :id => "generate_html_button", :disabled => "disabled" %>
+    <%= submit_tag "Generate CSV", :id => "generate_csv_button", :disabled => "disabled", :onclick => "this.form.action='#{url_for(:action => "matrix.txt")}'" %>
+  <% else %>
+    No submissions found for given constraints.
+  <% end %>
+<% end %>
+<script type="text/javascript">
+  first_update.each(function (e) {
+    updateFormConstraints($(e));
+  });
+</script>
+<div id="sample_div"></div>
