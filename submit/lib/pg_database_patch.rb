@@ -1,4 +1,4 @@
-require 'dbd/Pg'
+require 'pg'
 class DBI::DBD::Pg::Database < DBI::BaseDatabase
     private
     def load_type_map

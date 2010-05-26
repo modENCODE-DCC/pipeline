@@ -1,12 +1,12 @@
-require 'applied_protocol'
 require 'rubygems'
-require 'rubygems'
-gem 'dbi'
 require 'dbi'
+require 'pg'
+require 'sqlite3'
+require 'applied_protocol'
 require 'cgi'
-require 'pg_database_patch'
 require 'find'
 require 'pp'
+#require 'pg_database_patch'
 
 class Citation < ActionView::Base
   def initialize(project_id)
@@ -324,6 +324,7 @@ class TrackFinder
     dbinfo = self.database
     @command_object = command_object
     @dbh = DBI.connect(dbinfo[:dsn], dbinfo[:user], dbinfo[:password])
+    require 'pg_database_patch'
 
     # Track finding queries:
     @sth_get_experiment_id = dbh_safe { 
