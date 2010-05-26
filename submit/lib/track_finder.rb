@@ -1,5 +1,7 @@
 require 'applied_protocol'
 require 'rubygems'
+require 'rubygems'
+gem 'dbi'
 require 'dbi'
 require 'cgi'
 require 'pg_database_patch'
