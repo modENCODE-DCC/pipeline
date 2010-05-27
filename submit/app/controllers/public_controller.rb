@@ -345,14 +345,17 @@ class PublicController < ApplicationController
     end
     download_dir = ""
     download_dir = (params[:root] == "tracks") ? "tracks" : "extracted" if (params[:root] && params[:root].length > 0)
-    if (download_dir == "") then
+    if (download_dir == "" &&
+        File.directory?(File.join(PipelineController.new.path_to_project_dir(@project), "extracted")) &&
+        Dir.glob(File.join(File.join(PipelineController.new.path_to_project_dir(@project), "extracted"), "*")).size > 0
+       ) then
       download_dir = "extracted" 
       params[:root] = "extracted"
     end
     @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
 
-    unless File.directory?(@root_directory) then
+    unless File.directory?(@root_directory) && Dir.glob(File.join(@root_directory, "*")).size > 0 then
       if @root.nil? || @root == "" then
         flash[:error] = "No data for this project."
         redirect_to :action => :list
@@ -384,6 +387,10 @@ class PublicController < ApplicationController
 
     @listing = Array.new
     @current_directory += "/" unless @current_directory =~ /\/$/;
+    if params[:debug] then
+      render :text => @root_directory
+      return
+    end
     Find.find(@current_directory) do |path|
       next if File.basename(path) == File.basename(@current_directory)
       relative_path = path[@root_directory.length..-1]
