@@ -61,6 +61,7 @@ end
 # Add new mime types for use in respond_to blocks:
 # Mime::Type.register "text/richtext", :rtf
 # Mime::Type.register "application/x-mobile", :mobile
+Mime::Type.register "application/vnd.ms-excel", :xls, [], [ "xls", "xlb", "xlt" ]
 
 # Include your application configuration below
 
@@ -74,8 +75,11 @@ ActiveSupport::CoreExtensions::Date::Conversions::DATE_FORMATS.merge!(my_date_fo
 
 #ActionMailer::Base.delivery_method = :smtp
 ActionMailer::Base.raise_delivery_errors = true
+
+# :address here was originally mail.fruitfly.org (still port 25),
+# but it was requested that it be changed.
 ActionMailer::Base.smtp_settings = {
-  :address  => "mail.fruitfly.org",
+  :address  => "smtp.lbl.gov",
   :port  => 25, 
   :domain  => 'berkeleybop.org'
 } 
