@@ -3,7 +3,7 @@ Hello <%= @name %>,
   commands_by_project = Hash.new { |h, k| h[k] = Array.new }
   user = nil
   prefs_url = url_for(:host => "submit.modencode.org", :controller => "submit/account", :action => :change_profile)
-  @commands.each { |cmd| commands_by_project[cmd.project_id].push(cmd) }
+  @commands.compact.each { |cmd| commands_by_project[cmd.project_id].push(cmd) }
   commands_by_project.sort { |p1, p2| (p1[0].nil? ? 0 : p1[0]) <=> (p2[0].nil? ? 0 : p2[0]) }.each do |project, commands|
     user = commands.first.project.nil? ? nil : commands.first.project.user
     project_id = commands.first.project.nil? ? "0" : commands.first.project.id
@@ -14,8 +14,8 @@ Hello <%= @name %>,
   For more information about project #<%= project_id %>, see <%= project_url %>.
   <%
     commands.sort { |m1, m2|
-      a = m1.nil? ? 0 : [ m1.project_id, m1.start_time, m1.id ]
-      b = m2.nil? ? 0 : [ m2.project_id, m2.start_time, m2.id ]
+      a = m1.nil? ? 0 : [ m1.project_id, (m1.start_time || 0).to_i, m1.id ]
+      b = m2.nil? ? 0 : [ m2.project_id, (m2.start_time || 0).to_i, m2.id ]
       a <=> b
     }.each do |command|
       command_name = command.name
