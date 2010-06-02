@@ -74,6 +74,8 @@
   <script type="text/javascript">
 
     var tracksToUpdate = new Array();
+    Controller.busy = function() { return 1; }
+    Controller.idle = function() { return 1; }
     Controller.update_coordinates = function(trackname, action, chr, fmin, fmax, extraOnSuccess) {
 
       if (!extraOnSuccess) { extraOnSuccess = function() {}; }
@@ -87,7 +89,10 @@
       
       new Ajax.Request(this.url,{
         method:     'post',
-        parameters: {navigate: action },
+        parameters: {
+          action: 'navigate',
+          navigate: action
+        },
         onSuccess: function(transport) {
           var results                 = transport.responseJSON;
           var track_keys              = results.track_keys;
@@ -96,7 +101,7 @@
           this.last_update_key = create_time_key();
           gbtrack.set_last_update_key(this.last_update_key)
 
-          Controller.rerender_track( trackname );
+          Controller.rerender_track( trackname, false, true );
 
         } // end onSuccess
         
@@ -231,7 +236,6 @@
       elem.hide();
       elem.previous().firstDescendant().show();
     }
-
     function updateNextTrack() {
       if (tracksToUpdate.length > 0) {
         var track_name = tracksToUpdate.shift();
@@ -244,7 +248,6 @@
         );
       }
     }
-
     function initController(evt) {
       // Initialize GBrowse session by fetching full page
       Controller.set_display_option('cache',0);
