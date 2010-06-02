@@ -10,7 +10,7 @@ class ApplicationController < ActionController::Base
 
   before_filter { |ctrl| 
     if ctrl.request.subdomains.first != "submit" && ctrl.request.subdomains.first != "smaug" then
-      unless ctrl.request.remote_ip =~ /^131.243/ then
+      unless ctrl.request.remote_ip =~ /^131\.243|^127\./ then
         new_url = ctrl.request.url.sub("#{ctrl.request.subdomains.first}.lbl.gov", "submit.modencode.org")
         ctrl.send(:redirect_to, new_url)
       end
