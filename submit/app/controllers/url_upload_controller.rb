@@ -56,7 +56,7 @@ class UrlUploadController < UploadController
 
     # Rexpand all active archives for this project
     unless command_object.failed? then
-      PipelineController.new.queue_reexpand_project(command_object.project)
+      PipelineController.new.queue_reexpand_project(command_object.project, command_object)
       CommandController.do_queued_commands
     end
   end

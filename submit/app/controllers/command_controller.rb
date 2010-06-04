@@ -228,7 +228,7 @@ class CommandController < ApplicationController
 
   def self.disable_related_commands(command)
     command.project.commands.find_all_by_status(Command::Status::QUEUED).each do |cmd|
-      cmd.fail
+      cmd.cancel
       cmd.save
     end
     command.project.status = command.status

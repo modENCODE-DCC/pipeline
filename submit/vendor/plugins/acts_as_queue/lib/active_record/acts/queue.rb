@@ -75,7 +75,7 @@ module ActiveRecord
       # the first in the queue of all chapters.
       module InstanceMethods
         # Insert the item at the given queue_position (defaults to the top queue_position of 1).
-        def insert_at(queue_position = 1)
+        def queue_insert_at(queue_position = 1)
           insert_at_queue_position(queue_position)
         end
 

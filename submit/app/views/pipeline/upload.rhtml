@@ -56,7 +56,14 @@
   <table cellpadding=0 cellspacing=0><tr>
       <td><%= submit_tag "Submit" %></td>
       <td><%= submit_tag "Cancel" %></td>
-  </tr></table>
+      <td><input type = "checkbox" id="chain_after_upload" 
+            name="chain_after_upload" value="do_chain" value="false"/>
+            <label for="chain_after_upload">Automatically process submission
+                                            (see below)
+            </label>
+      </td>
+  </tr>
+ </table>
 </form>
 <p>
 Use 'Submit' to upload and expand the archive, validate the data and metadata, <br/>
@@ -70,4 +77,12 @@ The archive file must have one of these extensions: <br/>
 <div style="float: left; border: thin dashed #CCCCCC; width: 25em; padding: 15px; margin: 0px 0px 1em 2em;">
   Just replacing a single file? Click <%= link_to "here", :action => :show, :id => @project, :anchor => "uploaded_data" %>
   and select "replace this" in the Uploaded Data section of the project page.
+</div>
+<br/>
+<div style="float: left; border: thin dashed #CCCCCC; width: 25em; padding: 15px; margin: 0px 0px 1em 2em;">
+ <b>Automatic Processing (new!):</b> This will cause your submission to be
+    automatically processed (validated, loaded, etc.)  as soon as the archive
+    is uploaded. Do NOT check the box if you have more archives to upload or 
+    need to make more changes to which files are in use for this project.
+  
 </div>

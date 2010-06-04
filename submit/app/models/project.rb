@@ -196,6 +196,9 @@ class Project < ActiveRecord::Base
     return other_pis.include?(self.pi)
   end
 
+  def last_command_not_failed
+    return self.commands.reject { |cmd| Project::Status::is_failed_state(cmd.status) }.last
+  end
   module Status
     include Command::Status
     include Upload::Status

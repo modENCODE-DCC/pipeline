@@ -23,7 +23,6 @@ class Command < ActiveRecord::Base
 
     self.status = Command::Status::QUEUED unless self.status
     #self.class_name = self.class.name
-
     throw :no_project_provided unless (self.project && self.project.is_a?(Project))
     @package_dir = options[:package_dir]
   end
@@ -101,6 +100,9 @@ class Command < ActiveRecord::Base
     u = self.project.user if (u.nil? && !self.project.nil?)
     return u
   end
+  def cancel # Used on q'd command when a previous command in that proj fails
+    self.status = Command::Status::CANCELED
+  end
   def fail
     self.status = Command::Status::FAILED
   end
@@ -113,5 +115,7 @@ class Command < ActiveRecord::Base
   def active?
     Project::Status::is_active_state(self.status)
   end
-
+  def queued?
+    self.status == Command::Status::QUEUED
+  end
 end

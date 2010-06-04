@@ -1,6 +1,7 @@
 class CommandNotifier < ActionMailer::Base
   MIN_RUNTIME_NOTIFY = 60*10 # Ten minutes
   SUBJECT_TEMPLATE = "A modENCODE submission pipeline notification"
+  SUBJECT_TEMPLATE_CHAINING = "Your modENCODE submission has been processed!"
   def self.send_batched_notifications
     messages = EmailMessage.all
     logger.info("Sending #{messages.size} batched messages")

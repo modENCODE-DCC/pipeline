@@ -346,7 +346,41 @@ class PipelineController < ApplicationController
     end
     #render :action => Project::Status::NEW
   end
+
+  # Activates command chaining for the current project and queues
+  # all remaining commands in order
+  def chain_commands
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    # Run the chaining -- if it returns false, don't give the 
+    # "queued successfully" message
+    if do_chain_commands(@project) then
+      flash[:notice] = "Your commands have been queued and you will be emailed when they are complete or have failed."
+    else # do_chain_commands returned, but false!
+      flash[:error] = "Someting failed when queuing the commands!"
+    end
+
+    redirect_to  :action => "show", :id => @project
+  end
   
+  # Queues up all remaining commands in project
+  # and start the next command in the queue 
+  def do_chain_commands(project)
+    last_cmd = project.last_command_not_failed
+    return false if last_cmd.nil?
+    if last_cmd.is_a?(Upload) || last_cmd.is_a?(Expand) then
+      # Upload will automatically run expand, and insert it right after the upload
+      do_validate(project, :defer => true)
+      do_load(project, :defer => true)
+      do_find_tracks(project)
+    end
+  end
+
   def show
     @autoRefresh = true
     begin
@@ -548,7 +582,7 @@ class PipelineController < ApplicationController
 
     # Rexpand any active archives prior to this one
     do_expand(project_archive)
-
+ 
     redirect_to :action => 'show', :id => @project
   end
 
@@ -740,6 +774,7 @@ class PipelineController < ApplicationController
       return
     end
 
+
     # If submitted by another button, then it was an attempted upload
     upurl = params[:upload_url]
     upfile = params[:upload_file]
@@ -749,8 +784,8 @@ class PipelineController < ApplicationController
     upurl = "" if upurl.nil? or upurl == "http://" # If it's the default value, ignore it
     upftp = "" unless upftp # Don't let upftp be nil
     uprsync = "" if uprsync.nil? or uprsync =="rsync://" # Ignore default value
+ 
 
-	
     # If nothing was submitted, return
     if upfile.blank? && upurl.blank? && upftp.blank? && uprsync.blank? then
       flash[:warning] = "No file submitted. Please upload a file to continue."
@@ -807,13 +842,23 @@ class PipelineController < ApplicationController
     # TODO: Are these two lines necessary?
     projectDir = File.dirname(path_to_file(filename))
     Dir.mkdir(projectDir,0775) unless File.exists?(projectDir)
+   
 
-    redirect_to :action => 'show', :id => @project
-
-    # Upload in background
-    do_upload(upurl, upftp, upfile, uprsync, 
-              upcomment, filename, ftpFullPath)
- 
+    chain_after_upload = params[:chain_after_upload]
+    
+    # If we're not chaining, redirect and queue the upload
+    unless chain_after_upload == "do_chain" then
+      redirect_to :action => 'show', :id => @project
+    
+      # Upload in background
+      do_upload(upurl, upftp, upfile, uprsync, 
+                upcomment, filename, ftpFullPath)
+    else # we _are_ chaining -- queue upload, then queue remaining commands
+      do_upload(upurl, upftp, upfile, uprsync, 
+                upcomment, filename, ftpFullPath)
+    
+      chain_commands  #(:id =>@project) 
+    end
   end
 
   def deactivate_archive
@@ -910,7 +955,7 @@ class PipelineController < ApplicationController
 
     do_load(@project)
 
-    redirect_to :action => :show, :id => @project
+    redirect_to :action => 'show', :id => @project
   end 
 
   def build_report
@@ -1021,7 +1066,6 @@ class PipelineController < ApplicationController
     end
 
     do_find_tracks(@project)
-
     redirect_to :action => :show, :id => @project
   end
 
@@ -1088,7 +1132,6 @@ class PipelineController < ApplicationController
         return false
       end
     end
-
     if params[:organism] then
       case params[:organism]
       when "Caenorhabditis elegans"
@@ -1179,7 +1222,6 @@ class PipelineController < ApplicationController
       @released = false
     end
     if ts.nil? || params[:reset_definitions] then
-
       unless (session[:generating_track_stanza]) then
         session[:generating_track_stanza] = @project.id
         session[:generating_track_stanza_error] = nil
@@ -1193,8 +1235,8 @@ class PipelineController < ApplicationController
             track_defs = TrackFinder.new.generate_gbrowse_conf(@project.id)
             logger.info "Done with GBrowse config generation"
           }
-          rescue
-            logger.error "Failed to generate config (timeout?)"
+          rescue Exception => e
+            logger.error "Failed to generate config (timeout?) - rescued #{e.inspect}"
             session[:generating_track_stanza_error] = "Unable to generate config (timeout?)"
           end
           # Delete old one
@@ -2052,9 +2094,12 @@ class PipelineController < ApplicationController
     project_archive.save
     expand_controller = ExpandController.new(:filename => project_archive.file_name, :project => project_archive.project)
 
+
     options[:user] = current_user
     expand_controller.queue options
+    cmd_obj = expand_controller.command_object
   end
+
   def do_upload(upurl, upftp, upfile, uprsync, 
                 upcomment, filename, ftpFullPath)
     # TODO: Make this function private
@@ -2120,7 +2165,6 @@ class PipelineController < ApplicationController
       queue_reexpand_project(@project)
       CommandController.do_queued_commands
     end
-
   end
 
   def check_user_can_write(project = nil, options = {})
@@ -2277,7 +2321,7 @@ class PipelineController < ApplicationController
     end
   end
 
-  def queue_reexpand_project(project)
+  def queue_reexpand_project(project, after_command = nil)
     # Delete everything in the extracted dir since it's no longer up-to-date
     unless project.project_archives.first.nil? then
       ExpandController.remove_extracted_folder(project.project_archives.first)
@@ -2285,9 +2329,17 @@ class PipelineController < ApplicationController
 
     # Rexpand any active archives from oldest to newest
     current_project_archive = project.project_archives.first
+    cmds = Array.new
     while (current_project_archive)
-      do_expand(current_project_archive, :defer => true) if current_project_archive.is_active
+      cmds.push do_expand(current_project_archive, :defer => true) if current_project_archive.is_active
       current_project_archive = current_project_archive.lower_item
+    end
+    if after_command then
+      # Move just queued commands in front of the first queued command
+      cmds.reverse.each { |cmd|
+        cmd.queue_insert_at(after_command.queue_position+1)
+        cmd.insert_at(after_command.position+1)
+      }
     end
   end
   def cancel_upload
