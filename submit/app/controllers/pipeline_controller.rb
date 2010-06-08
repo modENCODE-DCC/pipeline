@@ -359,10 +359,11 @@ class PipelineController < ApplicationController
     end
     # Run the chaining -- if it returns false, don't give the 
     # "queued successfully" message
-    if do_chain_commands(@project) then
+    err = do_chain_commands(@project)
+    if err.nil? then
       flash[:notice] = "Your commands have been queued and you will be emailed when they are complete or have failed."
     else # do_chain_commands returned, but false!
-      flash[:error] = "Someting failed when queuing the commands!"
+      flash[:error] = err
     end
 
     redirect_to  :action => "show", :id => @project
@@ -372,13 +373,21 @@ class PipelineController < ApplicationController
   # and start the next command in the queue 
   def do_chain_commands(project)
     last_cmd = project.last_command_not_failed
-    return false if last_cmd.nil?
+    return "There are no previous commands for this project, and so no uploaded files could be found!" if last_cmd.nil?
     if last_cmd.is_a?(Upload) || last_cmd.is_a?(Expand) then
       # Upload will automatically run expand, and insert it right after the upload
       do_validate(project, :defer => true)
       do_load(project, :defer => true)
       do_find_tracks(project)
+    elsif last_cmd.is_a?(Validate) then
+      do_load(project, :defer => true)
+      do_find_tracks(project)
+    elsif last_cmd.is_a?(Load) then
+      do_find_tracks(project)
+    else
+      return "It's not possible to chain commands after a #{last_cmd.class.name}"
     end
+    return nil
   end
 
   def show
