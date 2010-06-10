@@ -5,7 +5,7 @@ workers:
       name: blinky,
       ip: 131.243.192.224,
       disallow_pis: { "Lai, Eric" },
-      disallow_users: { "pruzanov" }
+      disallow_users: { "pruzanov", "nlw" }
     }
   - {
       name: yeti,
@@ -13,7 +13,8 @@ workers:
     }
   - {
       name: indy,
-      ip: 131.243.192.76
+      ip: 131.243.192.76,
+      disallow_users: { "nlw" }
     }
   - {
       name: dumpy,
