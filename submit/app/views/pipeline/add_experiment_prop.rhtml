@@ -1,0 +1,300 @@
+<style type = "text/css">
+
+table.proptable tr th{
+   vertical-align: bottom; text-align: center
+   
+   }
+table.proptable td{ 
+  padding-left:0.5em;
+  padding-right:0.5em;
+  border-spacing:0.2em;}   
+TH.tophr { border-top: medium solid grey; }
+
+
+span.hints {
+  background-color:#ffffcc;
+  color:#555555;
+  font-size:80%;
+}
+div.field {
+  float:left;
+  clear:left;
+  margin-left:1em;
+  margin-bottom:1.5em;
+  width:20em;
+}
+label.newprop {
+  font-weight:bold;
+  float:left;
+  clear:left;
+}
+span.valError {
+  margin-left:1em;
+}
+</style>
+
+<b>Experiment Property Injection Page</b>
+<br/><hr/>
+Add properties to an experiment in Project #<%= params[:id] %> :
+<%= Project.find(params[:id]).name %> 
+<br/> <br/>
+<%
+
+# Make sure the project has a chadoXML file associated : is it in a loadable
+# state & of type ModENCODE?
+project_is_modencode = (@project.project_type == ProjectType.find_by_name("modENCODE Project"))
+loading_ok = Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)
+
+is_released =  (@project.status == "released")
+
+#
+#unless project_is_modencode && 
+#  (( Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)) || 
+#  ( @project.status == "released" ) ) then
+
+# FIX THIS --- REMOVE HACK
+unless ( project_is_modencode && ( loading_ok or is_released )) or (@testing_hack == "CHEATER")  then
+   flash[:error] = "Whoops! Project must have generated a ChadoXML file to apply a patch"
+  return
+end
+
+unless @xml_is_parsed then
+  flash[:error] = "The xml file hasn't finshed parsing! Is rails being asynchronous?"
+  return
+end
+
+
+
+%>
+<b>Pending Properties</b><br/>
+For the current project, these properties have been created but have not yet 
+been added to the database. You can use the checkboxes to select the properties
+you wish to process and <b>add</b> them to the database or <b>delete</b> them.
+<br/>
+<% form_tag(:action => 'add_experiment_prop') do %>
+<table class = "proptable">
+<tr><th>Name</th><th>Value</th><th>Add</th><th>Delete</th></tr>
+<tr><th colspan="4" class="tophr">&nbsp;</th></tr>
+<%
+  # alternate the table bg colors!
+  next_bg_color = "#eeeeee"
+
+@pending_patches = [] if @pending_patches.nil?
+@pending_patches.each{|patch|
+  %>
+  
+  <tr style="background-color: <%= next_bg_color %> ">
+    <td>
+      <label for="add_<%= patch[:filename] %>">
+        <%= patch[:name] %>
+      </label>
+    </td><td>
+      <label for="add_<%= patch[:filename] %>">
+        <%= patch[:value] %>
+      </label>
+    </td><td>
+
+  <%= check_box_tag "add_#{patch[:filename]}" %></td><td>
+  <%= check_box_tag "delete_#{patch[:filename]}" %>
+  </td> </tr>
+ <%
+  next_bg_color = (next_bg_color == "#eeeeee" ? "#f2f2ff" : "#eeeeee")
+}
+%>
+</table>
+<br/>
+<b>Applied Properties</b><br/>
+These properties have been successfully patched in to the experiment and added
+to the database.
+<table class = "proptable">
+<tr><th>Name</th><th>Value</th></tr>
+<tr><th colspan="2" class="tophr">&nbsp;</th></tr>
+<%
+@applied_patches = [] if @applied_patches.nil?
+@applied_patches.each{|patch|
+%>
+<tr style = "background-color: <%= next_bg_color %>">
+  <td>
+    <%= patch[:name] %>
+  </td><td>
+    <%= patch[:value] %>
+  </td></tr>
+<%
+  next_bg_color = (next_bg_color == "#eeeeee" ? "#f2f2ff" : "#eeeeee")
+}
+%>
+</table>
+<br/>
+<%= submit_tag 'Apply changes' %><%= submit_tag 'Cancel' %>
+<!-- end form for viewing props & adding to DB -->
+<% end %>
+
+
+<!-- Form to create the property -->
+<hr>
+<b>New Experiment Property: </b><br/>
+Use this form to create a new property for an experiment in 
+<%= Project.find(params[:id]).name %>. When you <b>create</b> it, it will be
+added to the "Pending Properties" list.
+<br/><br/>
+<%
+ form_tag({:action => 'add_experiment_prop'}, {:name => "create_new_property"}) do 
+  # Make the list of experiments to choose from
+  # If there's only one, that's the one you get
+%>  
+
+<label class="newprop" for "eprop_uname">Experiment</label>
+<br/>
+<%
+  if @all_experiments.length == 1 then 
+    expname = @all_experiments[0]
+  %>
+<div class="field">
+<b>
+<%= link_to CGI.escapeHTML(expname), :controller => :pipeline,
+  :action => :show, :params => {:id => params[:id]} %>
+</b>
+</div>
+<%= hidden_field_tag 'eprop_uname', CGI.escapeHTML(expname) %><%
+  else
+    # if there's multiple experiments, make a select dropdown
+    @all_experiments.map!{|e| [e, CGI.escapeHTML(e)]}
+    select_options = options_for_select(@all_experiments)
+%>
+<div class="field">
+<%= select_tag 'eprop_uname', select_options %>
+</div>
+<%end # end experiment tag
+%>
+<br/>
+<label class="newprop" for="eprop_name">Property Name</label>
+<br/>
+<div class="field"
+<%= text_field_tag 'eprop_name', "",
+  :escape => true, :maxlength => 255 %><br>
+<span class="hints">Name of the new property. Example: Organism</span>
+</div>
+<br/>
+<label class="newprop" for="eprop_value">Value</label>
+<br/>
+<div class="field">
+<%= text_field_tag 'eprop_value', "", :escape => true %><br>
+<span class = "hints">Optional. A value corresponding to the property's name. Example: C. Elegans</span>
+</div>
+<br/>
+<label class="newprop" for="eprop_typeid">Type</label>
+<br/>
+<%
+  # Create the cvterm options
+  formatted_cvterm_options = []
+  @all_cvterms.each { |cvt|
+    # if the "is_obsolete" field is empty, set it to 0
+    cvt[:is_obsolete] = "0" if cvt[:is_obsolete].nil?
+    options_send = "#{CGI.escape(cvt[:cvname])}/#{
+      CGI.escape(cvt[:name])}/#{CGI.escape(cvt[:is_obsolete])}"
+    options_display = "#{cvt[:cvname]}:#{cvt[:name]} : #{cvt[:is_obsolete]}"
+    formatted_cvterm_options.push([options_display, options_send])
+  }
+  cvterm_option_strings = options_for_select( formatted_cvterm_options )
+%>
+<div class="field">
+<%= select_tag 'eprop_typeid',  cvterm_option_strings, :size => 6  %><br>
+<span class="hints">The type of the property.</span>
+</div>
+<br/>
+<!-- dbxref field options -->
+<label class="newprop" for="eprop_dbxrefid" >DB Cross-Reference</label>
+<br/>
+<%
+  # Create the list of options:
+  formatted_dbxref_options = [["(no dbxref field)", "///"]]
+  @all_dbxrefs.each { |dbr_opt|
+ 
+    dbr_opt.default = "" # Returns "" on unexpected key instead of nil
+    options_send = "#{CGI.escape(dbr_opt[:dbname])}/#{
+      CGI.escape(dbr_opt[:accession])}/#{CGI.escape(dbr_opt[:version])}" 
+    options_display = "#{dbr_opt[:dbname]}:#{dbr_opt[:accession]}"
+    # Add version if it's not empty
+    dbr_opt[:version] == "" ? false : options_display +=  " : #{dbr_opt[:version]}" 
+    formatted_dbxref_options.push( [options_display, options_send])
+  }
+  # Make the options -- default is no dbxref field
+  dbxref_option_strings = options_for_select( formatted_dbxref_options, "///" )
+%>
+<div class="field">
+<%= select_tag 'eprop_dbxrefid', dbxref_option_strings, :size => 6 %><br>
+<span class="hints">
+Optional. A cross-reference to the database entry for the property, if applicable.</span>
+</div>
+<br/>
+<br/>
+<label class="newprop" for="eprop_rank">Rank</label>
+<br/>
+<div class="field">
+<%= text_field_tag 'eprop_rank', "0", :escape => true %><br>
+<span class = "hints">Use rank (the default rank is 0) to describe the order in which mutiple properties with the same name but different
+values should be presented. Example: for an experiment with mutiple investigators, the 
+Person Last Name and Person First Name properties would both have rank 0 for the first investigator,
+1 for the second, and so on.</span>
+</div>
+<br/>
+
+<script type ="text/javascript">
+function checkRequiredFields()
+{
+  var problemsWithForm = "";
+
+  // Get the fields that need to be populated
+  var nameval = document.forms.create_new_property.eprop_name.value;
+  var rankval = document.forms.create_new_property.eprop_rank.value;
+  var cvtval  = document.forms.create_new_property.eprop_typeid.value;
+  
+  // Trim whitespace off the ends of the property name
+  nameval  = nameval.replace(/^\s+|\s+$/g, '') ; 
+  
+  // Check each field for validity
+  // If they cleared the rank, reset it to 0
+  if((rankval == null) || (rankval == "")){
+    rankval = 0;
+  } 
+  if( (nameval == "") || (nameval == null)){
+    problemsWithForm += "<span class='valError'><b>Property Name:</b> The property name must be non-empty.</span><br/>";
+  }
+  if( (cvtval == "") || (cvtval == null)){
+    problemsWithForm += "<span class='valError'><b>Type:</b> You must pick a property type.</span><br/>"
+  }
+  // Rank should be a number
+  if(isNaN(rankval)){
+    problemsWithForm += "<span class='valError'><b>Rank:</b> The rank field must be a number.</span><br/>";
+  }
+
+
+
+
+  var error_intro = "Could not create the new property. Please change the following fields on the form:<br/>"
+  // and attach it.
+  
+  var errortext = document.getElementById("prop_creation_errors");
+  errortext.innerHTML = ""
+
+  // If there are problems, alert the user and cancel the submit.
+  if( problemsWithForm != "" ){
+    errortext.innerHTML = error_intro + problemsWithForm;
+   return false;
+  }
+  else {
+    return true;
+  }
+}
+</script>
+<div style="clear:left;">
+<%= submit_tag 'Create new property', 
+  :onClick => "return checkRequiredFields();"
+  %>
+  </div>
+  <div id="prop_creation_errors" style="background:#fbb; color:#222; 
+   font-size: 12pt; margin-top: 2px; margin-bottom: 5px;" ></div>
+<% end %>
+
+<hr>
+

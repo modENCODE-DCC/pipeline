@@ -1,0 +1,37 @@
+<chadoxml>
+  <experiment>
+    <uniquename><%= @params["eprop_uname"] %> </uniquename>
+    <experiment_prop>
+      <name><%= CGI.escapeHTML(@params["eprop_name"]) %> </name>
+      <rank><%= @params["eprop_rank"] %></rank>
+      <value><%= CGI.escapeHTML(params["eprop_value"]) %></value>
+      <type_id>
+        <cvterm>
+          <name><%= CGI.escapeHTML(@params["cvterm_fields"][1]) %></name>
+          <is_obsolete><%= @params["cvterm_fields"][2] %></is_obsolete>
+          <cv_id>
+            <cv>
+              <name><%= CGI.escapeHTML(@params["cvterm_fields"][0]) %></name>
+            </cv>
+          </cv_id>
+        </cvterm>
+      </type_id>
+      <%= unless @params["eprop_dbxrefid"] == "///" then
+      <<EOS
+<dbxref_id>
+        <dbxref>
+          <accession>#{CGI.escapeHTML(dbxref_fields[1])}</accession>
+          <version>#{CGI.escapeHTML(dbxref_fields[2])}</version>
+          <db_id>
+            <db>
+              <name>#{CGI.escapeHTML(dbxref_fields[0])}</name>
+            </db>
+          </db_id>
+        </dbxref>
+      </dbxref_id>
+EOS
+      end%>
+    </experiment_prop>
+  </experiment>
+</chadoxml>
+

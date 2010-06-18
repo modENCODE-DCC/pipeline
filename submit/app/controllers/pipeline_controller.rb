@@ -347,6 +347,45 @@ class PipelineController < ApplicationController
     #render :action => Project::Status::NEW
   end
 
+  # add_experiment_prop:
+  # for adding properties to an existing experiment
+  def add_experiment_prop
+    begin
+      @project = Project.find(params[:id])
+      return false unless ((check_user_can_write @project) or (project.status == Project::Status::RELEASD))
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+    end
+    xml_path = File.join(path_to_project_dir(@project), "extracted")
+    add_exp_prop = AddExperimentPropController.new(@project, xml_path)
+    case params[:commit]
+      when "Create new property"
+        add_exp_prop.make_patch_file(params)
+      when "Apply changes"
+        logger.info add_exp_prop.insertDB_and_delete(params)
+      when "Cancel"
+        ""
+      else
+        ""
+    end
+    ### REMOVE THIS TESTING HACK
+    @testing_hack = params[:cheater]
+    #### END HACK
+      
+    add_exp_prop.parse_file
+    # If it hasn't finished parsing yet, don't let the view get the results of parsing
+    # View checks if it's parsed before continuing  
+    @xml_is_parsed = true  
+    @pending_patches =  add_exp_prop.get_patches
+    
+    @applied_patches = add_exp_prop.get_props_in_master
+    # Construct the menus for selecting the params ---
+    @all_experiments = add_exp_prop.get_experiments
+    @all_dbxrefs = add_exp_prop.get_dbxrefs
+    @all_cvterms = add_exp_prop.get_cvterms
+  end # end add_experiment_prop
+
   # Activates command chaining for the current project and queues
   # all remaining commands in order
   def chain_commands
