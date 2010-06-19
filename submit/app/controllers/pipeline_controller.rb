@@ -357,33 +357,66 @@ class PipelineController < ApplicationController
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
     end
+
+    loading_ok = Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)
+    is_released =  (@project.status == Project::Status::RELEASED)
+    unless (loading_ok || is_released) then
+      flash[:error] = "Whoops! Project must have generated a ChadoXML file to apply a patch #{loading_ok}, #{is_released}"
+      redirect_to :action => "show", :id => @project
+      return
+    end
+
     xml_path = File.join(path_to_project_dir(@project), "extracted")
-    add_exp_prop = AddExperimentPropController.new(@project, xml_path)
+
+
+    # Construct the menus for selecting the params ---
+    props = AddExperimentProp.find_all_by_project_id(@project.id).last
+
+    # Generate controller to get patch files
+    if props.nil? then
+      add_exp_prop_controller = AddExperimentPropController.new(:project => @project, :user_id => current_user.id, :xml_path => xml_path)
+    else
+      add_exp_prop_controller = AddExperimentPropController.new(:command => props)
+    end
+
+    if props.nil? then
+      # Oh no, no properties, start lookin'!
+      @xml_is_parsed = false  
+      spawn do
+        add_exp_prop_controller.run
+      end
+      @all_experiments = []
+      @all_dbxrefs = []
+      @all_cvterms = []
+      flash[:notice] = "Please wait while parsing the ChadoXML file."
+    elsif props.status != AddExperimentProp::Status::PARSED then
+      # Still processing
+      @xml_is_parsed = false
+      @all_experiments = []
+      @all_dbxrefs = []
+      @all_cvterms = []
+      flash[:notice] = "Please wait while parsing the ChadoXML file."
+    else
+      flash[:notice] = nil
+      @all_experiments = props.get_experiments
+      @all_dbxrefs = props.get_dbxrefs
+      @all_cvterms = props.get_cvterms
+      @xml_is_parsed = true  
+    end
+
     case params[:commit]
       when "Create new property"
-        add_exp_prop.make_patch_file(params)
+        add_exp_prop_controller.make_patch_file(params)
       when "Apply changes"
-        logger.info add_exp_prop.insertDB_and_delete(params)
+        logger.info add_exp_prop_controller.insertDB_and_delete(params)
       when "Cancel"
         ""
       else
         ""
     end
-    ### REMOVE THIS TESTING HACK
-    @testing_hack = params[:cheater]
-    #### END HACK
-      
-    add_exp_prop.parse_file
-    # If it hasn't finished parsing yet, don't let the view get the results of parsing
-    # View checks if it's parsed before continuing  
-    @xml_is_parsed = true  
-    @pending_patches =  add_exp_prop.get_patches
-    
-    @applied_patches = add_exp_prop.get_props_in_master
-    # Construct the menus for selecting the params ---
-    @all_experiments = add_exp_prop.get_experiments
-    @all_dbxrefs = add_exp_prop.get_dbxrefs
-    @all_cvterms = add_exp_prop.get_cvterms
+
+    @pending_patches =  add_exp_prop_controller.get_patches
+    @applied_patches = add_exp_prop_controller.get_props_in_master
   end # end add_experiment_prop
 
   # Activates command chaining for the current project and queues

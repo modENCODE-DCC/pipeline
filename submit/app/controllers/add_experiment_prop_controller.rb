@@ -2,33 +2,42 @@ require "open3"
 require "cgi"
 require "chadoxml_listener"
 
-class AddExperimentPropController
-  def initialize(project, xml_path)
-    @project = project
-    @xml_path = xml_path
+class AddExperimentPropController < CommandController
+  def initialize(options)
+    super
+    return unless options[:command].nil? # Set in CommandController if :command is given
+    self.command_object = AddExperimentProp.new(options)
+    command_object.command = options[:xml_path]
+    command_object.save
     
-    base_xmlfile = File.join(xml_path, "#{@project.id}.chadoxml")
- 
-    @xml_base_content = File.open(base_xmlfile){|cxf| REXML::Document.new cxf}
-    @master_xmlfile = File.join(@xml_path, "applied_patches_#{@project.id}.chadoxml")
-    
-    @stream_parser = ChadoXMLListener.new(base_xmlfile)
-
   end
 
-  def parse_file
-    @stream_parser.parse_file
+  def run
+    super do
+      self.command_object.status = AddExperimentProp::Status::PARSING
+      self.command_object.save
+      begin
+        base_xmlfile = File.join(self.command_object.command, "#{self.command_object.project_id}.chadoxml")
+        stream_parser = ChadoXMLListener.new(base_xmlfile)
+        self.command_object.discovered_xml_elements = stream_parser.parse_file
+        self.command_object.status = AddExperimentProp::Status::PARSED
+        self.command_object.save
+      rescue
+        self.command_object.status = AddExperimentProp::Status::PARSING_FAILED
+        self.command_object.save
+      end
+    end
   end
 
   def get_patches
 
-  # Get the list of files in the directory @xml_path
+  # Get the list of files in the directory self.command_object.command
   # Each patch file is known to be reasonably small, so we can use the
   # tree parser without loss of performance
     patch_list = []
     patch_files = get_patch_filenames()
     patch_files.each{|f|
-      patch_xml = File.open(File.join(@xml_path, f)){|px| REXML::Document.new px}
+      patch_xml = File.open(File.join(self.command_object.command, f)){|px| REXML::Document.new px}
       prop_name = patch_xml.elements["chadoxml/experiment/experiment_prop/name"].texts
       prop_value = patch_xml.elements["chadoxml/experiment/experiment_prop/value"].texts
       patch_list.push({:name => prop_name, :value => prop_value, :filename => f})
@@ -38,69 +47,17 @@ class AddExperimentPropController
 
   # Get the name & value of each experiment-prop in the master list
   def get_props_in_master
-    unless File.exists?(@master_xmlfile) then
-      return "No patches have been applied to the database yet!"
+    master_xmlfile = File.join(self.command_object.command, "applied_patches_#{self.command_object.project_id}.chadoxml")
+    unless File.exists?(master_xmlfile) then
+      return nil
     end
-    master_content = File.open(@master_xmlfile){|mxf| REXML::Document.new mxf }
+    master_content = File.open(master_xmlfile){|mxf| REXML::Document.new mxf }
     master_proplist = []
     master_content.elements.each("chadoxml/experiment/experiment_prop"){|exp|
       master_proplist.push({:name => exp.elements["name"], :value => exp.elements["value"]})
     } 
     return master_proplist
   end #get_props_in_master
-
-  # Returns a list of all experiments in the original xml file
-  def get_experiments   
-   return @stream_parser.all_experiments
-  end # get_experiments
-
-# Also get all the dbxrefs and cvterms so we can make dropdowns
-# The stream parser's code makes assumptions about the structure of the xml file:
-#   - All dbxrefs & cvterms are listed as direct children of <chadoxml>
-#   - No macro (eg, <db>db_13</db>) appears earlier in the file than its
-#       corresponding node
-  
-  def get_dbxrefs
-    # Sort the dbxref by dbname => accession => version
-    sorted_dbxrefs = @stream_parser.all_dbxrefs.sort{|a, b|
-      retval = 0
-      dbcomp = (a[:dbname] <=> b[:dbname])
-      if ! dbcomp.zero? then
-        retval = dbcomp
-      else
-        accomp = (a[:accession] <=> b[:accession])
-        if ! accomp.zero? then
-          retval = accomp
-        else
-          a[:version] = '' if a[:version].nil?
-          b[:version] = '' if b[:version].nil?
-          retval = (a[:version] <=> b[:version])
-        end
-      end
-      retval
-    }
-    return sorted_dbxrefs
-  end # get_dbxrefs
-  
-  def get_cvterms
-    # sort cvterms by cvname => name => is obsolete
-    sorted_cvterms = @stream_parser.all_cvterms.sort{|a,b|
-      retval = 0
-       cvcomp = (a[:cvname] <=> b[:cvname])
-      if ! cvcomp.zero? then
-        retval = cvcomp
-      else
-        namecomp = (a[:name] <=> b[:name])
-        if ! namecomp.zero? then
-          retval = namecomp
-        else
-          retval = (a[:is_obsolete] <=> b[:is_obsolete])
-        end
-      end
-      retval
-    } 
-    return sorted_cvterms
-  end # get_cvterms
 
   # Takes: the parameters for the new property
   # creates the XML document for the new patch
@@ -127,15 +84,15 @@ class AddExperimentPropController
     erb_renderer = ERB.new(chadoxml_template)
     chadoxml_string = erb_renderer.result(binding)
 
-    patchfile_path = File.join(@xml_path, get_next_patch_filename()) 
+    patchfile_path = File.join(self.command_object.command, get_next_patch_filename()) 
     write_patchfile = File.open(patchfile_path, 'w'){|wpf| wpf.write(chadoxml_string)}
 
   return chadoxml_string
   end # make_patch_file
 
   def get_patch_filenames
-    all_files = Dir.entries(@xml_path)
-    patch_files = all_files.select{|f| f =~ /^patch_\d+_#{@project.id}\.chadoxml$/}
+    all_files = Dir.entries(self.command_object.command)
+    patch_files = all_files.select{|f| f =~ /^patch_\d+_#{self.command_object.project_id}\.chadoxml$/}
     patch_files.sort!
     return patch_files
   end # get_patch_filenames
@@ -149,7 +106,7 @@ class AddExperimentPropController
       # get out list of #s and sort
       patch_files.each{|pf| 
         pf.gsub!(/patch_/, "")
-        pf.gsub!(/_#{@project.id}\.chadoxml/, "")
+        pf.gsub!(/_#{self.command_object.project_id}\.chadoxml/, "")
       }
       patch_files.map!{|pf| pf.to_i}
       patch_files.sort!
@@ -158,7 +115,7 @@ class AddExperimentPropController
       next_patch_number =  patch_files.last + 1 
     end
     # construct filename & return
-    return "patch_#{next_patch_number}_#{@project.id}.chadoxml"
+    return "patch_#{next_patch_number}_#{self.command_object.project_id}.chadoxml"
   end # get_next_patch_filename
 
   # Sorts out the checkmarks for inserting patches into the DB & deleting them
@@ -168,10 +125,10 @@ class AddExperimentPropController
     result = ""
     params.each{|key, val|
       # if it matches add, add it to the DB
-      if key =~ /^add_patch_\d+_#{@project.id}\.chadoxml$/ then
+      if key =~ /^add_patch_\d+_#{self.command_object.project_id}\.chadoxml$/ then
        result += add_patch_to_db(key.gsub(/add_/, ""))
       # if it matches delete, delete the file
-      elsif key =~ /^delete_patch_\d+_#{@project.id}\.chadoxml$/ then
+      elsif key =~ /^delete_patch_\d+_#{self.command_object.project_id}\.chadoxml$/ then
         result += delete_patchfile(key.gsub(/delete_/, ""))
       end
     }
@@ -179,21 +136,17 @@ class AddExperimentPropController
   end #insertDB_and_delete
   
   def add_patch_to_db(patch_filename)
-    full_patch_path = File.join(@xml_path, patch_filename)
+    full_patch_path = File.join(self.command_object.command, patch_filename)
 
     # Construct the command to add the patch to the DB
 
     loader =  "perl -I /var/www/pipeline/submit/script/loaders/modencode " +
     "/var/www/pipeline/submit/script/loaders/modencode/stag-storenode.pl "
     
-    params = "-d=\"dbi:Pg:dbname=test2;host=localhost\" " +
-            "-password=ir84#4nm -user=db_public "
-
-    schema = "-s \"modencode_experiment_#{@project.id}\" "
-    
+    params = database
+    schema = "-s \"modencode_experiment_#{self.command_object.project_id}\" "
     input_file = full_patch_path
-
-     run_stag_storenode = "#{loader} #{params} #{schema} #{input_file}"
+    run_stag_storenode = "#{loader} #{params} #{schema} #{input_file}"
  
     (stag_stdout, stag_stderr) = Open3.popen3(run_stag_storenode){|stdin, stdout, stderr|
       [stdout.read, stderr.read] }
@@ -213,8 +166,9 @@ class AddExperimentPropController
   # TODO : test that the master created this way is loadable to the DB
   def add_to_master(full_patch_path)
     # If the master doesn't exist, create it with <chadoxml> tag
-    unless File.exists?(@master_xmlfile) then
-     File.open(@master_xmlfile, "w"){|mxf| mxf.puts "<chadoxml>\n</chadoxml>" }
+    master_xmlfile = File.join(self.command_object.command, "applied_patches_#{self.command_object.project_id}.chadoxml")
+    unless File.exists?(master_xmlfile) then
+     File.open(master_xmlfile, "w"){|mxf| mxf.puts "<chadoxml>\n</chadoxml>" }
     end
     
     # Get the contents of the patch to be added to the master file
@@ -230,7 +184,7 @@ class AddExperimentPropController
     master_with_new = "<chadoxml>\n"
     
     # First, open it to get the contents out
-    File.open(@master_xmlfile, "r+"){|mxf|
+    File.open(master_xmlfile, "r+"){|mxf|
       # IF the first line isn't <chadoxml>, complain
       if mxf.gets != "<chadoxml>\n" then
         raise Exception "First line of master patch file was unexpected!"
@@ -244,7 +198,7 @@ class AddExperimentPropController
       end
     }
     # Then, open it again, and write the new data to it.
-    File.open(@master_xmlfile, "w"){|mxf|
+    File.open(master_xmlfile, "w"){|mxf|
       mxf.puts master_with_new
     } 
 
@@ -252,7 +206,7 @@ class AddExperimentPropController
 
 
   def delete_patchfile(patch_filename)
-    full_patch_path = File.join(@xml_path, patch_filename)
+    full_patch_path = File.join(self.command_object.command, patch_filename)
     begin
       File.delete(full_patch_path)
     rescue
@@ -260,5 +214,19 @@ class AddExperimentPropController
     end
       return "Deleted patchfile #{patch_filename}\n"
   end #delete_patchfile
+
+  private
+  def database
+    if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
+      db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read) }
+
+      args = "-d=\"#{db_definition['perl_dsn']}\""
+      args << " -user=\"#{db_definition['user']}\"" if db_definition['user']
+      args << " -password=\"#{db_definition['password']}\"" if db_definition['password']
+      return args
+    else
+      raise Exception("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Perl DBI dsn.")
+    end
+  end
 
 end

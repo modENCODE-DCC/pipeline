@@ -45,6 +45,16 @@ class ChadoXMLListener
 
   attr_accessor :all_dbxrefs, :all_cvterms, :all_experiments
 
+  def parse_file
+    REXML::Document.parse_stream(@base_xml, self)
+
+    return {
+      :dbxrefs => @all_dbxrefs,
+      :cvterms => @all_cvterms,
+      :experiments => @all_experiments
+    }
+  end
+
   def tag_start(name, attributes)
     @tag_stack.push(name)
     case name
@@ -57,10 +67,6 @@ class ChadoXMLListener
     end
   
   end #tag_start
-
-  def parse_file
-    REXML::Document.parse_stream(@base_xml, self)
-  end
 
   def tag_end(name)
     lasttag = @tag_stack.pop
