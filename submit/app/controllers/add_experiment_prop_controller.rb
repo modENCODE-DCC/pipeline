@@ -78,8 +78,7 @@ class AddExperimentPropController < CommandController
     @params["dbxref_fields"] = dbxref_fields
     
     # Render the chadoxml template file
-    # FIXME -- is there a better way to get a path to the template file?
-    chadoxml_template_fullpath = "/var/www/pipeline/submit/app/views/pipeline/chadoxml_patch_template.chadoxml.erb"
+    chadoxml_template_fullpath = "#{RAILS_ROOT}/app/views/pipeline/chadoxml_patch_template.chadoxml.erb"
     chadoxml_template = File.open(chadoxml_template_fullpath, 'r'){|f| f.read }
     erb_renderer = ERB.new(chadoxml_template)
     chadoxml_string = erb_renderer.result(binding)
