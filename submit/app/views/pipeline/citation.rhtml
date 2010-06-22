@@ -3,8 +3,8 @@
 %>
 <h1>
   <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Investigation Title"); tag ? tag.value : Project.find(@project_id).name %> 
-  (<%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Project"); tag ? tag.value : Project.find(@project_id).user.pis.join(", ") %> project<%= 
-   v = TrackTag.find_by_project_id_and_name(@project_id, "Lab"); v ? ", #{v.value} subgroup" : "" 
+  (<%= tag = TrackTag.find_all_by_project_id_and_name(@project_id, "Project").find { |tt| tt.value.length > 0 }; tag ? tag.value : Project.find(@project_id).user.pis.join(", ") %> project<%= 
+   v = TrackTag.find_all_by_project_id_and_name(@project_id, "Lab").find { |tt| tt.value.length > 0 }; v ? ", #{v.value} subgroup" : "" 
   %>)
 </h1>
 <h2>General Description</h2>
