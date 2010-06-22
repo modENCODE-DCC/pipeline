@@ -1,6 +1,7 @@
 class AppliedProtocol
   def initialize(attrs = {})
     @inputs = Array.new
+    @outputs = Array.new
     @protocols = Array.new
     attrs.each_pair { |key, value|
       m = self.method("#{key}=")
@@ -20,6 +21,13 @@ class AppliedProtocol
   end
   def inputs
     @inputs
+  end
+
+  def outputs=(newoutputs)
+    @outputs = newoutputs
+  end
+  def outputs
+    @outputs
   end
 
   def column=(newcolumn)

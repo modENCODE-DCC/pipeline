@@ -629,6 +629,28 @@ class TrackFinder
         column = column + 1
       end
       sth_aps.finish
+
+      column -= 1
+      last_ap_ids = applied_protocols.find_all { |ap_id, ap| ap.column == column }.map { |ap_id, ap| ap_id }
+
+      sth_last_aps = @dbh.prepare("SELECT 
+                             apd.applied_protocol_id AS applied_protocol_id,
+                             apd.data_id AS output_data_id,
+                             p.name AS protocol_name, p.protocol_id as protocol_id
+                             FROM applied_protocol_data apd
+                             INNER JOIN applied_protocol ap ON apd.applied_protocol_id = ap.applied_protocol_id
+                             INNER JOIN protocol p ON ap.protocol_id = p.protocol_id
+                             WHERE
+                             apd.direction = 'output' AND ap.applied_protocol_id = ?")
+      last_ap_ids.each { |applied_protocol_id|
+        sth_last_aps.execute(applied_protocol_id)
+        sth_last_aps.fetch do |row|
+          applied_protocols[row[0]].outputs.push row[1]
+        end
+      }
+
+      sth_last_aps.finish
+      column += 1
     }
 
     cmd_puts "    Done."
@@ -678,6 +700,23 @@ class TrackFinder
         inputs_that_collapse.reject { |data_id, aps| number_of_tracks == aps.size }.each { |data_id, aps|
           partial_collapse_inputs[data_names[data_id]].push aps
         }
+
+        # If this is the last protocol, check to see the output can be collapsed, too, before we get carried away collapsing based on inputs
+        if column == tracks_per_column.keys.max  then
+          tracks_by_output = Hash.new { |hash, key| hash[key] = Array.new }
+          cur_aps.each { |ap| ap.outputs.each { |output| tracks_by_output[output].push ap } }
+
+          tracks_by_output.each_key do |data_id|
+            dbh_safe { sth_data_names.execute(data_id) }
+            row = dbh_safe { sth_data_names.fetch }
+            row[0] = "Anonymous Datum" if (row[0] =~ /^Anonymous Datum #/)
+            data_names[data_id] = "#{row[0]} [#{row[1]}]"
+          end
+          if (partial_collapse_inputs.size > 0) && (tracks_by_output.keys.size > 0) && (tracks_by_output.reject { |k, v| number_of_tracks/v.size > TRACKS_PER_COLUMN }.keys.size == 0) then
+            # Have outputs that don't collapse
+            partial_collapse_inputs = Hash.new { |hash, key| hash[key] = Array.new }
+          end
+        end
 
         # TODO: If could do a partial collapse on an anonymous datum, then work back up the protocol chain
         # and find out where the difference _does_ occur
