@@ -8,7 +8,36 @@
   TR.titles TH.contains_select A { position: relative; top: -7px }
   TR.titles TH.contains_select SELECT { position: relative; top: -7px }
 
+  SUP A.superseded, SUP A.deprecated { font-weight: bold; cursor: pointer }
 </style>
+<script type="text/javascript">
+  var deprecate_alert = function(e) { alert(
+      "Deprecated projects are considered to contain bad or\n" +
+      "invalid data. Generally, a new experiment is done, and\n" +
+      "the new data replaces the old. Projects that say\n" +
+      "\"deprecated by #nn\" have replacement data. Projects\n" +
+      "that just say \"deprecated\" have no replacement data.\n\n" + 
+      "If there is a replacement experiment, please see the\n" + 
+      "deprecating project for this newer data."
+      );
+  };
+  var supersede_alert = function(e) { alert(
+      "Superseded projects are still considered to contain\n" +
+      "valid data, but the experiment used to generate the data\n" +
+      "has been re-done with techniques that are in some way\n" +
+      "better.\n\n" + 
+      "See the superseding project for this newer data."
+      );
+  };
+  Event.observe(window, "load", function(e) {
+    $$('SUP A.deprecated').each(function(q) {
+      q.observe("click", deprecate_alert);
+    });
+    $$('SUP A.superseded').each(function(q) {
+      q.observe("click", supersede_alert);
+    });
+  });
+</script>
 
 Below, you can find:
 <ul>
@@ -147,10 +176,12 @@ If you want to download data in bulk, please try:
           <span style="text-decoration: line-through">
             <%= project.released? ? "vetted and released" : "unvetted" %>
           </span><br/>
-          deprecated <%= "by #" + project.deprecated_project_id.to_s unless project.deprecated_by_project.nil? %>
+          deprecated<sup><a class="deprecated">?</a></sup>
+          <%= "by #" + project.deprecated_project_id.to_s unless project.deprecated_by_project.nil? %>
         <% elsif project.superseded? then %>
           <%= project.released? ? "vetted and released" : "unvetted" %><br/>
-          superseded <%= "by #" + project.superseded_project_id.to_s unless project.superseded_by_project.nil? %>
+          superseded<sup><a class="superseded">?</a></sup>
+          <%= "by #" + project.superseded_project_id.to_s unless project.superseded_by_project.nil? %>
         <% else %>
           <%= project.released? ? "vetted and released" : "unvetted" %>
         <% end %>
