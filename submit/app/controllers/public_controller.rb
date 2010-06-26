@@ -98,12 +98,13 @@ class PublicController < ApplicationController
         @projects = @projects[page_offset...page_end]
       }
       format.xml {
-        xml_objs = Project.all.map { |p| 
+        xml_objs = Hash.new
+        Project.all.each { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
           url = url_for(:action => :get_file, :id => p) + full_path
           embargo_date = p.embargo_end_date
           embargo_date = embargo_date.strftime("%F") unless embargo_date.nil?
-          { 
+          xml_objs[p.id] = { 
             :id => p.id,
             :pi => p.pi,
             :status => p.status,
@@ -116,15 +117,38 @@ class PublicController < ApplicationController
             :embargo_date => embargo_date
           }
         }
-        render :xml => xml_objs
+        deprecated_by = Hash.new { |h, k| h[k] = Array.new }
+        xml_objs.each { |pid, info|
+          if info[:deprecated] then
+            dpid = info[:replaced_by]
+            while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              deprecated_by[pid].push dpid
+              dpid = xml_objs[dpid][:replaced_by]
+            end
+          end
+        }
+        superseded_by = Hash.new { |h, k| h[k] = Array.new }
+        xml_objs.each { |pid, info|
+          if info[:superseded] then
+            dpid = info[:superseded_by]
+            while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              superseded_by[pid].push dpid
+              dpid = xml_objs[dpid][:superseded_by]
+            end
+          end
+        }
+        deprecated_by.each { |pid, deprecated_by| xml_objs[pid][:replaced_by] = deprecated_by.join(",") }
+        superseded_by.each { |pid, superseded_by| xml_objs[pid][:superseded_by] = superseded_by.join(",") }
+        render :xml => xml_objs.values
       }
       format.text {
-        text_objs = Project.all.map { |p| 
+        text_objs = Hash.new
+        Project.all.each { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
           url = url_for(:action => :get_file, :id => p) + full_path
           embargo_date = p.embargo_end_date
           embargo_date = embargo_date.strftime("%F") unless embargo_date.nil?
-          [
+          text_objs[p.id] = [
             p.id,
             p.deprecated?,
             p.deprecated? ? (p.deprecated_by_project ? p.deprecated_by_project.id : "unknown") : nil,
@@ -135,9 +159,31 @@ class PublicController < ApplicationController
             p.pi,
             p.status,
             embargo_date
-          ].join("\t")
+          ]
         }
-        render :text => text_objs.join("\n")
+        deprecated_by = Hash.new { |h, k| h[k] = Array.new }
+        text_objs.each { |pid, info|
+          if info[1] then
+            dpid = info[2]
+            while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              deprecated_by[pid].push dpid
+              dpid = text_objs[dpid][2]
+            end
+          end
+        }
+        superseded_by = Hash.new { |h, k| h[k] = Array.new }
+        text_objs.each { |pid, info|
+          if info[3] then
+            dpid = info[4]
+            while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              superseded_by[pid].push dpid
+              dpid = text_objs[dpid][4]
+            end
+          end
+        }
+        deprecated_by.each { |pid, deprecated_by| text_objs[pid][2] = deprecated_by.join(",") }
+        superseded_by.each { |pid, superseded_by| text_objs[pid][4] = superseded_by.join(",") }
+        render :text => text_objs.values.map { |v| v.join("\t") }.join("\n")
       }
     end
   end
