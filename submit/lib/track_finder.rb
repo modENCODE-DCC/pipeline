@@ -712,7 +712,7 @@ class TrackFinder
             row[0] = "Anonymous Datum" if (row[0] =~ /^Anonymous Datum #/)
             data_names[data_id] = "#{row[0]} [#{row[1]}]"
           end
-          if (partial_collapse_inputs.size > 0) && (tracks_by_output.keys.size > 0) && (tracks_by_output.reject { |k, v| number_of_tracks/v.size > TRACKS_PER_COLUMN }.keys.size == 0) then
+          if (partial_collapse_inputs.size > 0) && (tracks_by_output.keys.size > 0) then # && (tracks_by_output.reject { |k, v| number_of_tracks/v.size > TRACKS_PER_COLUMN }.keys.size == 0) then
             # Have outputs that don't collapse
             partial_collapse_inputs = Hash.new { |hash, key| hash[key] = Array.new }
           end
