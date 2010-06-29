@@ -359,23 +359,26 @@ class PublicController < ApplicationController
       flatten = '--transform \'s/^\.\///g\'  --transform \'s/\//_/g\''
       files = "--files-from <( cd '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}/'; find './#{File.basename(@current_directory).gsub(/'/, escape_quote)}/' -type f )"
     end
-    command = "tar #{exclude} #{flatten} -hczv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
+    command = "tar #{exclude} #{flatten} -hzcv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
 
     headers['Content-Type'] = 'application/x-tar-gz'
     headers['Content-Disposition'] = "attachment; filename=#{File.basename(@current_directory)}.tgz"
     headers['Content-Transfer-Encoding'] = 'binary'
 
     render :status => 200, :text => Proc.new { |response, output|
-      max_size = 4096
+      max_size = 16384
       Open3.popen3('bash', '-c', command) { |stdin, stdout, stderr|
         stdout_is_eof = false
-        while !stdout.eof? do
+        while !stdout.eof? || !stdout_is_eof do
           buf = ""
           begin
             stdout.readpartial(max_size, buf)
             output.write(buf) if buf && buf.length > 0
           rescue EOFError
+            stdout_is_eof = true
           rescue
+            stdout_is_eof = true
+            $stderr.puts "Unexpected error on outputting tarball: #{$!}"
           end
         end
       }
