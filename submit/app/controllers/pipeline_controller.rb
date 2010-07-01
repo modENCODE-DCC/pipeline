@@ -745,7 +745,8 @@ class PipelineController < ApplicationController
       filename = sanitize_filename(upurl)
     else # !upfile.blank?
       # Use a file uploaded through the browser
-      filename = sanitize_filename(upfile.original_filename)
+      begin
+      filename = sanitize_filename(upfile["filename"])
     end
 
     # Filename must equal name of file we're replacing
@@ -885,7 +886,7 @@ class PipelineController < ApplicationController
       filename = sanitize_filename(uprsync)
     else # !upfile.blank?
       # Use a file uploaded through the browser
-      filename = sanitize_filename(upfile.original_filename)
+      filename = sanitize_filename(upfile["filename"])
     end
     # Validate content type (browser upload) or extension (other uploads)
     extensionsByMIME = {
