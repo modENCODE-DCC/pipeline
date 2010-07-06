@@ -221,8 +221,8 @@ class PipelineController < ApplicationController
     else
       if params[:pi] then
         session[:show_filter_pis] = params[:pi].map { |p| p == "" ? nil : p }.compact
-        session[:show_filter] = :group
       end
+      session[:show_filter] = :group
       status
       render :action => "status"
     end
