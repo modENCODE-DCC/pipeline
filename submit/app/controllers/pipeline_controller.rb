@@ -352,7 +352,7 @@ class PipelineController < ApplicationController
   def add_experiment_prop
     begin
       @project = Project.find(params[:id])
-      return false unless ((check_user_can_write @project) or (project.status == Project::Status::RELEASD))
+      return false unless ((check_user_can_write @project) or (@project.status == Project::Status::RELEASED))
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
