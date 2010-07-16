@@ -139,8 +139,8 @@ class AddExperimentPropController < CommandController
 
     # Construct the command to add the patch to the DB
 
-    loader =  "perl -I /var/www/pipeline/submit/script/loaders/modencode " +
-    "/var/www/pipeline/submit/script/loaders/modencode/stag-storenode.pl "
+    loader =  "perl -I #{RAILS_ROOT}/script/loaders/modencode " +
+    "#{RAILS_ROOT}/script/loaders/modencode/stag-storenode.pl "
     
     params = database
     schema = "-s \"modencode_experiment_#{self.command_object.project_id}\" "
