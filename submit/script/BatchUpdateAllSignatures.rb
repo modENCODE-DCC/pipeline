@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 require 'digest/md5'
-require File.dirname(__FILE__) + '../config/environment'
+require File.dirname(__FILE__) + '/../config/environment'
 require 'find'
 
 system("/usr/bin/renice", "15", "#{$$}")
