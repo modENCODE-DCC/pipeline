@@ -1,4 +1,5 @@
 require 'find'
+require 'digest/md5'
 include Spawn
 module ModPorter
   class UploadedFile
@@ -361,7 +362,7 @@ class PipelineController < ApplicationController
     loading_ok = Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)
     is_released =  (@project.status == Project::Status::RELEASED)
     unless (loading_ok || is_released) then
-      flash[:error] = "Whoops! Project must have generated a ChadoXML file to apply a patch #{loading_ok}, #{is_released}"
+      flash[:error] = "Whoops! Project must have generated a ChadoXML file to apply a patch."
       redirect_to :action => "show", :id => @project
       return
     end
@@ -417,6 +418,7 @@ class PipelineController < ApplicationController
 
     @pending_patches =  add_exp_prop_controller.get_patches
     @applied_patches = add_exp_prop_controller.get_props_in_master
+  
   end # end add_experiment_prop
 
   # Activates command chaining for the current project and queues
@@ -530,7 +532,117 @@ class PipelineController < ApplicationController
       flash[:notice] += "<br/>" unless flash[:notice] == ""
       flash[:notice] += "This project has been superseded by project #{@project.superseded_project_id}."
     end
+    
+    # Check for duplicates
+    @archiveSigs = get_matching_files(@project, "archive")
+    @fileSigs =  get_matching_files(@project, "file")
+
+
+    # Set up a notice if there are any collisions
+    unless @archiveSigs.empty? && @fileSigs.empty? then
+      cookieVal = cookies[:modencode_dupes] ? cookies[:modencode_dupes].split(",") : []
+      unless ( cookieVal.include? params[:id].to_s ) then
+        # Hide the whole notice div unless there's another notice in it
+        # In which case only hide the dupe_msg inner div
+        unique_divid = "dupe_msg" + (0..8).map { |x| ('a'..'z' ).to_a[rand(26)] }.join
+        old_message = flash[:notice].nil? ? "" : flash[:notice]
+        (old_message.empty?) ? divToHide = "notice" : divToHide = unique_divid
+        # This ajax request calls set_file_dupe_cookie to create the cookie,
+        # then runs the JS function hideDupeNotice on the show page to 
+        # hide the notice from this refresh.
+        dupe_ajax = "<a href=\"#\" onClick=\"new Ajax.Request(" +
+        "'/submit/pipeline/set_file_dupe_cookie/#{@project.id}', " +
+        "{asynchronous:true, evalScripts:true, onComplete:function(request)"+
+        "{hideDupeNotice('#{divToHide}')}}); return false;\">[X]</a>"
+        dupe_msg = "<div id=\"#{unique_divid}\">Some files or archives in this "+
+        "project have duplicates in other projects! See Uploaded Data below " +
+        "for details. #{dupe_ajax}</div>"
+
+        flash.now[:notice] = old_message + ((old_message.empty?) ? "" : "<br/>") + dupe_msg
+      end
+    end
   end
+
+
+  # Adds the current project's ID to the list of projects being
+  # ignored in the cookie. If called with remove=true will instead
+  # remove that ID, so the message will again be shown.
+  def set_file_dupe_cookie
+    cookie_str = cookies[:modencode_dupes]
+    if cookie_str.nil? then cookie_str = ""  end
+    projects_ignoring_dupes = cookie_str.split(",")
+    
+    if params[:remove] then
+      projects_ignoring_dupes.delete(params[:id])
+    else
+      projects_ignoring_dupes.push(params[:id].to_s)
+    end
+    cookies[:modencode_dupes] = {:value => projects_ignoring_dupes.join(","), 
+      :expires => 10.years.from_now }
+  end
+
+  # Returns a hash "signumber" => "list of files globally with this signature"
+  # for signatures had by ProjectArchives or ProjectFiles in the passed project.
+  # filetype is "archive" or "file".
+  # list is in format [file1 , file2...], where fileN is a hash:
+  # {:id, :containerID, :type, :projectID}, where containerID is archiveID
+  # if :type = "file" and projectID if "archive".
+  # If include_thisProj = true, will also include files in this project in the
+  # list (in which case even sigs with no dupes will be included).
+  def get_matching_files(project, filetype, include_thisProj = false)
+    listArray = [] # the list of signatures to check for dupes
+    case filetype
+      when "archive"
+        listArray += project.project_archives.all.map { |pa| pa.signature }
+        classToSearch = ProjectArchive
+        isInProject = Proc.new {|arc| arc.project_id == project.id}
+        containerID = :project_id
+     when "file"
+        allFiles = []
+        thisProjectsArchives = []
+        project.project_archives.each{|pa| 
+          allFiles += ProjectFile.find_all_by_project_archive_id(pa.id)
+          thisProjectsArchives.push(pa.id) 
+          }
+        listArray = allFiles.map{|af| af.signature}
+        classToSearch = ProjectFile 
+        isInProject = Proc.new {|file| 
+          thisProjectsArchives.include?(file.project_archive_id) 
+          }
+        containerID = :project_archive_id
+     else 
+        raise Exception.new("filetype must be 'archive' or 'file'!")
+    end
+    # uniquify and remove nil sigs
+    listArray = listArray.uniq.reject{|la| la.nil?}
+    
+    # Then get all matches of ProjectArchives/Files that aren't in this project.
+    matchingContent = {}
+    classToSearch.find_all_by_signature(listArray).each{|i|
+      itemInfo = {:id => i.id, :containerID => i.send(containerID)}
+      itemInfo[:projectID] = filetype == "archive" ? itemInfo[:containerID] : 
+        ProjectArchive.find(itemInfo[:containerID]).project_id
+      itemInfo[:type] = filetype
+      # Include the item unless it is in the current project and we
+      # have requested to NOT include that project.
+      unless(isInProject.call(i) && ( ! include_thisProj)) then
+        if matchingContent[i.signature].nil? then
+          matchingContent[i.signature] = [itemInfo]
+        else
+          matchingContent[i.signature].push itemInfo
+        end
+      end
+    }
+    matchingContent
+  end
+
+  def dupe_file_info
+    @project = Project.find(params[:id])
+    @archiveSigs = get_matching_files( @project, "archive", true)
+    @fileSigs = get_matching_files(@project, "file", true)
+    render :action => "dupe_file_info", :layout => "popup"
+  end
+
 
   def download_chadoxml
     @autoRefresh = false
@@ -2332,6 +2444,14 @@ class PipelineController < ApplicationController
   def path_to_file(filename)
     # the expand_path method resolves this relative path to full absolute path
     File.join(path_to_project_dir, filename)
+  end
+  
+  # Takes : full path to file
+  # Returns : md5 checksum of the first 50,000,000 bytes of the file
+  def generate_file_signature(filepath)
+    bytes_to_md5 = 50000000
+    return nil unless File.exists? filepath
+    return Digest::MD5.hexdigest(File.read(filepath, bytes_to_md5))
   end
 
   def getProjectTypes

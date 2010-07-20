@@ -1,0 +1,64 @@
+<%
+  def displayDupes(sigList, fileType) 
+    displayHTML = "" 
+    sigList.each{|key, value|
+      val = value
+      # First, remove all the ones from this project, retaining the first
+      #  to be in the "this project" column
+      verThisProj = val.select{|ea| ea[:projectID] == @project[:id]}
+      val.reject!{|ea| ea[:projectID] == @project[:id]}
+      if verThisProj.nil? then
+        stringThisProj = "No file found!"
+      else
+        stringThisProj = fileType.find(verThisProj.first[:id]).file_name
+      end
+      # Then, make the entry... but only if there are actual dupes! We might
+      # have only had ones in this project!
+      unless val.empty? then
+        # Put the left column in
+        displayHTML += "<tr><td rowspan=\"#{val.length}\">#{stringThisProj}</td>"
+        # Display the filename - other project
+        val.each{ |item|
+          if item != val.first then displayHTML += "<tr>" end
+          displayHTML += "<td>#{fileType.find(item[:id]).file_name}</td>"
+          # display the url to the project
+          displayHTML +=  "<td>" + link_to(item[:projectID].to_s + " : " + 
+          Project.find(item[:projectID]).name,
+            url_for(
+            :controller => "pipeline", :action => "show", :id => item[:projectID]),
+            :target => "_blank")+
+            "</td></tr>"
+          }
+      end
+    }
+    displayHTML
+  end
+%>
+<style type="text/css">
+  TABLE.dup_list { border: thin solid black; }
+  TABLE.dup_list TR TD { background-color: #eeeeee }
+</style>
+<div align="center">
+  <table border="1" class="archive_list" style="border:thin solid black;" width="95%">
+    <tr>
+      <th style="background-color:#0000AA; color: white; text-align:center">
+        Project #<%=params[:id]-%> Duplicate Files</th>
+    </tr>
+    <tr>
+      <td style="text-align: left; vertical-align: bottom; font-size: 90%;">
+        The following files in project <%= params[:id] -%> are duplicated in other projects:
+        <br/>
+        <br/>
+        <table border="0" class="dup_list" cellpadding="4px">
+          <tr>
+            <td> Filename</td>
+            <td> Name in Other Project</td>
+            <td> Other Project </td>
+          </tr>
+          <%= displayDupes(@archiveSigs, ProjectArchive) -%>
+          <%= displayDupes(@fileSigs, ProjectFile) -%>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>

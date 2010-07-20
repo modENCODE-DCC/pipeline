@@ -23,6 +23,9 @@ class UploadController < CommandController
         project_archive.file_size = File.size(options[:destfile])
         project_archive.status = ProjectArchive::Status::NOT_EXPANDED
         project_archive.is_active = true
+        # Add signature
+        mysignature = PipelineController.new.generate_file_signature(options[:destfile])
+        project_archive.signature = mysignature
         project_archive.save
       end
     end

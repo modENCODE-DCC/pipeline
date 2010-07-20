@@ -21,6 +21,7 @@
     content: counter(c) ".";
     counter-increment: c -1;
   }
+  DIV.hidden { display: none; }
 </style>
 
 <div id="command_panel">
@@ -36,6 +37,13 @@
       spinner_updater = new PeriodicalExecuter(function() {showSpinner('command_panel'); new Ajax.Updater('command_panel', '<%= url_for(:action => "command_panel", :id => @project) %>', {asynchronous:true, evalScripts:true, onComplete:function(request){hideSpinner('command_panel')}})}, 5)
     }
     //]]>
+
+    // Run when the cancel [x] is clicked - this is called by ajax embedded
+    // in the page by pipelineController.
+    function hideDupeNotice(whichDiv)
+    {
+      $(whichDiv).toggleClassName("hidden");
+    }
   </script>
 
   <h2>Submission Details: <hr align="left"/></h2>
@@ -317,9 +325,8 @@
     </div>
   <% end %>
   <br style="clear:both"/><br/>
-
-  <h2 align="left"><a name="uploaded_data" style="color:black">Uploaded Data:</a><hr align="left"/></h2>
-    <table border="0" style="margin-top: 10px;" class="status">
+   <h2 align="left"><a name="uploaded_data" style="color:black">Uploaded Data:</a><hr align="left"/></h2>
+   <table border="0" style="margin-top: 10px;" class="status">
       <tr>
         <th>&nbsp;</th>
         <td colspan="2">
@@ -331,11 +338,13 @@
                 <%= " | " + link_to_if(!@project.released? && @user_can_write && @num_active_archives > 0 && @project.status != Expand::Status::EXPANDING, "Don't use any Archives", { :action => :deactivate_all, :id => @project }, :confirm => "This will deactivate all archives. You will have to add a new archive or activate an existing one before validation. Continue?") unless @project.project_archives.blank? %>
               </th>
             </tr>
-            <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th></tr>
+            <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th><th>&nbsp;</th></tr>
             <% @project.project_archives.reverse.each do |archive| %>
               <tr>
-                <th style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>">Archive <%= archive.id %></th>
-                <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_name %></td>
+                <th style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>">Archive <%= archive.id %>
+                </th>
+                <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_name %>
+                </td>
                 <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= 
                   if archive.file_size.to_f >= (1024**2) then
                         "#{(archive.file_size.to_f / 1024**2).round(1)}M"
@@ -344,8 +353,28 @@
                   else
                     archive.file_size 
                   end
-                %></td>
+                %>
+               </td>
                 <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_date.strftime("%b %d %H:%M") unless archive.file_date.nil? %></td>
+                <td style="font-size:70%">
+                 <%
+                   unless @archiveSigs[archive.signature].nil? then 
+                     openDupePopString = "#{@archiveSigs[archive.signature][0][:containerID]}" 
+                     numMatches = @archiveSigs[archive.signature].length
+                     if numMatches >= 2 then
+                       openDupePopString += ", #{@archiveSigs[archive.signature][1][:containerID]}"
+                     end
+                     if numMatches > 2 then
+                       openDupePopString += ", ..."
+                     end
+                   %> 
+                   also in<br/><%= link_to openDupePopString,
+                     { :action => :dupe_file_info, :id => params[:id] },
+                     :popup => ["dupe_window", "height=400,width=800,location=0,address=1,scrollbars=1"],
+                     :target => "_blank" %>
+                 <% end %>
+
+                </td>
                 <td style="padding-top: 10px; font-size: 80%"<%= " rowspan=\"#{archive.project_files.size+1}\"" if archive.is_active %>>
                   <%= "(<i>#{archive.comment}</i>)<br/>" if !archive.comment.nil? && archive.comment.length > 0 %>
                   <% unless @project.status == Expand::Status::EXPANDING then -%>
@@ -371,7 +400,8 @@
               </tr>
               <% if archive.is_active then archive.project_files.each { |file| %>
                 <tr>
-                  <td style="font-size:70%; text-align: right"><%= link_to_if(!@project.released?, "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %></th>
+                  <td style="font-size:70%; text-align: right"><%= link_to_if(!@project.released?, "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %>
+                  </th>
                   <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
                     if File.basename(file.file_name).size > 25 then
                       if File.basename(file.file_name) != file.file_name then
@@ -403,6 +433,39 @@
                     end 
                     %></td>
                   <td><%= if file.is_overwritten then "&nbsp;" else file.file_date.strftime("%b %d %H:%M") end %></td>
+                  <td style="font-size:70%">
+                  
+                <% # Link to the page for duplicate files
+                unless @fileSigs[file.signature].nil? then 
+                  containingProjects = []
+                  @fileSigs[file.signature].each{|fs|
+                    contProj = ProjectArchive.find(fs[:containerID]).project_id
+                    containingProjects.push(contProj)
+                  }
+
+                  openDupePopString = "#{containingProjects[0]}" 
+                  numMatches = @fileSigs[file.signature].length
+                  if numMatches >= 2 then
+                    openDupePopString += ", #{containingProjects[1]}"
+                  end
+                  if numMatches > 2 then
+                    openDupePopString += ", ..."
+                  end
+                %> 
+                also in<br/><%= link_to openDupePopString,
+                  { :action => :dupe_file_info, :id => params[:id] },
+                  :popup => ["dupe_window", "height=400,width=800,location=0,address=0,scrollbars=1"],
+                  :target => "_blank" %>
+
+              <% end %>
+
+
+                
+                
+                
+                
+                
+                </td>
                 </tr>
               <% } end %>
             <% end %>
