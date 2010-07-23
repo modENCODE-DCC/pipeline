@@ -235,19 +235,25 @@ class ExpandController < CommandController
         # created (or more reasonably, the time the archive was uploaded)
         # this is where we should put it.
         
-        # Generate the signature
-        mysignature = PipelineController.new.generate_file_signature(current_entry_path)
         (project_file = project_archive.project_files.new(
           :file_name => relative_entry_path,
           :file_size => File.size(current_entry_path),
-          :file_date => File.ctime(current_entry_path),
-          :signature => mysignature
+          :file_date => File.ctime(current_entry_path)
         )).save
 
         # Move the file!
         new_entry_path = File.join(extract_dir, relative_entry_path)
         # Don't rescue rename here errors, because the whole process has effectively failed
         FileUtils.move(current_entry_path, new_entry_path);
+
+	# Generate the signature for the moved file
+	begin
+          mysig = PipelineController.new.generate_file_signature(new_entry_path)
+	  project_file[:signature] = mysig
+	rescue Exception => e
+	  logger.error "Generating signature for #{project_file.id} failed: #{e}"
+	end	
+        project_file.save
       end
     end
 
