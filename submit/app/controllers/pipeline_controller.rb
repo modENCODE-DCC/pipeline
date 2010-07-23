@@ -2450,7 +2450,7 @@ class PipelineController < ApplicationController
   # Returns : md5 checksum of the first 50,000,000 bytes of the file
   def generate_file_signature(filepath)
     bytes_to_md5 = 50000000
-    return nil unless File.exists? filepath
+    return nil unless File.size? filepath
     return Digest::MD5.hexdigest(File.read(filepath, bytes_to_md5))
   end
 
