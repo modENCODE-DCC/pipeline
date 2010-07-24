@@ -1,121 +1,117 @@
+<%
+  @filter_form_update = "matrix_display"
+%>
 <script type="text/javascript">
-  function loadDefineMatrix() {
-    //$('bulk_select_form').action = "<%= url_for :action => :define_matrix %>";
-    //$('bulk_select_form').submit();
-    new Ajax.Updater(
-        'definematrix',
-        '<%= url_for(:action => :define_matrix) %>',
-        { asynchronous:true, evalScripts:true, parameters:Form.serialize($('bulk_select_form')) }
-        );
-    $('definematrix').show();
+Event.observe(window, 'load', function(evt) {
+  // Tabs
+  YUI().use("yui", "tabview", function(Y) {
+      var selected = '<%= params[:bulk_tab] %>';
+      var tabview = new Y.TabView({srcNode:'#content_tabs'});
+      tabview.after("render", function(evt) { $('content_tabs').setStyle({display: 'block'}) });
+      tabview.render();
+      tabview.after("selectionChange", function(evt) {
+        var href = evt.newVal.get('srcNode').get('href');
+        var panel = $(href.substring(href.indexOf('#')+1));
+        if (panel) {
+          var form = panel.down("form");
+          if (form) { form.onsubmit(); }
+        }
+        });
+      tabview.on("selectionChange", function(evt) { $('<%=@filter_form_update%>').update(""); } );
+
+      // Preselected tab on reload
+      if (selected) {
+        var selected_tab = $$('DIV#content_tabs UL LI A[href=#' + selected + ']');
+        if (selected_tab.size() > 0) {
+          tabview.selectChild(selected_tab.first().up('LI').previousSiblings().size());
+        }
+      }
+  });
+});
+function showModMine(ids) {
+  if (!ids || ids.size() == 0) {
+    alert("No projects selected!");
+    return false;
   }
+  var modmineURL = "http://intermine.modencode.org/release-18/portal.do?externalids=#{ids}&class=Submission";
+  var finalURL = modmineURL.interpolate({ 'ids': ids.join(",") });
+  window.open(finalURL, "_blank");
+}
+var infoDiv;
+function showInfoDiv(e, content, type, rows, cols) {
+  type = type || 'input'
+  if (!infoDiv) {
+    var textBox;
+    if (type == 'textarea') {
+      rows = rows || 1;
+      cols = cols || 30;
+      textBox = new Element('textarea', { rows: rows, cols: cols });
+    } else {
+      width = rows || '200';
+      width = '' + width + 'px';
+      textBox = new Element('input', { type: 'text', rows: rows, cols: cols });
+      type = 'input';
+    }
+    infoDiv = new Element('div').setStyle({ backgroundColor: '#bbaaaa', padding: '8px', position: 'absolute', display: 'none' }).insert(textBox);
+    textBox.observe('click', function (evt) { evt.findElement('input').select(); evt.stop(); });
+    infoDiv.documentListener = function(evt) { if (evt.findElement('div') != infoDiv) { infoDiv.hide(); document.stopObserving('click', infoDiv.documentListener); infoDiv.remove(); infoDiv = undefined; } };
+    document.body.insert(infoDiv);
+  }
+
+  var textBox = infoDiv.down(type);
+  textBox.setValue(content);
+
+  infoDiv.setStyle({
+    left:  "" + (e.pointerX()+10) + "px",
+    top: "" + (e.pointerY()+10) + "px"
+  });
+
+  infoDiv.show();
+  textBox.focus();
+  textBox.select();
+  e.stop();
+  document.observe('click', infoDiv.documentListener);
+}
+function viewList(e, ids) {
+  if (!ids || ids.size() == 0) {
+    alert("No projects selected!");
+    return false;
+  }
+  showInfoDiv(e, ids.join(", "), 'input');
+}
+function viewURLs(e, ids) {
+  if (!ids || ids.size() == 0) {
+    alert("No projects selected!");
+    return false;
+  }
+  var base_url = 'http://submit.modencode.org<%= url_for(:controller => :public, :action => :download_tarball, :id => '9999', :structured => true ).sub('9999', '#{id}') %>';
+  urls = ids.map(function(id) { return base_url.interpolate({ 'id': id }); });
+  showInfoDiv(e, urls.join('\n'), 'textarea', (ids.size() > 20 ? 20 : ids.size()), 100);
+}
+
 </script>
-<h1>Instructions</h1>
-Select the freeze dataset you wish to download and adjust the filters to focus
-on the datasets of interest. The URL links at the bottom of the page will be
-updated as you do so. When you are satisfied with the list, you may either
-download the datasets manually, or download them in bulk by cutting and pasting
-either of the two "magic invocations" in the boxes below onto your command line
-shell. Both require the "wget" program, while the second requires Perl and the
-XML::Simple module to be installed as well. As you update the filters, these
-invocations will change.
 
-<h1>Generated commands</h1>
-This page's "permalink" URL (to bookmark the currently selected options) is: <%= link_to "here", @reduced_params.merge({:action => :index}) %>.<br/>
-For computational access, An XML version is: <%= link_to "here", @reduced_params.merge({:action => :index, :format => "xml"}) %>.<br/>
-<br/>
-You can fetch the data with:<br/>
-<code>
-  wget 'http://submit.modencode.org<%= url_for( @reduced_params.merge({:action => :index}) ) %>' -O - | grep download_tarball | wget -i - --base='http://submit.modencode.org//' --force-html
-</code>
-The above will just fetch the URLs from the section at the bottom of the page, as-is.<br/>
-If you have Perl and XML::Simple installed, and you want to name the files after the experiments, you can do this:<br/>
-<code>
-  wget -O - 'http://submit.modencode.org<%= url_for( @reduced_params.merge({:action => :index, :format => "xml"}) ) %>' | perl -e '
-  use XML::Simple;
-  $/ = undef;
-  $records = XMLin(<>)->{"record"};
-  @records = (ref($records) eq "ARRAY") ? @$records : $records;
-  foreach $record (@records) { system("wget '\''" . $record->{"url"} . "'\''"); system("mv -v '\''" . $record->{"ID"} . ".tgz'\''* '\''" . $record->{"Name"} . ".tgz'\''"); }
-  '
-</code>
-
-<h1>Filter data</h1>
-<%= link_to "Reset", :action => :index %><br/><br/>
-<%= link_to_function "Generate matrix view", "loadDefineMatrix()" %><br/><br/>
-<div id="definematrix" style="display:none; margin: 8px; padding: 8px; border: thin dashed black">Loading...</div>
-<%= form_tag url_for(:action => :index), { :method => :post, :class => "bulk_select", :id => "bulk_select_form" } %>
-  <label for"selected_freeze" class="bulk_select">Select freeze date:</label>
-  <%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, params[:selected_freeze]), :onchange => "this.form.submit()") %>
-  <%= hidden_field_tag("prev_selected_freeze", @selected_freeze_id) %>
-  <br/>
-  <label for="selected_experiment_type" class="bulk_select">Select experiment type:</label>
-  <%= select_tag("selected_experiment_type[]", options_for_select(@experiment_types, :selected => @experiment_type, :disabled => @disabled_experiment_types), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-  <%= link_to_function("All", "$A($(this).previous('select').options).each(function(elem) { elem.selected = true; }); $(this).previous('select').form.submit();") %><br/>
-  <br/>
-  <label for="selected_experiment_type" class="bulk_select">Select data type:</label>
-  <%= select_tag("selected_data_type[]", options_for_select(@data_types, :selected => @data_type, :disabled => @disabled_data_types ), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-  <%= link_to_function("All", "$A($(this).previous('select').options).each(function(elem) { elem.selected = true; }); $(this).previous('select').form.submit();") %><br/>
-  <% if @data_type && @data_type.size > 0 then %>
-    <div class="sample_characteristics">
-      <span style="float: left">
-        <label for="selected_project" class="bulk_select">Project:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_project[]", options_for_select(@projects, @project), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span>
-        <label for="selected_lab" class="bulk_select">Lab:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_lab[]", options_for_select(@labs, @lab), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span>
+<div id="content_tabs">
+  <ul>
+    <li><a href="#templates">Templates</a></li>
+    <li><a href="#filter">Filter</a></li>
+    <li><a href="#advanced">Advanced</a></li>
+  </ul>
+  <div>
+    <div id="templates">
+      <%= render :partial => "filter_form_template" %>
     </div>
-    <div class="sample_characteristics">
-      <span style="float: left">
-        <label for="selected_tissue" class="bulk_select">Tissue:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_tissue[]", options_for_select(@tissues, @tissue), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span style="float: left">
-        <label for="selected_strain" class="bulk_select">Strain:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_strain[]", options_for_select(@strains, @strain), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span>
-        <label for="selected_cell_line" class="bulk_select">Cell Line:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_cell_line[]", options_for_select(@cell_lines, @cell_line), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span>
+    <div id="filter">
+      <%= render :partial => "filter_form_simple" %>
     </div>
-    <div class="sample_characteristics">
-      <span style="float: left">
-        <label for="selected_stage" class="bulk_select">Stage:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_stage[]", options_for_select(@stages, @stage), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span style="float:left">
-        <label for="selected_antibody" class="bulk_select">Antibody:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_antibody[]", options_for_select(@antibodies, @antibody), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span>
-        <label for="selected_array_platform" class="bulk_select">Array Platform:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_array_platform[]", options_for_select(@array_platforms, @array_platform), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span>
+    <div id="advanced">
+      <%= render :partial => "filter_form_advanced" %>
     </div>
-    <div class="sample_characteristics">
-      <span style="float: left">
-        <label for="selected_rnai_target" class="bulk_select">RNAi Target:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_rnai_target[]", options_for_select(@rnai_targets, @rnai_target), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span><span>
-        <label for="selected_compound" class="bulk_select">Compound:</label>
-        <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.submit();") %><br/>
-        <%= select_tag("selected_compound[]", options_for_select(@compounds, @compound), :onchange => "this.form.submit()", :multiple => true, :size => 5) %>
-      </span>
-    </div>
-  <% end %>
-</form>
-
-<h1>URLs:</h1>
-<div id="urllist">
-  <% @selected_data.each do |project_info| %>
-    <span style="float: left; width: 5em;"><%= project_info["Submission ID"] %></span>
-    <%= link_to(project_info["Name"], { :controller => :public, :action => :download_tarball, :id => project_info["Submission ID"], :structured => true } ) %><br/>
-  <% end %>
+  </div>
 </div>
+<br style="clear:both"/>
+
+<div id="matrix_display"></div>
+
+<br style="clear: both"/>
+Note: colored squares indicate the presence of data. (The specific color is just a visual aid to separate rows and columns.)

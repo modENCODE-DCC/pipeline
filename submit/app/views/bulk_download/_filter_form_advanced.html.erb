@@ -1,0 +1,44 @@
+<%= form_remote_tag :url => url_for(:action => "matrix_refresh"),
+    :update => @filter_form_update,
+    :before => "Spinner.show($('#{@filter_form_update}'));",
+    :complete => "Spinner.hide($('#{@filter_form_update}'));",
+    :html => {
+      :onsubmit => "if (!$('#{@filter_form_update}')) { this.submit(); return true; }",
+      :class => "bulk_select",
+      :action => url_for({}) 
+    }
+  %>
+  <label for="selected_freeze" class="bulk_select">Select freeze date:</label>
+  <%= select_tag("selected_freeze", grouped_options_for_select(@freeze_files, @selected_freeze_id), :onchange => "this.form.submit()", :id => nil) %>
+  <%= hidden_field_tag("prev_selected_freeze", @selected_freeze_id, :id => nil) %>
+  <%= hidden_field_tag("bulk_tab", "advanced", :id => nil) %>
+  <br/>
+  <% [ :experiment_types, :data_types ].each do |param| %>
+    <label for="filter[<%=param.to_s%>][]" class="bulk_select"><%=@param_to_name[param][:select]%>:</label>
+    <%= select_tag("filter[#{param.to_s}][]", options_for_select(@all_options[param], :selected => @filter_options[param]), :onchange => "this.form.onsubmit()", :multiple => true, :size => 5, :id => nil) %>
+    <%= link_to_function("All", "$A($(this).previous('select').options).each(function(elem) { elem.selected = true; }); $(this).previous('select').form.onsubmit();") %><br/>
+    <br/>
+  <% end %>
+  <% if @filter_options[:data_types] && @filter_options[:data_types].size > 0 then %>
+    <% [ [ :projects, :labs ], [ :tissues, :strains, :cell_lines ], [ :stages, :antibodies, :array_platforms ], [ :rnai_targets, :compounds ] ].each do |row_of_params| %>
+      <div class="sample_characteristics">
+        <% row_of_params.each do |param| %>
+          <span style="float: left">
+            <label for="filter[<%=param.to_s%>][]" class="bulk_select"><%=@param_to_name[param][:select]%>:</label>
+            <%= link_to_function("All", "$A($(this).next('select').options).each(function(elem) { elem.selected = true; }); $(this).next('select').form.onsubmit();") %><br/>
+            <%= select_tag("filter[#{param.to_s}][]", options_for_select(@all_options[param], :selected => @filter_options[param]), :onchange => "this.form.onsubmit()", :multiple => true, :size => 5, :id => nil) %>
+          </span>
+        <% end %>
+      </div>
+      <br style="clear: both"/>
+    <% end %>
+  <% end %>
+  <br style="clear: both"/>
+  <br/>
+  <label for="matrix_style" class="bulk_select">Matrix layout:</label>
+  <%= select_tag("matrix_style", grouped_options_for_select([ ["", [""]] ] + @matrix_styles.to_options, @selected_matrix_style), :onchange => "this.form.onsubmit();", :id => nil) %><br/>
+  <br/>
+  <label for="matrix_style" class="bulk_select">Include N/A headings.</label>
+  <%= check_box_tag("include_na_columns", "yes", @include_na_columns, :onchange => "this.form.onsubmit();", :id => nil) %>
+  <br style="clear: both"/>
+</form>

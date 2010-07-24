@@ -1,0 +1,43 @@
+/* ROTATION */
+DIV.bulk_select DIV.bulk_header { padding-left: 80px; height: 120px; overflow: hidden; border-bottom: thin solid white; padding-bottom: 1em; }
+DIV.bulk_select DIV.bulk_header DIV {
+  white-space: nowrap;
+  width: 1em; height: 1em;
+  padding-left: 0.3em; padding-bottom: 0.2em;
+  float: left;
+  /* ROTATE */
+  /* WebKit skew         -webkit-transform: matrix(0.4, -1, 1, 0, 0, 120); */
+  /* WebKit rotate    */ -webkit-transform: translate(0px, 120px) rotate(-70deg);
+  /* Mozilla skew        -moz-transform: matrix(0.4, -1, 1, 0, 0, 120);
+  /* Mozilla rotate   */ -moz-transform: translate(0px, 120px) rotate(-70deg);
+  /* Opera skew          -o-transform: matrix(0.4, -1, 1, 0, 0, 120);
+  /* Opera rotate     */ -o-transform: translate(0px, 120px) rotate(-70deg);
+  /* IE skew             -ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.4, M12=-1, M21=1, M22=0,Dy=120,sizingMethod='auto expand')";
+                         filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.4, M12=-1, M21=1, M22=0,Dy=120,sizingMethod='auto expand');
+  /* IE rotate        */ -ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.34202014, M12=0.93969262, M21=-0.93969262, M22=0.34202014,sizingMethod='auto expand')";
+                         filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.34202014, M12=0.93969262, M21=-0.93969262, M22=0.34202014,sizingMethod='auto expand');
+  /* */
+}
+
+DIV.bulk_select DIV.row { clear: left; }
+DIV.bulk_select DIV.row DIV { float: left; height: 1em; }
+DIV.bulk_select DIV.row DIV:first-child { width: 80px; white-space: nowrap; overflow: hidden; }
+DIV.bulk_select DIV.row DIV:not(:first-child) { width: 1.3em; border: thin solid black; margin: -1px; }
+
+DIV.bulk_select { clear: both; }
+
+DIV.bulk_select DIV.bulk_header DIV.even SPAN, DIV.bulk_select DIV.bulk_header DIV.even { background-color: #ffdddd; }
+DIV.bulk_select DIV.bulk_header DIV.odd SPAN, DIV.bulk_select DIV.bulk_header DIV.odd   { background-color: #ffffdd; }
+DIV.bulk_select DIV.row.even DIV:first-child                  { background-color: #eeeeff; padding-left: 2px; }
+DIV.bulk_select DIV.row.odd DIV:first-child                   { background-color: #9999ff; padding-left: 2px; }
+
+DIV.bulk_select DIV.row.even DIV.even                         { background-color: #ddaaaa; }
+DIV.bulk_select DIV.row.even DIV.odd                          { background-color: #ddddaa; }
+DIV.bulk_select DIV.row.odd  DIV.even                         { background-color: #aa77aa; }
+DIV.bulk_select DIV.row.odd  DIV.odd                          { background-color: #aaaa77; }
+
+DIV.bulk_select DIV.row.even DIV.empty                        { background-color: #dddddd; }
+DIV.bulk_select DIV.row.odd  DIV.empty                        { background-color: #dddddd; }
+
+
+DIV.row INPUT { display : none; } 

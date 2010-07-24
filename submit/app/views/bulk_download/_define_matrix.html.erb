@@ -30,6 +30,12 @@
         }
       }
       table.appendChild(header);
+
+      cellContent = 'X';
+      attrs = $('show_attrs').getValue().without("");
+      if (attrs.size() > 0) {
+        cellContent += " (" + attrs.join(", ") + ")";
+      }
       for (var i = 0; i < Math.pow(2, rows.size()); i++) {
         cell = new Element('td');
         out = rows[0] + ((i&1)+1);
@@ -39,7 +45,7 @@
         cell.update(out);
         row = new Element('tr').update(cell);
         for (var k = 0; k < Math.pow(2, cols.size())*group_by.size(); k++) {
-          row.appendChild(new Element('td').update('X'));
+          row.appendChild(new Element('td').update(cellContent));
         }
         table.appendChild(row);
       }
@@ -68,7 +74,7 @@
       }
     );
         
-    $('generate_html_button').disabled = $('generate_csv_button').disabled = ($('cols').getValue().size() == 0 || $('rows').getValue().size() == 0);
+    $('generate_xls_button').disabled = $('generate_html_checkboxes_button').disabled = $('generate_html_button').disabled = $('generate_csv_button').disabled = ($('cols').getValue().size() == 0 || $('rows').getValue().size() == 0);
     updating_constraints = false;
     if (!$('generate_csv_button').disabled) {
       redrawSample();
@@ -92,10 +98,12 @@
     <%= label_tag :rows, "Rows are: "%><%= select_tag :rows, options_for_select(@row_types, @selected_row_types), :multiple => true, :onchange => "updateFormConstraints(this)", :size => 8, :name => "rows[]" %>
     <%= label_tag :cols, "Columns are: "%><%= select_tag :cols, options_for_select(@col_types, @selected_col_types), :multiple => true, :onchange => "updateFormConstraints(this)", :size => 8, :name => "cols[]" %>
     <%= label_tag :group_by, "Group by: "%><%= select_tag :group_by, options_for_select(@group_by_types, @selected_group_by_types), :onchange => "updateFormConstraints(this)", :size => 8 %>
-    <%= label_tag :show_attrs, "Show attributes: "%><%= select_tag :show_attrs, options_for_select(@show_attrs_types, @selected_show_attrs_types), :onchange => "updateFormConstraints(this)", :size => 8, :name => "show_attrs[]" %>
+    <%= label_tag :show_attrs, "Show attributes: "%><%= select_tag :show_attrs, options_for_select(@show_attrs_types, @selected_show_attrs_types), :multiple => true, :onchange => "updateFormConstraints(this)", :size => 8, :name => "show_attrs[]" %>
     <br/>
     <%= submit_tag "Generate HTML", :id => "generate_html_button", :disabled => "disabled" %>
+    <%= submit_tag "Generate HTML Checkboxes", :id => "generate_html_checkboxes_button", :disabled => "disabled", :name => "show_checkboxes" %>
     <%= submit_tag "Generate CSV", :id => "generate_csv_button", :disabled => "disabled", :onclick => "this.form.action='#{url_for(:action => "matrix.txt")}'" %>
+    <%= submit_tag "Generate XLS", :id => "generate_xls_button", :disabled => "disabled", :onclick => "this.form.action='#{url_for(:action => "matrix.xls")}'" %>
   <% else %>
     No submissions found for given constraints.
   <% end %>

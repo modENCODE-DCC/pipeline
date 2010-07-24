@@ -1,0 +1,119 @@
+<% form_tag url_for({}), :onsubmit => "return false;", :style => "float:left" do %>
+  <div id="bulk_select_out"></div>
+  <%= button_to_function "View in modMine", "showModMine(this.form.getInputs('checkbox').findAll(function(chk) { return chk.checked; }).map(function(chk) { return chk.value.split(/,/); }).flatten().uniq().compact().without(''))" %>
+  <%= button_to_function "View IDs", "viewList(event, this.form.getInputs('checkbox').findAll(function(chk) { return chk.checked; }).map(function(chk) { return chk.value.split(/,/); }).flatten().uniq().compact().without(''))" %>
+  <%= button_to_function "View Download URLs", "viewURLs(event, this.form.getInputs('checkbox').findAll(function(chk) { return chk.checked; }).map(function(chk) { return chk.value.split(/,/); }).flatten().uniq().compact().without(''))" %>
+  <% split_section = 0 %>
+  <% @data_by_split_and_group_and_columns_and_rows.each do |splitkey, data_by_group_and_columns_and_rows| %>
+    <% if splitkey then %><h2><%= splitkey %></h2><% end %>
+    <% 
+      base_header_height = 120
+
+      column_header_length = data_by_group_and_columns_and_rows.values.flatten.map { |v| v.keys }.flatten(1).map { |v| v.values.join.length }.max || 0
+      column_header_height = [base_header_height, column_header_length * 6].min
+
+      header_height = 35 + column_header_height
+      table_height = header_height + ((@rows_product[splitkey].size)*18) 
+
+      row_header_width = 80
+      row_width = row_header_width + ((@cols_product[splitkey].size)*20)
+    %>
+    <div id="bulk_select_<%=split_section%>" class="bulk_select" style="overflow-x: scroll; overflow-y: visible; height: <%= table_height %>px; width: 1024px; border: 2px #ddd dashed">
+      <!-- Column headers -->
+      <% @groups.each do |groupkey| %>
+        <div class="bulk_header" style="margin-top: <%= -1*(base_header_height-column_header_height) %>px; width: <%=row_width%>px;">
+          <% if @groups.size > 1 then %><h3><%= groupkey %></h3><% end %>
+          <% header_num = 0 %>
+          <%
+            # Get rid of rows that are N/A, or at least put them at the end
+            sorted_pairs = data_by_group_and_columns_and_rows[groupkey];
+            n_a = sorted_pairs.find_all { |k, v| k.values.uniq == [ "N/A" ] }
+            sorted_pairs.delete_if { |k, v| k.values.uniq == [ "N/A" ] }
+            sorted_pairs = sorted_pairs.sort { |a, b| a[0].values.join.downcase <=> b[0].values.join.downcase }
+            if @include_na_columns then
+              sorted_pairs += n_a.to_a
+            else
+              # Also get rid columns that only contain N/A
+              sorted_pairs = sorted_pairs.find_all { |columnkey, data_by_rows|
+                data_by_rows.find { |k, v| k.values.uniq != [ "N/A" ] && v.size > 0 }
+              }
+            end
+            data_by_group_and_columns_and_rows[groupkey] = sorted_pairs
+          %>
+          <% sorted_pairs.each do |columnkey, data_by_rows| %>
+            <% parity = (header_num % 2 == 0) ? "even" : "odd"; header_num += 1 %>
+            <div class="<%=parity%>"><span><%= columnkey.values.join(", ") %></span></div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% @no_content = true unless data_by_group_and_columns_and_rows.values.find { |v| v.size > 0 } %>
+      <!-- Rows -->
+      <% row_num = 0 %>
+      <%
+        sorted_pairs = @rows_product[splitkey]
+        n_a = sorted_pairs.find_all { |k| k.values.uniq == [ "N/A" ] }
+        sorted_pairs.delete_if { |k| k.values.uniq == [ "N/A" ] }
+        sorted_pairs = sorted_pairs.sort { |a, b| a.values.join.downcase <=> b.values.join.downcase }
+        if @include_na_columns then
+          sorted_pairs += n_a.to_a
+        end
+        @rows_product[splitkey] = sorted_pairs
+      %>
+      <% @no_content = true unless @rows_product[splitkey].size > 0 %>
+      <% @no_content = true unless data_by_group_and_columns_and_rows.find { |groupkey, groupdata| groupdata.find { |columnkey, data_by_rows| data_by_rows.values.find { |d| d.size > 0 } } } %>
+      <% if !@no_content %>
+        <% @rows_product[splitkey].each do |rowkey| %>
+          <% next unless data_by_group_and_columns_and_rows.find { |groupkey, groupdata| groupdata.find { |columnkey, data_by_rows| data_by_rows[rowkey].size > 0 } } %>
+          <% col_num = 0; row_parity = (row_num % 2 == 0) ? "even" : "odd"; row_num += 1 %>
+          <div class="row <%=row_parity%>" style="width: <%= row_width %>px;">
+            <div><%= rowkey.values.join(", ") %></div>
+            <% @groups.each do |groupkey| %>
+              <% data_by_group_and_columns_and_rows[groupkey].each do |columnkey, data_by_rows| %>
+                <% col_parity = (col_num % 2 == 0) ? "even" : "odd"; col_num += 1 %>
+                <% col_parity += " empty" if data_by_rows[rowkey].size == 0 %>
+                <div class="<%=col_parity%>"><input type="checkbox" value="<%= data_by_rows[rowkey].map { |e| e[:submission_id] }.join(",") %>"/></div>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if @no_content then %>
+        No submissions found matching your criteria.
+      <% end %>
+    </div>
+    <script type="text/javascript">
+      var selector_one  = new BulkSelector('bulk_select_<%=split_section%>', 
+          function(list) { $('bulk_select_out').update("" + list.size() + " submissions selected."); });
+      selector_one.loadHandler();
+      // Attach tooltips
+      var tt_cols = new Tooltip(undefined, function(e) { return e.findElement("DIV").innerHTML.stripTags(); }, $('bulk_tooltip'), { 'usecursor': true });
+      selector_one.eachColHeader(function(cell) { tt_cols.addElement(cell); }); 
+
+      var tt_rows = new Tooltip(undefined, function(e) { return e.findElement("DIV").innerHTML.stripTags(); }, $('bulk_tooltip'), { 'scalex': 0.8, 'scaley': 0.8 });
+      selector_one.eachRowHeader(function(cell) { tt_rows.addElement(cell); }); 
+
+      var tt_cells = new Tooltip(undefined, function(e) {
+          var cell = e.findElement("DIV");
+          var column = cell.previousSiblings().size();
+          var col_header = cell.up('DIV.row').previous('DIV.bulk_header').down('DIV:nth-child(' + column +')');
+          var row_header = cell.previous('DIV.row DIV:first-child');
+          return col_header.innerHTML.stripTags() + ", " + row_header.innerHTML.stripTags();
+        }, $('bulk_tooltip'), { 'scalex': 0.8, 'scaley': 0.8 });
+      selector_one.eachCell(function(cell) { tt_cells.addElement(cell); }); 
+
+      // Adjust height
+      var bulk_section = $('bulk_select_<%=split_section%>');
+      var min_element = bulk_section.select('DIV.row DIV:first-child').first();
+      var max_element = bulk_section.select('DIV.row:last-child DIV:first-child').first();
+      if (max_element && min_element) {
+        var max_bottom = max_element.cumulativeOffset()[1] + max_element.getHeight();
+        var min_top = min_element.cumulativeOffset()[1];
+        var new_height = (max_bottom-min_top) + <%= header_height %> + 10;
+        bulk_section.setStyle({ height: '' + new_height + 'px'});
+      }
+    </script>
+    <% split_section += 1 %>
+  <% end %>
+<% end %>
+<div id="bulk_tooltip"></div>

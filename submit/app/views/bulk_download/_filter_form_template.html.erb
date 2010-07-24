@@ -1,0 +1,18 @@
+<%= form_remote_tag :url => url_for(:action => "matrix_refresh"),
+    :update => @filter_form_update,
+    :before => "Spinner.show($('#{@filter_form_update}'));",
+    :complete => "Spinner.hide($('#{@filter_form_update}'));",
+    :html => {
+      :onsubmit => "if (!$('#{@filter_form_update}')) { this.submit(); return true; }",
+      :class => "bulk_select",
+      :action => url_for({}) 
+    }
+  %>
+  <%= hidden_field_tag("bulk_tab", "template", :id => nil) %>
+  <label for="selected_template" class="templates">Select template:</label>
+  <%= select_tag("selected_template", grouped_options_for_select([ ["", [""]] ] + @template_styles.to_options, @selected_template), :onchange => "this.form.onsubmit()", :id => nil) %>
+  <br/>
+  <label for="matrix_style" class="bulk_select">Include N/A headings.</label>
+  <%= check_box_tag("include_na_columns", "yes", @include_na_columns, :onchange => "this.form.onsubmit();", :id => nil) %>
+  <br style="clear: both"/>
+</form>

@@ -1,3 +1,153 @@
+<script type="text/javascript">
+  Event.observe(window, "load", function() {
+      /*
+      $$("TD.selector_cell").each(function(e) {
+        Event.observe(e, "click", function(e2) {
+          inputs = e2.element().select("input");
+          if (!inputs) { return; }
+          inputs.each(function(e3) {
+            e3.checked = e3.checked ? false : true;
+            });
+          });
+        Event.observe(e, "mouseover", drawReticule);
+        Event.observe(e, "mouseout", hideReticule);
+        });
+      $$("TD.header").concat($$("TH")).each(function(e) {
+        Event.observe(e, "mouseover", drawReticule);
+        Event.observe(e, "mouseout", hideReticule);
+        Event.observe(e, "click", selectAll);
+        });
+      */
+      Event.observe($('show_short_headers'), "change", function(e) {
+        showShortHeaders(e.element());
+        });
+      showShortHeaders($('show_short_headers'));
+  });
+  function selectAll(e) {
+    var tgt = e.findElement("TD");
+    if (!tgt) { tgt = e.findElement("TH"); }
+
+    var toCheck = new Array();
+    if (tgt == $('corner_box')) {
+      toCheck = tgt.up("TABLE").select("TR TD INPUT");
+    } else if (tgt.tagName == "TD") {
+      // Select row
+      toCheck = tgt.adjacent("TD INPUT");
+    } else if (tgt.tagName == "TH") {
+      // Select column
+      var rowPos = tgt.up("TR").select("TD").concat(tgt.up("TR").select("TH")).indexOf(tgt);
+      toCheck = tgt.up("TABLE").select("TR TD:nth-child(" + (rowPos+1) + ") INPUT");
+    }
+    if (toCheck.find(function(e) { return e.checked; })) {
+      toCheck.each ( function(e2) { e2.checked = false; } );
+    } else {
+      toCheck.each ( function(e2) { e2.checked = true; } );
+    }
+  }
+  function drawReticule(e) {
+    var tgt = e.findElement("TD");
+    if (!tgt) { tgt = e.findElement("TH"); }
+    var rowCells = tgt.up("TR").select("TD").concat(tgt.up("TR").select("TH"));
+    var rowHeader = rowCells.shift();
+    var rowPos = rowCells.indexOf(tgt);
+    rowCells = rowCells.without(tgt);
+
+
+    var colCells = tgt.up("TABLE").select("TR TD:nth-child(" + (rowPos+2) + ")");
+    var colHeader = tgt.up("TABLE").down("TR TH:nth-child(" + (rowPos+2) + ")");
+    colCells = colCells.without(tgt);
+
+    var axes = new Array();
+    if (tgt == $('corner_box')) {
+      axes = tgt.up("TABLE").select("TR TD:nth-child(n+2)");
+    } else if (colHeader == tgt) {
+      axes = colCells;
+      rowHeader = null;
+    } else if (rowHeader == tgt) {
+      axes = rowCells;
+    } else {
+      axes = colCells.concat(rowCells);
+    }
+
+    tgt.setStyle({ backgroundColor: "blue" });
+    if (rowHeader) { rowHeader.setStyle({ backgroundColor: "blue" }); }
+    if (colHeader) { colHeader.setStyle({ backgroundColor: "blue" }); }
+    axes.invoke('setStyle', { backgroundColor: "#AAAAFF" });
+
+    var checkBox = tgt.down("INPUT");
+    if (checkBox) {
+      var dims = checkBox.getDimensions();
+      $('tooltip').clonePosition(checkBox, { offsetLeft: dims.width, offsetTop: dims.height, setWidth: false, setHeight: false });
+      $('tooltip').update(colHeader.innerHTML.stripTags() + "<br/>" + rowHeader.innerHTML.stripTags());
+      $('tooltip').setStyle({ display: "block" });
+    }
+  }
+  function hideReticule(e) {
+    $$('TD').invoke('setStyle', { backgroundColor: "" });
+    $$('TH').invoke('setStyle', { backgroundColor: "" });
+    $('tooltip').setStyle({ display: "none" });
+  }
+  function showFull(e) {
+    var elem = e.findElement("TH");
+    if (!elem) { elem = e.findElement("TD"); }
+    var dims = elem.getDimensions();
+    $('tooltip').clonePosition(elem, { offsetLeft: dims.width - 5, offsetTop: dims.height - 5, setWidth: false, setHeight: false });
+    $('tooltip').update(elem.innerHTML.stripTags());
+    $('tooltip').setStyle({ display: "block" });
+  }
+  function hideFull(e) {
+    $('tooltip').setStyle({ display: "none" });
+  }
+  function showShortHeaders(elem) {
+    var colh = $$('TH');
+    var rowh = $$('TD.header');
+    var headerCells = colh.concat(rowh);
+    if (elem.checked) {
+      headerCells.each(function(e) {
+          var divh = e.firstDescendant(); if (!divh) { return; }
+          divh.style.overflow = "hidden";
+          divh.style.width = "2em";
+          divh.relativize();
+          e.observe("mouseover", showFull);
+          e.observe("mouseout", hideFull);
+          });
+    } else {
+      headerCells.each(function(e) {
+          var divh = e.firstDescendant(); if (!divh) { return; }
+          divh.style.overflow = "visible";
+          divh.style.width = "";
+          e.stopObserving("mouseover", showFull);
+          e.stopObserving("mouseout", hideFull);
+          });
+    }
+  }
+  function submitModmine() {
+    var modmineURL = "http://intermine.modencode.org/release-17/portal.do?externalids=#{ids}&class=Submission";
+    checkedBoxes = $$("INPUT.selected_projects").findAll(function(e) { return e.checked; });
+    checkedProjects = checkedBoxes.map(function(e) { return e.getValue().split(','); }).flatten().uniq().without("");
+    var form = $('temporary_form');
+
+    if (!confirm("You have selected " + checkedBoxes.size() + " factor combinations which describe " +
+          checkedProjects.size() + " submissions. Continue to modMine?")) {
+      return;
+    }
+    /* GET METHOD */
+    window.location = modmineURL.interpolate({ ids: checkedProjects.join(",") });
+    /*
+    form.action = modmineURL.interpolate({ ids: checkedProjects.join(",") });
+    form.method = "GET";
+    form.submit();
+    */
+
+    /* POST, which doesn't work: 
+    form.method = "POST";
+    form.action = "http://intermine.modencode.org/release-17/portal.do";
+    form.update(new Element("input", { name: "class", value: "Submission" }));
+    form.insert(new Element("input", { name: "externalids", value: checkedProjects.join(",") }));
+    form.submit();
+    */
+  }
+</script>
 <style type="text/css">
   TABLE { border-collapse: collapse }
   TABLE TD { border: thin solid black; vertical-align: top }
@@ -5,8 +155,16 @@
   TABLE TD.header { padding: 2px; }
   TABLE TD.header DIV { white-space: nowrap }
   TABLE TH DIV { white-space: nowrap }
+  INPUT.selected_projects { width: 2em; height: 2em; display: block; margin-left: auto; margin-right: auto; margin-top: auto; -webkit-transform: scale(2,2) translateX(0.5em); }
+  DIV#tooltip { position: absolute; display: none; background-color: #FFFFDD; padding: 4px; border: thin solid black; z-index: 1001; }
 </style>
+<form id="temporary_form" method="post" action="#"></form>
+<div id="tooltip"></div>
 
+<% if @show_checkboxes then %>
+  <%= form_tag "http://www.aradine.com", :method => :get, :id => "selected_projects_form" %>
+  <%= check_box_tag "show_short_headers", nil, true %><%= label_tag "show_short_headers", "Show short headers" %><br/>
+<% end %>
 <% @data_by_split.each do |splitkey, data_by_group| %>
   <% if splitkey then %>
     <h2><%= splitkey %></h2>
@@ -21,11 +179,11 @@
       </tr>
     <% end %>
     <tr>
-      <td class="header">&nbsp;</td>
+      <td class="header" id="corner_box">&nbsp;</td>
       <% @groups.each do |group| %>
         <% border = true %>
         <% data_by_group[group].each do |restriction, data| %>
-          <th<%= " style=\"border-left: 4px solid black\"" if border %>>
+          <th style="<%= "border-left: 4px solid black;" if border %>">
             <div><%= restriction.values.join(",</div><div>") %></div>
           </th>
           <% border = false %>
@@ -40,8 +198,23 @@
         <% @groups.each do |group| %>
           <% border = true %>
           <% data_by_group[group].each do |colrestr, data| %>
-            <td<%= " style=\"border-left: 4px solid black\"" if border %>>
-              <%= data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d["Submission ID"] }.join(", ") %>
+            <td class="selector_cell" <%= " style=\"border-left: 4px solid black\"" if border %>>
+              <% if @show_checkboxes then %>
+                <% if !data[rowrestr].nil? then %>
+                  <% if @show_attrs.size > 0 then %>
+                      <%= check_box_tag nil, data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d[:submission_id] }.join(","), false, :style => "margin-bottom: 2px;", :name => "selected_projects[]", :class => "selected_projects" %>
+                      <%= data[rowrestr].nil? ? "" : "(" + data[rowrestr].map { |d| @show_attrs.map { |a| d[a] }.join(", ") }.uniq.join("), (") + ")" %>
+                  <% else %>
+                    <%= check_box_tag nil, data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d[:submission_id] }.join(","), false, :style => "margin-bottom: auto;", :name => "selected_projects[]", :class => "selected_projects" %>
+                  <% end %>
+                <% end %>
+              <% else %>
+                <% if @show_attrs.size > 0 then %>
+                  <%= data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d[:submission_id] + " (" + @show_attrs.map { |a| d[a] }.join(", ") + ")" }.join(", ") %>
+                <% else %>
+                  <%= data[rowrestr].nil? ? "" : data[rowrestr].map { |d| d[:submission_id] }.join(", ") %>
+                <% end %>
+              <% end %>
             </td>
             <% border = false %>
           <% end %>
@@ -49,4 +222,9 @@
       </tr>
     <% end %>
   </table>
+<% end %>
+<% if @show_checkboxes then %>
+  Show selected projects in:
+  <%= submit_tag "ModMine", :onclick => "submitModmine(); return false;" %>
+</form>
 <% end %>
