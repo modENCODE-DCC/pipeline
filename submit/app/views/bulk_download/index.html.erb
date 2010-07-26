@@ -33,7 +33,7 @@ function showModMine(ids) {
     alert("No projects selected!");
     return false;
   }
-  var modmineURL = "http://intermine.modencode.org/release-18/portal.do?externalids=#{ids}&class=Submission";
+  var modmineURL = "http://intermine.modencode.org/query/portal.do?externalids=#{ids}&class=Submission";
   var finalURL = modmineURL.interpolate({ 'ids': ids.join(",") });
   window.open(finalURL, "_blank");
 }
@@ -114,4 +114,4 @@ function viewURLs(e, ids) {
 <div id="matrix_display"></div>
 
 <br style="clear: both"/>
-Note: colored squares indicate the presence of data. (The specific color is just a visual aid to separate rows and columns.)
+Note: colored squares indicate the presence of data.
