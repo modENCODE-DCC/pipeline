@@ -40,5 +40,6 @@
   <br/>
   <label for="matrix_style" class="bulk_select">Include N/A headings.</label>
   <%= check_box_tag("include_na_columns", "yes", @include_na_columns, :onchange => "this.form.onsubmit();", :id => nil) %>
+  <span style="font-size: 80%">(For instance, experiments on a whole organism show with a Not Applicable cell line.)</span>
   <br style="clear: both"/>
 </form>

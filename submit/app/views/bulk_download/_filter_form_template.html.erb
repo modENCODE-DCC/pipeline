@@ -12,7 +12,10 @@
   <label for="selected_template" class="templates">Select template:</label>
   <%= select_tag("selected_template", grouped_options_for_select([ ["", [""]] ] + @template_styles.to_options, @selected_template), :onchange => "this.form.onsubmit()", :id => nil) %>
   <br/>
-  <label for="matrix_style" class="bulk_select">Include N/A headings.</label>
+  <!--
+  <label for="matrix_style" class="bulk_select">Include N/A headings:</label>
   <%= check_box_tag("include_na_columns", "yes", @include_na_columns, :onchange => "this.form.onsubmit();", :id => nil) %>
+  <span style="font-size: 80%">(For instance, experiments on a whole organism show with a Not Applicable cell line.)</span>
+  -->
   <br style="clear: both"/>
 </form>
