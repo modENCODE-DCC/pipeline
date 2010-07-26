@@ -31,10 +31,16 @@ DIV.bulk_select DIV.bulk_header DIV.odd SPAN, DIV.bulk_select DIV.bulk_header DI
 DIV.bulk_select DIV.row.even DIV:first-child                  { background-color: #eeeeff; padding-left: 2px; }
 DIV.bulk_select DIV.row.odd DIV:first-child                   { background-color: #9999ff; padding-left: 2px; }
 
+/* Plaid mode
 DIV.bulk_select DIV.row.even DIV.even                         { background-color: #ddaaaa; }
 DIV.bulk_select DIV.row.even DIV.odd                          { background-color: #ddddaa; }
 DIV.bulk_select DIV.row.odd  DIV.even                         { background-color: #aa77aa; }
 DIV.bulk_select DIV.row.odd  DIV.odd                          { background-color: #aaaa77; }
+*/
+DIV.bulk_select DIV.row.even DIV.even                         { background-color: #aa77aa; }
+DIV.bulk_select DIV.row.even DIV.odd                          { background-color: #aa77aa; }
+DIV.bulk_select DIV.row.odd  DIV.even                         { background-color: #aa77aa; }
+DIV.bulk_select DIV.row.odd  DIV.odd                          { background-color: #aa77aa; }
 
 DIV.bulk_select DIV.row.even DIV.empty                        { background-color: #dddddd; }
 DIV.bulk_select DIV.row.odd  DIV.empty                        { background-color: #dddddd; }
