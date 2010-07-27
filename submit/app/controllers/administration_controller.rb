@@ -96,7 +96,7 @@ class AdministrationController < ApplicationController
 
   def pause
     command = Command.find(params[:id])
-    if command && command.status == Command::Status::QUEUED then
+    if command && command.queued? then
       command.status = Command::Status::PAUSED
       command.save
     else
@@ -118,7 +118,7 @@ class AdministrationController < ApplicationController
 
   def requeue
     command = Command.find(params[:id])
-    if command && (command.status == Command::Status::PAUSED || command.status == Command::Status::QUEUED)  then
+    if command && (command.status == Command::Status::PAUSED || command.queued? )  then
       oldstatus = command.status
       command.status = Command::Status::PAUSED # Don't do anything silly while moving
       command.save
@@ -134,7 +134,7 @@ class AdministrationController < ApplicationController
 
   def destroy_from_queue
     command = Command.find(params[:id])
-    if command && (command.status == Command::Status::PAUSED || command.status == Command::Status::QUEUED)  then
+    if command && (command.status == Command::Status::PAUSED || command.queued? )  then
       command.destroy
     else
       flash[:warning] = "Couldn't find command #{params[:id]} to destroy."

@@ -9,7 +9,7 @@ class Release < Command
 
   def initialize(options = {})
     super
-    self.status = Release::Status::AWAITING_RELEASE if self.status == Command::Status::QUEUED
+    self.status = Release::Status::AWAITING_RELEASE if self.queued?
   end
 
   def short_formatted_status

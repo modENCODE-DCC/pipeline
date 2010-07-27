@@ -35,7 +35,7 @@
   <h2>Submission modENCODE_<%=@project.id%>: <%=link_to(@project.name, {:action => :show, :id => @project} )%></h2>
   <%
     full_history = @project.commands
-    full_history = @project.commands.all.reject { |cmd| cmd.status == Command::Status::QUEUED }
+    full_history = @project.commands.all.reject { |cmd| cmd.queued? }
     #full_history = short_history + Array.new(10-short_history.size)
   %>
   <table class="commands">

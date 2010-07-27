@@ -23,7 +23,7 @@ class Expand < Command
       # Make sure all expansions are done before updating project
       expand_commands = self.project.commands.find_all_by_type(self.class.name)
       expand_commands.reject! { |c| c == self }
-      unless (expand_commands.find_all { |e| e.status == Expand::Status::EXPANDING || e.status == Command::Status::QUEUED }.size > 0) then
+      unless (expand_commands.find_all { |e| e.status == Expand::Status::EXPANDING || e.queued? }.size > 0) then
         # Do not complete expansion unless all Expand objects have been expanded
         self.project.status = Expand::Status::EXPANDED
         self.project.save

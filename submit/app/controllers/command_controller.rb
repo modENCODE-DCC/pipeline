@@ -194,7 +194,7 @@ class CommandController < ApplicationController
           begin
             retval = next_command.controller.run
 
-            if next_command.status == Command::Status::QUEUED || next_command.status == Command::Status::CANCELED then
+            if next_command.queued? || next_command.status == Command::Status::CANCELED then
               # Strange, we think we ran it but the status didn't get updated
               # Assume failure
               logger.error "Failure because command status is #{next_command.status} for #{next_command.id}"

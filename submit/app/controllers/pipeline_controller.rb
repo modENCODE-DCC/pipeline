@@ -211,7 +211,7 @@ class PipelineController < ApplicationController
 
   def view_my_queue
     user_to_view = (params[:user_id] && User.find(params[:user_id]) && current_user.is_a?(Moderator)) ? User.find(params[:user_id]) : current_user
-    @my_queued_commands = Project.find_all_by_user_id(user_to_view).map { |p| p.commands.find_all { |c| c.status == Command::Status::QUEUED } }.flatten.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @my_queued_commands = Project.find_all_by_user_id(user_to_view).map { |p| p.commands.find_all { |c| c.queued? } }.flatten.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     render :action => "view_my_queue", :layout => "popup"
   end
 
@@ -244,7 +244,7 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
-    @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
+    @last_command_run = @project.commands.find_all { |cmd| ! cmd.queued? }.last
     @active_commands = @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
  
@@ -484,7 +484,7 @@ class PipelineController < ApplicationController
     end
 
 
-    @last_command_run = @project.commands.find_all { |cmd| cmd.status != Command::Status::QUEUED }.last
+    @last_command_run = @project.commands.find_all { |cmd| ! cmd.queued? }.last
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
 
@@ -580,6 +580,34 @@ class PipelineController < ApplicationController
     cookies[:modencode_dupes] = {:value => projects_ignoring_dupes.join(","), 
       :expires => 10.years.from_now }
   end
+
+
+# Find which files in your Project have duplicates elsewhere.
+# Returns a hash:
+#   Keys : The ProjectArchives and ProjectFiles in the passed project which
+#    have matches in other projects.
+#   Values : a hash: Key : Each other project which containes matched PA/PF.
+#                  Value : an array, for that project, of the matching files.
+#  def get_matching_files2(proj)
+#    dupes_found = {}
+#    proj.project_archives.each{|pa|
+#   dupes_by_project = {}
+#   ProjectArchive.find_all_by_signature(pa.signature).reject{|match|
+#     match.project == proj}.each{|matched_pa|
+#       dupes_by_project[matched_pa.project_id]
+
+#   dupes_found[pa] =
+#   pa.project_files.each{|pf|
+#   dupes_found[pf]
+#}
+#Project
+# For each archive in project
+# Check for matches
+# Arrange them by project (more complicated than itseems!)
+# Then, for each file it contains
+# Check those for matches too
+# arrange *them* by project (also more complicated!)
+#  end
 
   # Returns a hash "signumber" => "list of files globally with this signature"
   # for signatures had by ProjectArchives or ProjectFiles in the passed project.

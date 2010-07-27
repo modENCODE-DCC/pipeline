@@ -76,7 +76,7 @@
       <td><%= Inflector.ordinalize(@all_waiting_commands.index(command)+1) %></td>
       <td><%= command.project.nil? ? "-no project-" : command.project.user.login %></td> 
       <td>
-        <% if command.status == Command::Status::QUEUED then %>
+        <% if command.queued? then %>
           <%= link_to "Pause", :action => :pause, :id => command.id %>,
         <% else %>
           Unpause and
