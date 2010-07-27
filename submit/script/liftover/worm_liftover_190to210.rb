@@ -59,7 +59,6 @@ Dir.foreach(data_dir){|subdir|
     found_base = File.basename(found)
     if (!!(found_base =~ /\.(gff3*|sam|wig|gr|bed)$/ )) & !(found_base =~ /^\./) then
       files_to_convert.push found
-      puts "#{found} passed"
     end
   }
   # Didn't find any
