@@ -95,7 +95,7 @@ class AdministrationController < ApplicationController
   end
 
   def pause
-    command = Command.find(params[:id])
+    command = Command.find(params[:id]) if Command.exists? params[:id]
     if command && command.queued? then
       command.status = Command::Status::PAUSED
       command.save
@@ -106,7 +106,7 @@ class AdministrationController < ApplicationController
   end
 
   def unpause
-    command = Command.find(params[:id])
+    command = Command.find(params[:id]) if Command.exists? params[:id]
     if command && command.status == Command::Status::PAUSED then
       command.status = Command::Status::QUEUED
       command.save
@@ -117,7 +117,7 @@ class AdministrationController < ApplicationController
   end
 
   def requeue
-    command = Command.find(params[:id])
+    command = Command.find(params[:id]) if Command.exists? params[:id]
     if command && (command.status == Command::Status::PAUSED || command.queued? )  then
       oldstatus = command.status
       command.status = Command::Status::PAUSED # Don't do anything silly while moving
@@ -133,7 +133,7 @@ class AdministrationController < ApplicationController
   end
 
   def destroy_from_queue
-    command = Command.find(params[:id])
+    command = Command.find(params[:id]) if Command.exists? params[:id]
     if command && (command.status == Command::Status::PAUSED || command.queued? )  then
       command.destroy
     else
@@ -144,7 +144,7 @@ class AdministrationController < ApplicationController
 
   ## Handle the throttling of individual Commands
   def throttle_command
-    command = Command.find(params[:id])
+    command = Command.find(params[:id])  if Command.exists? params[:id] 
     if command then
       command.throttle=true
       command.save
@@ -157,7 +157,7 @@ class AdministrationController < ApplicationController
   ## Basically, throttle (see above) command and then restart on
   ## queue.
   def background_command
-    command = Command.find(params[:id])
+    command = Command.find(params[:id]) if Command.exists? params[:id]
     if command then
       command.throttle=true
       command.save
