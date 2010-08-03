@@ -1,4 +1,8 @@
 class DccReleaseController < ReleaseController
+  def initialize(options = {})
+    self.command_object = ReleaseWithReservations.new(options) if options[:reservations]
+    super
+  end
   def run
     super do
       if command_object.status == Release::Status::AWAITING_RELEASE || command_object.status == Release::Status::RELEASE_REJECTED then

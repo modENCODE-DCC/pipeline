@@ -7,7 +7,7 @@ class ReleaseController < CommandController
       return if self.command_object
     end
 
-    self.command_object = Release.new(options)
+    self.command_object = Release.new(options) unless self.command_object
   end
 
   def run

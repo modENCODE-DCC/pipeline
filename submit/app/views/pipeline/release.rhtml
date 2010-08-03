@@ -73,7 +73,14 @@ Once you have verified the dataset, checkoff the appropriate boxes.  When comple
   <br />
   <br />
   <% if @project_needs_release %>
-    <center>
+    <% if current_user.is_a? Moderator %>
+      <div>
+        <%= check_box_tag("with_reservations", "1", false, :onclick => "if (this.checked) { $('reservations').show(); } else { $('reservations').hide() }") %>
+        <%= label_tag "with_reservations", "Release with reservations." %><br/>
+        <%= text_area_tag "reservations", "", :style => "display: none", :rows => 2, :cols => 60 %>
+      </div>
+    <% end %>
+    <div style="text-align: center;">
       <% if !@project_replaces_deprecated_project.nil? then %>
         <%= check_box_tag("use_deprecated_release_date", "1", @use_deprecated_dates, :disabled => !current_user.is_a?(Moderator)) %>
         <%= label_tag "use_deprecated_release_date", "Use release date of the submission (##{@project_replaces_deprecated_project.id}) deprecated by this one?" %>
@@ -84,9 +91,12 @@ Once you have verified the dataset, checkoff the appropriate boxes.  When comple
       <% if @project.status == Release::Status::USER_RELEASED && !current_user.is_a?(Moderator) then %>
         Awaiting DCC approval
       <% end %>
-      <%= submit_tag("Release as DCC", :disabled => (@project.status == Release::Status::DCC_RELEASED || @project.status == Release::Status::RELEASED)) if current_user.is_a? Moderator %>
-      <%= submit_tag("Reject as DCC", :onclick => "var reply = prompt('Why are you rejecting this submission?'); $('reason').value = reply; return true") if current_user.is_a? Moderator %>
-    </center>
+      <% if current_user.is_a? Moderator %>
+        <%= submit_tag("Release as DCC", :disabled => (@project.status == Release::Status::DCC_RELEASED || @project.status == Release::Status::RELEASED)) %>
+        <%= submit_tag("Reject as DCC", :onclick => "var reply = prompt('Why are you rejecting this submission?'); $('reason').value = reply; return true") %>
+        <br/>
+      <% end %>
+    </div>
   <% else %>
     You released this data set on <%= Time.now.strftime("%A, %B %d, %Y at %H:%M") %>
   <% end %>

@@ -28,6 +28,10 @@ class Project < ActiveRecord::Base
   def released?
     self.status == Project::Status::RELEASED
   end
+  def released_with_reservations?
+    self.released? && !self.commands.all.find { |cmd| cmd.is_a?(ReleaseWithReservations) }.nil?
+  end
+
   def report_generated?
     if Project::Status::ok_next_states(self).include?(Project::Status::REPORTING) then
       cmd = self.commands.all.find_all { |cmd| cmd.is_a?(Report) }.sort { |up1, up2| up1.end_time.to_i <=> up2.end_time.to_i }.last

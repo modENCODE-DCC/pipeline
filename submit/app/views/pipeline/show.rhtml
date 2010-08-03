@@ -358,15 +358,11 @@
                 <td style="padding-top: 10px;<%=" text-decoration: line-through" unless archive.is_active %>"><%= archive.file_date.strftime("%b %d %H:%M") unless archive.file_date.nil? %></td>
                 <td style="font-size:70%">
                  <%
-                   unless @archiveSigs[archive.signature].nil? then 
-                     openDupePopString = "#{@archiveSigs[archive.signature][0][:containerID]}" 
-                     numMatches = @archiveSigs[archive.signature].length
-                     if numMatches >= 2 then
-                       openDupePopString += ", #{@archiveSigs[archive.signature][1][:containerID]}"
-                     end
-                     if numMatches > 2 then
-                       openDupePopString += ", ..."
-                     end
+                   unless @signatures[archive].nil? then 
+                     openDupePopString = @signatures[archive][0][0].to_s
+                     numMatches = @signatures[archive].length
+                       openDupePopString += ", #{@signatures[archive][1][0]}" if numMatches >= 2
+                       openDupePopString += ", ..." if numMatches > 2
                    %> 
                    also in<br/><%= link_to openDupePopString,
                      { :action => :dupe_file_info, :id => params[:id] },
@@ -436,35 +432,17 @@
                   <td style="font-size:70%">
                   
                 <% # Link to the page for duplicate files
-                unless @fileSigs[file.signature].nil? then 
-                  containingProjects = []
-                  @fileSigs[file.signature].each{|fs|
-                    contProj = ProjectArchive.find(fs[:containerID]).project_id
-                    containingProjects.push(contProj)
-                  }
-
-                  openDupePopString = "#{containingProjects[0]}" 
-                  numMatches = @fileSigs[file.signature].length
-                  if numMatches >= 2 then
-                    openDupePopString += ", #{containingProjects[1]}"
-                  end
-                  if numMatches > 2 then
-                    openDupePopString += ", ..."
-                  end
-                %> 
-                also in<br/><%= link_to openDupePopString,
-                  { :action => :dupe_file_info, :id => params[:id] },
-                  :popup => ["dupe_window", "height=400,width=800,location=0,address=0,scrollbars=1"],
-                  :target => "_blank" %>
-
+                unless @signatures[file].nil? then 
+                  numMatches = @signatures[file].length
+                  openDupePopString = @signatures[file][0][0].to_s
+                  openDupePopString += ", " + @signatures[file][1][0].to_s if numMatches >= 2
+                  openDupePopString += ",  ..." if numMatches > 2
+                  %> 
+                  also in<br/><%= link_to openDupePopString,
+                    { :action => :dupe_file_info, :id => params[:id] },
+                    :popup => ["dupe_window", "height=400,width=800,location=0,address=0,scrollbars=1"],
+                    :target => "_blank" %>
               <% end %>
-
-
-                
-                
-                
-                
-                
                 </td>
                 </tr>
               <% } end %>
