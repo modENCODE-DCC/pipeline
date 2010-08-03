@@ -534,12 +534,11 @@ class PipelineController < ApplicationController
     end
     
     # Check for duplicates
-    @archiveSigs = get_matching_files(@project, "archive")
-    @fileSigs =  get_matching_files(@project, "file")
+    @signatures = get_matching_files( @project )
 
 
     # Set up a notice if there are any collisions
-    unless @archiveSigs.empty? && @fileSigs.empty? then
+    unless @signatures.empty? then
       cookieVal = cookies[:modencode_dupes] ? cookies[:modencode_dupes].split(",") : []
       unless ( cookieVal.include? params[:id].to_s ) then
         # Hide the whole notice div unless there's another notice in it
@@ -581,93 +580,71 @@ class PipelineController < ApplicationController
       :expires => 10.years.from_now }
   end
 
-
-# Find which files in your Project have duplicates elsewhere.
-# Returns a hash:
-#   Keys : The ProjectArchives and ProjectFiles in the passed project which
-#    have matches in other projects.
-#   Values : a hash: Key : Each other project which containes matched PA/PF.
-#                  Value : an array, for that project, of the matching files.
-#  def get_matching_files2(proj)
-#    dupes_found = {}
-#    proj.project_archives.each{|pa|
-#   dupes_by_project = {}
-#   ProjectArchive.find_all_by_signature(pa.signature).reject{|match|
-#     match.project == proj}.each{|matched_pa|
-#       dupes_by_project[matched_pa.project_id]
-
-#   dupes_found[pa] =
-#   pa.project_files.each{|pf|
-#   dupes_found[pf]
-#}
-#Project
-# For each archive in project
-# Check for matches
-# Arrange them by project (more complicated than itseems!)
-# Then, for each file it contains
-# Check those for matches too
-# arrange *them* by project (also more complicated!)
-#  end
-
-  # Returns a hash "signumber" => "list of files globally with this signature"
-  # for signatures had by ProjectArchives or ProjectFiles in the passed project.
-  # filetype is "archive" or "file".
-  # list is in format [file1 , file2...], where fileN is a hash:
-  # {:id, :containerID, :type, :projectID}, where containerID is archiveID
-  # if :type = "file" and projectID if "archive".
-  # If include_thisProj = true, will also include files in this project in the
-  # list (in which case even sigs with no dupes will be included).
-  def get_matching_files(project, filetype, include_thisProj = false)
-    listArray = [] # the list of signatures to check for dupes
-    case filetype
-      when "archive"
-        listArray += project.project_archives.all.map { |pa| pa.signature }
-        classToSearch = ProjectArchive
-        isInProject = Proc.new {|arc| arc.project_id == project.id}
-        containerID = :project_id
-     when "file"
-        allFiles = []
-        thisProjectsArchives = []
-        project.project_archives.each{|pa| 
-          allFiles += ProjectFile.find_all_by_project_archive_id(pa.id)
-          thisProjectsArchives.push(pa.id) 
-          }
-        listArray = allFiles.map{|af| af.signature}
-        classToSearch = ProjectFile 
-        isInProject = Proc.new {|file| 
-          thisProjectsArchives.include?(file.project_archive_id) 
-          }
-        containerID = :project_archive_id
-     else 
-        raise Exception.new("filetype must be 'archive' or 'file'!")
-    end
-    # uniquify and remove nil sigs
-    listArray = listArray.uniq.reject{|la| la.nil?}
-    
-    # Then get all matches of ProjectArchives/Files that aren't in this project.
-    matchingContent = {}
-    classToSearch.find_all_by_signature(listArray).each{|i|
-      itemInfo = {:id => i.id, :containerID => i.send(containerID)}
-      itemInfo[:projectID] = filetype == "archive" ? itemInfo[:containerID] : 
-        ProjectArchive.find(itemInfo[:containerID]).project_id
-      itemInfo[:type] = filetype
-      # Include the item unless it is in the current project and we
-      # have requested to NOT include that project.
-      unless(isInProject.call(i) && ( ! include_thisProj)) then
-        if matchingContent[i.signature].nil? then
-          matchingContent[i.signature] = [itemInfo]
-        else
-          matchingContent[i.signature].push itemInfo
-        end
-      end
+  # Returns all ProjectFiles and ProjectArchives whose signatures match those
+  # of the PF and PA in the passed project.
+  # Output: Hash : Keys are archives and files in this project
+  # For key PA, value is an array:
+  #   Each entry of the array is a 2-element array consistinc
+  #   of a PA / PF that matched the signature of the PA (2nd element)
+  #   and it's project-id (first element)
+  #
+  def get_matching_files(proj)
+    dupes_found = {}
+    archive_sigs_to_check = []
+    file_sigs_to_check = []
+    files_this_project = []
+    proj.project_archives.each{|pa|
+      archive_sigs_to_check.push pa.signature
+      pa.project_files.each{|pf|
+        file_sigs_to_check.push pf.signature
+        files_this_project.push pf # while we're at it -- will need later
+      }
     }
-    matchingContent
+    # uniquify and remove nil sigs
+    archive_sigs_to_check = archive_sigs_to_check.uniq.reject{|la| la.nil?}
+    file_sigs_to_check = file_sigs_to_check.uniq.reject{|la| la.nil?}
+   
+    # Check signatures
+    archive_match = ProjectArchive.find_all_by_signature(archive_sigs_to_check)
+    file_match = ProjectFile.find_all_by_signature(file_sigs_to_check)
+
+    # Then, construct the hash. Go through the PA and PF again and match
+    # Them up to sigs
+    archive_match.each{|am|
+      # If it's in this project, skip it
+      next  if am.project_id == proj.id
+      # Make the mini-array - separate out the Project
+      archive_value = [am.project_id, am]
+      # Find all archives in this project that match by signature
+      proj.project_archives.find_all_by_signature(am.signature).each{|pa|
+        dupes_found[pa] = [] unless dupes_found[pa]
+        dupes_found[pa].push archive_value
+      }
+    }
+    
+    file_match.each{|fm|
+      # If it's in this project, skip it
+      next  if files_this_project.include? fm
+      # Make the mini-array - separate out the Project
+      fmpa = fm.project_archive
+      fmpap = fmpa.project unless fmpa.nil?
+      fmpapid = fmpap.id unless fmpap.nil?
+      next if fmpapid.nil? # If it doesn't have a project, just skip it
+      file_value = [fmpapid, fm]
+      # Find all files in this project that match by signature
+      files_this_project.each{|ftp|
+        if ftp.signature == fm.signature then
+          dupes_found[ftp] = [] unless dupes_found[ftp]
+          dupes_found[ftp].push file_value
+        end
+      }
+    }
+    dupes_found
   end
 
   def dupe_file_info
     @project = Project.find(params[:id])
-    @archiveSigs = get_matching_files( @project, "archive", true)
-    @fileSigs = get_matching_files(@project, "file", true)
+    @signatures = get_matching_files( @project )
     render :action => "dupe_file_info", :layout => "popup"
   end
 
@@ -1949,10 +1926,11 @@ class PipelineController < ApplicationController
         is_okay = false unless params[task[0]]
       }
       if is_okay then
+        reservations = params[:with_reservations] ? params[:reservations] : nil
         if params[:use_deprecated_release_date] && @project_replaces_deprecated_project then
-          do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.")
+          do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.", :reservations => reservations)
         else
-          do_dcc_release(@project)
+          do_dcc_release(@project, :reservations => reservations)
         end
         redirect_to :action => :show, :id => @project
         return
@@ -2118,9 +2096,9 @@ class PipelineController < ApplicationController
   def do_dcc_release(project, options = {})
     release_controller = nil
     if Release::Status::constants.map { |c| Release::Status::const_get(c) }.include?(project.status) then
-      release_controller = DccReleaseController.new(:project => project, :status => project.status, :stderr => options[:stderr])
+      release_controller = DccReleaseController.new(:project => project, :status => project.status, :stderr => options[:stderr], :reservations => options[:reservations])
     else
-      release_controller = DccReleaseController.new(:project => project, :stderr => options[:stderr])
+      release_controller = DccReleaseController.new(:project => project, :stderr => options[:stderr], :reservations => options[:reservations])
     end
     release_controller.run
   end
