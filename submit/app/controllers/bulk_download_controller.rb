@@ -31,7 +31,7 @@ module ActionView
 end
 module FancyGroupedOptions
   def to_options
-    self.map { |group| group_name = group[0]; group_opts = group[1..-1].map { |k, v| [ v[:description], k ] }; [ group_name, group_opts ] }
+    self.map { |group| group_name = group[0]; group_opts = group[1..-1].map { |k, v| [ v[:description], k.to_s ] }; [ group_name, group_opts ] }
   end
   def get(key)
     return if key.nil?; val = self.inject(Array.new) { |accum, arr| accum+arr[1..-1] }.find_all { |val| val.is_a?(Array) }.find { |val| val[0] == key.to_sym }; return val.nil? ? nil : val[1]
@@ -62,9 +62,7 @@ class BulkDownloadController < ApplicationController
     }.flatten
     @freeze_data = get_freeze_data(@selected_freeze_files)
 
-    @col_types = [
-      "Compound", "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay"
-    ]
+    @col_types = [ "Compound", "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay" ]
     @row_types = @col_types
     @group_by_types = [ ["None", ""], "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay" ]
     @split_by_types = [ ["None", ""], "Organism", "Assay" ]
@@ -606,6 +604,12 @@ class BulkDownloadController < ApplicationController
     ]
     @template_styles.extend(FancyGroupedOptions)
 
+    # Custom matrix dimensions (for Advanced tab)
+    @custom_col_types = [ "Compound", "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay" ]
+    @custom_row_types = @custom_col_types
+    @custom_group_by_types = [ ["None", ""], "Cell Line", "Strain", ["Stage", "Stage/Treatment"], "Tissue", "Antibody", "Organism", "Assay" ]
+    @custom_split_by_types = [ ["None", ""], "Organism", "Assay" ]
+
     if (@selected_freeze_id && (@selected_freeze_id != @prev_selected_freeze && !@prev_selected_freeze.nil?)) then
       # Clear filter options if we changed freezes
       @filter_options = HashWithIndifferentAccess.new
@@ -670,7 +674,6 @@ class BulkDownloadController < ApplicationController
 
     # Include N/A columns?
     @include_na_columns = params[:include_na_columns].nil? ? false : true
-
 
   end
   def index_freeze_data(freeze_data)

@@ -36,7 +36,25 @@
   <br style="clear: both"/>
   <br/>
   <label for="matrix_style" class="bulk_select">Matrix layout:</label>
-  <%= select_tag("matrix_style", grouped_options_for_select([ ["", [""]] ] + @matrix_styles.to_options, @selected_matrix_style), :onchange => "this.form.onsubmit();", :id => nil) %><br/>
+  <% advanced_matrix_styles = (@matrix_styles + [ [ "Custom", [ :custom, { :description => "Custom Matrix" } ]]]); advanced_matrix_styles.extend(FancyGroupedOptions) %>
+  <%= select_tag("matrix_style", grouped_options_for_select([ ["", [""]] ] + advanced_matrix_styles.to_options, @selected_matrix_style), :onchange => "this.form.submit();", :id => nil) %><br/>
+  <% if @selected_matrix_style == "custom" then %>
+    <div class="sample_characteristics">
+      <span style="float: left">
+        <label for="rows[]" class="bulk_select">Rows are:</label><br/>
+        <%= select_tag :rows, options_for_select(@custom_row_types, @selected_row_types), :multiple => true, :size => 8, :name => "matrix[rows][]", :onchange => "this.form.onsubmit()" %>
+      </span>
+      <span style="float: left">
+        <label for="cols[]" class="bulk_select">Columns are:</label><br/>
+        <%= select_tag :cols, options_for_select(@custom_col_types, @selected_col_types), :multiple => true, :size => 8, :name => "matrix[cols][]", :onchange => "this.form.onsubmit()" %>
+      </span>
+      <br style="clear: both"/>
+      <div id="sample_div"></div>
+    </div>
+    <script type="text/javascript">
+      var md = new MatrixDefiner($('sample_div'), { rows: 'rows', cols: 'cols' });
+    </script>
+  <% end %>
   <br/>
   <label for="matrix_style" class="bulk_select">Include N/A headings.</label>
   <%= check_box_tag("include_na_columns", "yes", @include_na_columns, :onchange => "this.form.onsubmit();", :id => nil) %>
