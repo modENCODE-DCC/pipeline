@@ -25,6 +25,9 @@ class Project < ActiveRecord::Base
   def superseded?
     !self.superseded_project_id.nil?
   end
+  def retracted?
+    self.deprecated_project_id == 0
+  end
   def released?
     self.status == Project::Status::RELEASED
   end

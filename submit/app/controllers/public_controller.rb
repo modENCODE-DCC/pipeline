@@ -112,6 +112,7 @@ class PublicController < ApplicationController
             :replaced_by => p.deprecated? ? (p.deprecated_by_project ? p.deprecated_by_project.id : "unknown") : nil,
             :superseded => p.superseded?,
             :superseded_by => p.superseded? ? (p.superseded_by_project ? p.superseded_by_project.id : "unknown") : nil,
+            :retracted => p.retracted?,
             :name => p.name,
             :chadoxml => url,
             :embargo_date => embargo_date
@@ -154,6 +155,7 @@ class PublicController < ApplicationController
             p.deprecated? ? (p.deprecated_by_project ? p.deprecated_by_project.id : "unknown") : nil,
             p.superseded?,
             p.superseded? ? (p.superseded_by_project ? p.superseded_by_project.id : "unknown") : nil,
+            p.retracted?,
             url,
             p.name,
             p.pi,

@@ -17,7 +17,7 @@
 </style>
 
 <h1 align="center">Data Publish Dates</h1>
-<h2 align="center" style="margin-bottom: 2px;"><%= "Deprecated " if @project.deprecated? %>Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
+<h2 align="center" style="margin-bottom: 2px;"><%= if @project.retracted? then "Retracted " elsif @project.deprecated? then "Deprecated " end %>Submission #<%= @project.id %>: <%= link_to(@project.name, {:action => :show, :id => @project})%> </h2>
 <br />
 <p>
 Once a submission has been approved for release, it gets pushed out to the production sites and published in GBrowse, modMine, and GEO. This page should be 
@@ -72,7 +72,8 @@ used by moderators to record when a given submission has been published to any o
             </td>
           <td>
             <input type="hidden" name="deprecate_remove_published" value=""/>
-            <%= button_to_function (@project.deprecated? ? "Re-" : "") + "Deprecate Project", "var remove_published = (confirm('Remove records of publication?') ? 'true' : 'false'); $(this).form.getInputs('hidden', 'deprecate_remove_published').first().value = remove_published; $(this).form.getInputs('hidden', 'publish_type').first().value = 'deprecate'; $(this).form.submit();", :style => "width: 12em" %>
+            <%= button_to_function ((@project.deprecated? && !@project.retracted?) ? "Re-" : "") + "Deprecate Project", "var remove_published = (confirm('Remove records of publication?') ? 'true' : 'false'); $(this).form.getInputs('hidden', 'deprecate_remove_published').first().value = remove_published; $(this).form.getInputs('hidden', 'publish_type').first().value = 'deprecate'; $(this).form.submit();", :style => "width: 12em" %>
+            <%= button_to_function (@project.retracted? ? "Re-" : "") + "Retract Project", "var remove_published = (confirm('Remove records of publication?') ? 'true' : 'false'); $(this).form.getInputs('hidden', 'deprecate_remove_published').first().value = remove_published; $(this).form.getInputs('hidden', 'publish_type').first().value = 'retract'; $(this).form.submit();", :style => "width: 12em" %>
           </td>
         </tr>
         <tr>

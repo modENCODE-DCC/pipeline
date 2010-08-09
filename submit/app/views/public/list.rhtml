@@ -16,7 +16,7 @@
       "invalid data. Generally, a new experiment is done, and\n" +
       "the new data replaces the old. Projects that say\n" +
       "\"deprecated by #nn\" have replacement data. Projects\n" +
-      "that just say \"deprecated\" have no replacement data.\n\n" + 
+      "that just say \"retracted\" have no replacement data.\n\n" + 
       "If there is a replacement experiment, please see the\n" + 
       "deprecating project for this newer data."
       );
@@ -176,7 +176,11 @@ If you want to download data in bulk, please try:
           <span style="text-decoration: line-through">
             <%= project.released? ? "vetted and released" : "unvetted" %>
           </span><br/>
-          deprecated<sup><a class="deprecated">?</a></sup>
+          <% if project.retracted? then %>
+            retracted<sup><a class="deprecated">?</a></sup>
+          <% else %>
+            deprecated<sup><a class="deprecated">?</a></sup>
+          <% end %>
           <%= "by #" + project.deprecated_project_id.to_s unless project.deprecated_by_project.nil? %>
         <% elsif project.superseded? then %>
           <%= project.released? ? "vetted and released" : "unvetted" %><br/>

@@ -525,7 +525,11 @@ class PipelineController < ApplicationController
     if @project.deprecated? then
       flash[:error] = "" if flash[:error].nil?
       flash[:error] += "<br/>" unless flash[:error] == ""
-      flash[:error] += "This project has been deprecated by project #{@project.deprecated_project_id}!"
+      if !@project.retracted? then
+        flash[:error] += "This project has been deprecated by project #{@project.deprecated_project_id}!"
+      else
+        flash[:error] += "This project has been retracted with no replacement!"
+      end
     end
     if @project.superseded? then
       flash[:notice] = "" if flash[:notice].nil?
@@ -1975,12 +1979,16 @@ class PipelineController < ApplicationController
     }
 
     if params[:publish_type] && params[:publish_type].length > 0 then
-      if params[:publish_type] == "deprecate" then
+      if params[:publish_type] == "deprecate" || params[:publish_type] == "retract" then
         flash.clear ; flash.discard
-        if params[:deprecated_by] && params[:deprecated_by].length > 0 && params[:deprecated_by] != "no new project" then
+        if params[:publish_type] == "retract" || (params[:deprecated_by] && params[:deprecated_by].length > 0 && params[:deprecated_by] != "no new project") then
           begin
-            deprecated_by = Project.find(params[:deprecated_by].to_i)
-            @project.deprecated_by_project = deprecated_by
+            if params[:publish_type] == "retract" then
+              @project.deprecated_project_id = 0
+            else
+              deprecated_by = Project.find(params[:deprecated_by].to_i)
+              @project.deprecated_by_project = deprecated_by
+            end
             @project.save
           rescue ActiveRecord::RecordNotFound => e
             flash[:error] = "Couldn't find the submission that this submission was deprecated by: #{e.message}"
