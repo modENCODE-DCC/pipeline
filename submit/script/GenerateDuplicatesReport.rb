@@ -26,10 +26,19 @@ report_file.puts "\n(Scroll to bottom for summary of the duplicates found.)\n"
 report_file.puts "Full list of duplicate files found:\n"
 
 projects_with_dupes = []
-
+stupid_files = 0
 def list_dupes(project, duplicates, report_file)
   report_file.puts "Project #{project.id} (#{project.name}): "
   duplicates.each{|file, matchlist|
+    # Skip "stupid" files
+    # Currently, a file is "stupid" if
+    #   -- it has __MACOSX in the path
+    #   -- it starts with ._ (either ._filename or dir/dir/._filename )
+    stupid_file_regex = /__MACOSX|(^|\/)\._/
+    if file.file_name =~ stupid_file_regex then
+      stupid_files += 1
+      next
+    end
     report_file.puts "  #{file.class.name} #{file.id} (#{file.file_name}) matches:"
     matchlist.each{|matchproj, match|
       next if match == file
@@ -55,6 +64,8 @@ projects_with_dupes.each{|pwd| report_file.puts pwd }
 
 elapsedtime = Time.now - starttime
 
+report_file.puts "\n#{stupid_files} duplicates were omitted due to being __MACOSX
+  or starting with ._ which doesn't count as a real file.\n"
 report_file.puts "This report took #{elapsedtime} seconds to generate."
 
 report_file.close
