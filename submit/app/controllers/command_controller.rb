@@ -63,9 +63,9 @@ class CommandController < ApplicationController
         logger.info "tickle: \tnothing"
         false
       end
-    rescue
+    rescue Exception => e
       ## Apparently, unable to contact worker at location.
-      logger.info "tickle: \terror"
+      logger.info "tickle: \terror: #{e.to_s}"
       false
     end
   end
