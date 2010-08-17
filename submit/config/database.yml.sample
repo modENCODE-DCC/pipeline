@@ -18,18 +18,13 @@ development:
   password: yourpassword
   host: localhost
   socket: /var/lib/mysql/mysql.sock
+
   upload: /somestorage/encpipeline_yourname
-  title: ENCODE DCC Data Submission
+  title: modENCODE DCC Data Submission
   subtitle: Your Dev Site
   from: you@somewhere.com
   emailOnLoad: somebody@somewhere.com
   emailDCC: somebody@somewhere.com
-  ftpServer: someftp.server.edu
-  ftpPort: someport
-  ftpMount: /some/path
-  ftpLocal: /some/localftp/path
-  ftpUserId: someUid
-  ftpGroupId: someGid
 
 
 # Warning: The database defined as 'test' will be erased and
