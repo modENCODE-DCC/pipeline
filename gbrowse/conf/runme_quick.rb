@@ -116,6 +116,7 @@ track_defs.reject! { |track, config|
   stanza_organism = "dsim" if config[:organism] == "Drosophila simulans"
   stanza_organism = "dsec" if config[:organism] == "Drosophila sechellia"
   stanza_organism = "dper" if config[:organism] == "Drosophila persimilis"
+  stanza_organism = "dmoj" if config[:organism] == "Drosophila mojavensis"
   stanza_organism = "fly" if stanza_organism.nil?
   stanza_organism != organism
 }
@@ -152,7 +153,7 @@ track_defs.each do |stanzaname, definition|
     config_text << "[#{database}:database]\n"
     config_text << "db_adaptor    = Bio::DB::SeqFeature::Store\n"
     config_text << "db_args       = -adaptor DBI::Pg\n"
-    config_text << "                -dsn     dbname=modencode_gffdb;host=heartbroken.lbl.gov\n"
+    config_text << "                -dsn     dbname=modencode_gffdb;host=localhost;port=5433\n"
     config_text << "                -user    'db_public'\n"
     config_text << "                -pass    'ir84#4nm'\n"
     config_text << "                -schema  modencode_experiment_#{num}_data\n"
