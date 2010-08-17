@@ -42,7 +42,7 @@ class TrackFinder
       gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml") { |f| YAML.load(f.read) }
       return gbrowse_config['root_dir'];
     else
-      raise Exception("You need a gbrowse.yml file in your config/ directory with at least a root_dir in it.")
+      raise Exception.new("You need a gbrowse.yml file in your config/ directory with at least a root_dir in it.")
     end
   end
   def self.gbrowse_lib
