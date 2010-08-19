@@ -1,5 +1,5 @@
 #!/usr/bin/ruby
-require '/srv/www/pipeline/submit/config/environment' # FIXME FOR HEARTBROKEN
+require File.dirname(__FILE__) + "/../../config/environment"
 require 'find'
 require 'fileutils'
 # You should run this with sudo -u www-data
