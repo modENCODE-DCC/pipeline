@@ -219,7 +219,7 @@ with at least a tmp_dir in it."
 contents" if cleanup}."
     else # The folder isn't there
       # Don't fail if we thought this might happen 
-      raise Exception("Tried to delete temp dir #{tmp_path} but it doesn't exist!") unless cleanup 
+      raise Exception.new("Tried to delete temp dir #{tmp_path} but it doesn't exist!") unless cleanup 
     end
   end
 

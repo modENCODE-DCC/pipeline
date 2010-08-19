@@ -59,7 +59,7 @@ class TrackFinder
       dbinfo[:password] = db_definition['password']
       return dbinfo
     else
-      raise Exception("You need an gbrowse_database.yml file in your config/ directory with at least an adaptor and dsn.")
+      raise Exception.new("You need an gbrowse_database.yml file in your config/ directory with at least an adaptor and dsn.")
     end
   end
   def self.gbrowse_tmp
@@ -67,7 +67,7 @@ class TrackFinder
       gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml") { |f| YAML.load(f.read) }
       return gbrowse_config['tmp_dir'];
     else
-      raise Exception("You need a gbrowse.yml file in your config/ directory with at least a tmp_dir in it.")
+      raise Exception.new("You need a gbrowse.yml file in your config/ directory with at least a tmp_dir in it.")
     end
   end
 
@@ -268,7 +268,7 @@ class TrackFinder
       dbinfo[:password] = db_definition['password']
       return dbinfo
     else
-      raise Exception("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Ruby DBI dsn.")
+      raise Exception.new("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Ruby DBI dsn.")
     end
   end
   def search_path=(search_path)

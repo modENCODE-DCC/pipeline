@@ -31,7 +31,7 @@ class Workers
         ))
       end
     else
-      raise Exception("You need a workers.yml file in your config/ directory to describe which workers are available to share the load.")
+      raise Exception.new("You need a workers.yml file in your config/ directory to describe which workers are available to share the load.")
     end
     all_workers
   end

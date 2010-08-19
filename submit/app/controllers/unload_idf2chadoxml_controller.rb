@@ -131,7 +131,7 @@ class UnloadIdf2chadoxmlController < UnloadController
       args << " -password=\"#{db_definition['password']}\"" if db_definition['password']
       return args
     else
-      raise Exception("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Perl DBI dsn.")
+      raise Exception.new("You need an idf2chadoxml_database.yml file in your config/ directory with at least a Perl DBI dsn.")
     end
   end
 end
