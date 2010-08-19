@@ -9,12 +9,12 @@ class ApplicationController < ActionController::Base
   self.mod_porter_secret = "sekritsquirrelsaresavingfiles" if defined?(self.mod_porter_secret)
 
   before_filter { |ctrl| 
-    if ctrl.request.subdomains.first != "submit" && ctrl.request.subdomains.first != "smaug" then
-      unless ctrl.request.remote_ip =~ /^131\.243|^127\./ then
-        new_url = ctrl.request.url.sub("#{ctrl.request.subdomains.first}.lbl.gov", "submit.modencode.org")
-        ctrl.send(:redirect_to, new_url)
-      end
-    end
+#    if ctrl.request.subdomains.first != "submit" && ctrl.request.subdomains.first != "smaug" then
+#      unless ctrl.request.remote_ip =~ /^131\.243|^127\./ then
+#        new_url = ctrl.request.url.sub("#{ctrl.request.subdomains.first}.lbl.gov", "submit.modencode.org")
+#        ctrl.send(:redirect_to, new_url)
+#      end
+#    end
 
     if ctrl.request.parameters[:modencode_id] then
       new_url = ctrl.request.url.sub(/\/modencode_?(\d+)/i, '/\1')
