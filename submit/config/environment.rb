@@ -79,9 +79,9 @@ ActionMailer::Base.raise_delivery_errors = true
 # :address here was originally mail.fruitfly.org (still port 25),
 # but it was requested that it be changed.
 ActionMailer::Base.smtp_settings = {
-  :address  => "smtp.lbl.gov",
+  :address  => "smtp.oicr.on.ca",
   :port  => 25, 
-  :domain  => 'berkeleybop.org'
+  :domain  => 'modencode.org'
 } 
 
 
