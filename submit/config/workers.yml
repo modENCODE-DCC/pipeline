@@ -2,29 +2,21 @@
 workers:
   ## Main
   - {
-      name: blinky,
-      ip: 131.243.192.224,
+      name: modencode-www1,
+      ip: 206.108.121.116,
       disallow_pis: { "Lai, Eric" },
-      disallow_users: { "pruzanov", "nlw" }
+      disallow_users: { "pruzanov" }
     }
   - {
-      name: yeti,
-      ip: 131.243.193.107
+      name: modencode-www2,
+      ip: 206.108.121.113,
     }
   - {
-      name: indy,
-      ip: 131.243.192.76,
-      disallow_users: { "nlw" }
+      name: modencode-www3,
+      ip: 206.108.121.114
     }
   - {
-      name: dumpy,
-      ip: 131.243.193.95
+      name: modencode-www4,
+      ip: 206.108.121.115
     }
-  - {
-      name: heartbroken,
-      ip: 131.243.192.216
-    }
-  ## Testing
-  #- {name: rubuntu1, ip: 192.168.122.85}
-  #- {name: rubuntu2, ip: 192.168.122.21}
 
