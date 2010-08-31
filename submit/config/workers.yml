@@ -9,7 +9,7 @@ workers:
     }
   - {
       name: modencode-www2,
-      ip: 206.108.121.113,
+      ip: 206.108.121.113
     }
   - {
       name: modencode-www3,
