@@ -1341,6 +1341,7 @@ class PipelineController < ApplicationController
       when "Drosophila simulans"
       when "Drosophila sechellia"
       when "Drosophila persimilis"
+      when "Drosophila mojavensis"
       else
         params[:organism] = "Drosophila melanogaster"
       end

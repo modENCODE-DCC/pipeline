@@ -44,6 +44,12 @@
       default_chr = "2"
       default_fmin = 1000
       default_fmax = 50000
+    when "Drosophila mojavensis"
+      gbrowse_source = "modencode_dmoj_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_dmoj"
+      default_chr = "2"
+      default_fmin = 1000
+      default_fmax = 2000
     else
       gbrowse_source = "modencode_flybase_quick_#{@project.id}"
       gbrowse_full_source = "modencode_flybase"
@@ -363,7 +369,8 @@
             [ 'Drosophila pseudoobscura', 'Drosophila pseudoobscura pseudoobscura' ],
             'Drosophila simulans',
             'Drosophila sechellia',
-            'Drosophila persimilis'
+            'Drosophila persimilis',
+            'Drosophila mojavensis'
         ], @organism %>
       </select>
       <script type="text/javascript">
