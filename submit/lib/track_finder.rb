@@ -190,7 +190,10 @@ class TrackFinder
   my $line = $loader->featurefile('gff3', $gff_type, $source);
   my $tmppath = dirname($wig_db_file_template);
   my $realpath = dirname($gff_file_path);
+  # Fix GFF to point at real path
   $line =~ s/\\Q$tmppath\\E/$realpath/g;
+  # Fix GFF to remove any wiggles that don't span a region
+  $line =~ s/^.*\t\t.*\n//gm;
   print GFF $line;
   close GFF;
 
