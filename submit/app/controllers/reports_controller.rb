@@ -348,10 +348,21 @@ class ReportsController < ApplicationController
     # initialize to make sure all PIs are included; require each status to be represented
     pis.each {|p| quarters.each{|k,v| @all_released_projects_per_group_per_quarter[k][p] unless v["start"] > Time.now.to_date}}
 
-    undeprecated_projects.find_all{|p| p.released?}.each{|p| @all_released_projects_per_group_per_quarter[quarters.find{|k,v|
-      cmds = Command.find_all_by_project_id_and_status(p.id, Project::Status::RELEASED)
-      cmd = cmds.last if cmds.length > 0
-      cmd && cmd.end_time.to_date <= v["end"] && cmd.end_time.to_date >= v["start"]}[0]][p.pi.split(",")[0]] += 1
+    undeprecated_projects.find_all{|p| p.released?}.each{|p|
+      if @all_released_projects_per_group_per_quarter.nil? then
+        throw :wtf
+      end
+      quarter = quarters.find{|k,v|
+        cmds = Command.find_all_by_project_id_and_status(p.id, Project::Status::RELEASED)
+        cmd = cmds.last if cmds.length > 0
+        cmd && cmd.end_time.to_date <= v["end"] && cmd.end_time.to_date >= v["start"]
+      }
+      arp_pgpq = @all_released_projects_per_group_per_quarter[quarter[0]] unless quarter.nil?
+      if arp_pgpq then 
+        arp_pgpq[p.pi.split(",")[0]] += 1
+      else
+        nil
+      end
     }
 
 
