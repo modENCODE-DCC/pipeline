@@ -1,0 +1,9 @@
+<h1>GEO IDs</h1>
+<% @geo_ids.each do |geo_id| %>
+  <%= link_to geo_id, "http://www.ncbi.nlm.nih.gov/projects/geo/query/acc.cgi?acc=#{geo_id}" %><br/>
+<% end %>
+<h1>SRA IDs</h1>
+<% @sra_ids.each do |sra_id| %>
+  <%= link_to sra_id, "http://www.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=viewer&m=data&s=viewer&run=#{sra_id}", :target => "_blank" %><br/>
+<% end %>
+

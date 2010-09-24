@@ -1,0 +1,7 @@
+<h1>Protocol Types</h1>
+<% @protocols.each do |protocol| %>
+  <dt><%= link_to protocol["name"], protocol["url"], :target => "_blank" %></dt>
+  <dd>Type: <%= protocol["type"] %></dd>
+<% end %>
+</dl>
+

@@ -1,0 +1,7 @@
+<h1>Protocol Pages</h1>
+<dl>
+<% @protocols.each do |protocol| %>
+  <dt><%= protocol["name"] %></dt>
+  <dd><%= link_to protocol["url"], protocol["url"], :target => "_blank" %></dd>
+<% end %>
+</dl>

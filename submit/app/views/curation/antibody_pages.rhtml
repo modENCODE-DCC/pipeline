@@ -1,0 +1,6 @@
+<h1>Antibodies</h1>
+<ul>
+  <% @antibodies.each do |antibody| %>
+    <li><%= link_to antibody["name"], "http://wiki.modencode.org/project/index.php?title=#{antibody["url"]}" %></li>
+  <% end %>
+</ul>

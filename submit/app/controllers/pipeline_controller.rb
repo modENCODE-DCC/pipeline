@@ -1866,44 +1866,60 @@ class PipelineController < ApplicationController
 
     @checklist_for_data_validation = [@is_uploaded, @is_validated, @is_loaded, @is_tracks_found, @is_tracks_configured ]
 
-    @checklist_for_release_by_pi = [ 
-      [ "Submission files okay?", { :controller => :public, :action => :download, :id => @project } ],
-      [ "GBrowse tracks okay?", { :action => :configure_tracks, :id => @project } ],
-      [ "Appropriate experiment title?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "GEO/SRA IDs okay?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Experiment description link okay?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Not a replicate submission? If so, should replaced old one!", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Experiment looks okay in browser?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Reagent cvterms okay?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Reagents submitted to centers?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Reagent matches title/filenames/GEO entry?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Data files okay?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Peak files for replicates and merged?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Raw data files supplied?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "If worm, in WS190?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Detailed protocol info?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Links to software for protocols?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Protocol types appropriate?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Antibody wiki page complete?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Histone modification wiki page if necessary?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "No antibody QC problems from validator?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Total reads and mapped reads provided?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Sequencing size selection done if indicated?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Mapping algorithm in protocol type?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "FASTQ available if appropriate?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Read length captured in protocol?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Sequencing instrument details captured in protocol?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Referenced annotation version captured?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Tracks categorized properly?", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "Tracks look okay? (Zoomed?)", { :controller => :public, :action => :citation, :id => @project } ],
-      [ "SAM reads aligned properly?", { :controller => :public, :action => :citation, :id => @project } ],
+    @checklist_for_release_by_pi = {
+      "01General Items" => [
+        [ "Appropriate experiment title?", { :controller => :public, :action => :citation, :id => @project }, "View Citation..." ],
+        [ "GEO/SRA IDs okay?", { :controller => :curation, :action => :geo_sra_ids, :id => @project }, "View GEO and SRA IDs..." ],
+        [ "Experiment description link okay?", { :controller => :curation, :action => :experiment_description, :id => @project }, "View Experiment Description..." ],
+        [ "If a replicate submission, does it replace the old one?", false ],
+      ],
 
-###### TODO: COMMENTED OUT UNTIL THIS PART OF THE PIPELINE IS DONE ######
-#      [ "modMINE data okay?", {} ],
-#      [ "GEO submission okay?", {} ],
-########################################################################
-      # Worm/Flybase?
-    ]
+      "02Reagents" => [
+        [ "Reagent cvterms okay?", false ],
+        [ "Reagents submitted to centers?", false ],
+        [ "Reagent matches title/filenames", { :controller => :curation, :action => :view_sdrf, :id => @project }, "View SDRF..." ],
+        [ "Reagent matches GEO entry?", { :controller => :curation, :action => :geo_sra_ids, :id => @project }, "View GEO and SRA IDs..." ],
+      ],
+
+      "03Data Files" => [
+        [ "Data files okay?", { :controller => :public, :action => :download, :id => @project }, "View Data Files..." ],
+        [ "Peak files for replicates and merged?", false ],
+        [ "Raw data files supplied?", { :controller => :public, :action => :download, :id => @project }, "View Data Files..." ],
+        [ "If worm, in WS190?", false ],
+      ],
+
+      "04Protocols" => [
+        [ "Detailed protocol info?", { :controller => :curation, :action => :protocol_pages, :id => @project }, "View Protocol Descriptions..." ],
+        [ "Links to software for protocols?", { :controller => :curation, :action => :protocol_pages, :id => @project }, "View Protocol Descriptions..." ],
+        [ "Protocol types appropriate?", { :controller => :curation, :action => :protocol_types, :id => @project }, "View Protocol Types..." ],
+      ],
+
+      "05Antibodies" => [
+        [ "Antibody wiki page complete?", { :controller => :curation, :action => :antibody_pages, :id => @project }, "View Antibody Pages..." ],
+        [ "Histone modification wiki page if necessary?", false ],
+        [ "No antibody QC problems from validator?", { :controller => :curation, :action => :validator_results, :id => @project }, "View Last Validator Results..." ],
+      ],
+
+      "06Seq Experiments" => [
+        [ "Total reads and mapped reads provided?", { :controller => :curation, :action => :validator_results, :id => @project }, "View Last Validator Results..." ],
+        [ "Sequencing size selection done if indicated?", false ],
+        [ "Mapping algorithm in protocol?", { :controller => :curation, :action => :protocol_pages, :id => @project }, "View Protocol Descriptions..." ],
+        [ "FASTQ available if appropriate?", { :controller => :public, :action => :download, :id => @project }, "View Data Files..." ],
+        [ "Read length captured in protocol?", { :controller => :curation, :action => :view_sdrf, :id => @project }, "View SDRF..." ],
+        [ "Sequencing instrument details captured in protocol?", { :controller => :curation, :action => :protocol_pages, :id => @project }, "View Protocol Descriptions..." ],
+      ],
+
+      "07Annotations" => [
+        [ "Referenced annotation version captured?", false ],
+      ],
+
+      "08GBrowse" => [
+        [ "Tracks categorized properly?", { :action => :configure_tracks, :id => @project }, "View Configure Tracks..." ],
+        [ "Tracks look okay? (Zoomed?)", { :controller => :curation, :action => :browser, :id => @project }, "View Tracks in GBrowse..." ],
+        [ "SAM reads aligned properly?", { :controller => :curation, :action => :browser, :id => @project }, "View Tracks in GBrowse..." ],
+      ]
+    }
+
 
     @project_needs_release = Project::Status::ok_next_states(@project).include?(Release::Status::AWAITING_RELEASE)
 
@@ -1934,7 +1950,7 @@ class PipelineController < ApplicationController
       @checklist_for_data_validation.each { |task| 
         is_okay = false unless task[:done]
       }
-      @checklist_for_release_by_pi.each { |task| 
+      @checklist_for_release_by_pi.values.flatten(1).each { |task| 
         is_okay = false unless params[task[0]]
       }
       if is_okay then
@@ -1954,7 +1970,7 @@ class PipelineController < ApplicationController
       @checklist_for_data_validation.each { |task| 
         is_okay = false unless task[:done]
       }
-      @checklist_for_release_by_pi.each { |task| 
+      @checklist_for_release_by_pi.values.flatten(1).each { |task| 
         is_okay = false unless params[task[0]]
       }
       if is_okay then
