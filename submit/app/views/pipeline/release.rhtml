@@ -53,15 +53,20 @@ Once you have verified the dataset, checkoff the appropriate boxes.  When comple
       <% end %>
       <% if @project_needs_release %>
         <tr><td colspan="4">&nbsp;</td></tr>
-        <% @checklist_for_release_by_pi.each do |item, link| %>
+        <% @checklist_for_release_by_pi.sort { |a, b| a[0] <=> b[0] }.map { |g, t| [g.sub(/^\d+/, ''), t] }.each do |group, tasks| %>
           <tr>
-            <td align="center"> <%= item %></td>
-            <td align="center"> <%= check_box_tag(item) %></td>
-            <td style="padding-left: 30px">
-              <%= link_to "Preview...", link %>
-            </td>
-            <td>&nbsp;</td>
+            <td colspan="4" align="left" style="font-weight: bold; padding-top: 1em; border-bottom: thin solid black;"><div style="margin-bottom: -0.29em;"><%= group %></div></td>
           </tr>
+          <% tasks.each do |item, link, name| %>
+            <tr>
+              <td align="right"> <%= item %></td>
+              <td align="center"> <%= check_box_tag(item) %></td>
+              <td style="padding-left: 30px">
+                <%= link_to (name || "Preview..."), link, :target => "_blank" if link %>
+              </td>
+              <td>&nbsp;</td>
+            </tr>
+          <% end %>
         <% end %>
       <% end %>
     </table>
