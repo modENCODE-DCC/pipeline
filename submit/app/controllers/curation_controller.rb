@@ -1,4 +1,5 @@
 class CurationController < ApplicationController
+  before_filter :login_required, :except => :tickle_me_here
   def geo_sra_ids
     begin
       @project = Project.find(params[:id])
