@@ -540,7 +540,6 @@ class PipelineController < ApplicationController
     # Check for duplicates
     @signatures = get_matching_files( @project )
 
-
     # Set up a notice if there are any collisions
     unless @signatures.empty? then
       cookieVal = cookies[:modencode_dupes] ? cookies[:modencode_dupes].split(",") : []
@@ -557,8 +556,29 @@ class PipelineController < ApplicationController
         "'/submit/pipeline/set_file_dupe_cookie/#{@project.id}', " +
         "{asynchronous:true, evalScripts:true, onComplete:function(request)"+
         "{hideDupeNotice('#{divToHide}')}}); return false;\">[X]</a>"
+        # Change mesesage based on whether the dupes are in this project or another project.
+        has_matches_this_other_proj = [false, false] # 1st = this, 2nd = other
+        @signatures.each{|k, matched_files|
+          matched_files.each{|pid, file|
+            which_match = pid == @project.id ? 0 : 1
+            has_matches_this_other_proj[which_match] = true
+            break if ( has_matches_this_other_proj[0] && has_matches_this_other_proj[1])
+          }
+        }
+        this_or_other = case has_matches_this_other_proj 
+                          when [true, true]
+                            "this and other"
+                          when [true, false]
+                            "this"
+                          when [false, true]
+                            "other"
+                          else
+                            "this shouldn't happen"
+                          end
+
         dupe_msg = "<div id=\"#{unique_divid}\">Some files or archives in this "+
-        "project have duplicates in other projects! See Uploaded Data below " +
+        "project have duplicates in #{this_or_other} project#{
+          has_matches_this_other_proj[1] ? "s" : "" }! See Uploaded Data below " +
         "for details. #{dupe_ajax}</div>"
 
         flash.now[:notice] = old_message + ((old_message.empty?) ? "" : "<br/>") + dupe_msg
@@ -588,7 +608,7 @@ class PipelineController < ApplicationController
   # of the PF and PA in the passed project.
   # Output: Hash : Keys are archives and files in this project
   # For key PA, value is an array:
-  #   Each entry of the array is a 2-element array consistinc
+  #   Each entry of the array is a 2-element array consisting
   #   of a PA / PF that matched the signature of the PA (2nd element)
   #   and it's project-id (first element)
   #
@@ -612,23 +632,23 @@ class PipelineController < ApplicationController
     archive_match = ProjectArchive.find_all_by_signature(archive_sigs_to_check)
     file_match = ProjectFile.find_all_by_signature(file_sigs_to_check)
 
+
     # Then, construct the hash. Go through the PA and PF again and match
     # Them up to sigs
     archive_match.each{|am|
-      # If it's in this project, skip it
-      next  if am.project_id == proj.id
       # Make the mini-array - separate out the Project
       archive_value = [am.project_id, am]
       # Find all archives in this project that match by signature
       proj.project_archives.find_all_by_signature(am.signature).each{|pa|
+        # if am and pa are the same, skip it ; otherwise add even if
+        # they're in the same project
+        next if am.id == pa.id
         dupes_found[pa] = [] unless dupes_found[pa]
         dupes_found[pa].push archive_value
       }
     }
     
     file_match.each{|fm|
-      # If it's in this project, skip it
-      next  if files_this_project.include? fm
       # Make the mini-array - separate out the Project
       fmpa = fm.project_archive
       fmpap = fmpa.project unless fmpa.nil?
@@ -638,6 +658,8 @@ class PipelineController < ApplicationController
       # Find all files in this project that match by signature
       files_this_project.each{|ftp|
         if ftp.signature == fm.signature then
+          # skip it if they're the same file
+          next if ftp.id == fm.id
           dupes_found[ftp] = [] unless dupes_found[ftp]
           dupes_found[ftp].push file_value
         end

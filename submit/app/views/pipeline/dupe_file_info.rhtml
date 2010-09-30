@@ -10,7 +10,7 @@
     </tr>
     <tr>
       <td style="text-align: left; vertical-align: bottom; font-size: 90%;">
-        The following files in project <%= params[:id] -%> are duplicated in other projects:
+        The following files or archives in project <%= params[:id] -%> are duplicated in other projects:
         <br/>
         <br/>
         <table border="0" class="dup_list" cellpadding="4px">
@@ -20,14 +20,30 @@
             <td> Other Project </td>
           </tr>
           <%
-            @signatures.each{|key, value|
+            # Can we, like, sort this ? that would be nice
+
+            @signatures.each{|this_file, matches|
+            next if this_file.file_name =~ /^\._/ # Hide those freaking dot underscore files
+            # Only display the matches found in the
+            matches_other_project = matches.reject{|match| match[0] == @project.id}
+            next if matches_other_project.empty?
         %><tr>
-            <td rowspan="<%= value.length -%>">
-            <%= key.file_name -%> </td>
+            <td rowspan="<%= matches_other_project.length -%>"
+            <%  # Highlight ProjectArchives in yellow 
+            if this_file.class.to_s == "ProjectArchive" then %>
+            style="background-color:#ffffdd"
+            <% end %>
+            >
+            <%= this_file.file_name -%>
+            <%= this_file.class.to_s == "ProjectArchive" ? " [Archive]" : "" -%>
+            </td>
           <%
             # Display the filename - other project
-            value.each{ |item|
-          %><%= item != value.first ? "<tr>" : "" -%>
+            matches_other_project.each{ |item|
+            # Skip other items in the same project -- they're displayed later
+          %>
+            <%= item != matches_other_project.first ? "<tr>" : "" -%>
+            <% displayed_an_item = true %>
             <td> <%= item[1].file_name -%></td>
             <td><%= link_to(item[0].to_s + " : " + 
             Project.find(item[0]).name,
@@ -41,7 +57,60 @@
                   }
                 %>
         </table>
-      </td>
-    </tr>
+  <%
+  # Then, display the duplicates within the same project
+  signature_groups = Hash.new{|hash, key| hash[key] = Array.new } 
+
+  @signatures.each{|item, matches| 
+    matches.each{|project, match|
+      next unless project == @project.id
+      signature_groups[match.signature] # Create the array if it doesn't yet exist.
+      signature_groups[match.signature].push item
+      signature_groups[match.signature].push match
+      }
+    }
+  # Then, uniqify. Important! 
+  signature_groups.each{|k, v| 
+    v.uniq! 
+  }
+  
+  # If it's populated, display stuff. Else don't.
+  unless signature_groups.empty? then
+  %>
+  
+
+  <br/>
+  The following files or archives in this project are duplicates of each other:
+  <br/>
+  <br/>
+  
+      <table border="0" class="dup_list" cellpadding="4px">
+     <% bgcolors = {true => "#ffffff", false => "#dddddd" }
+       curr_color = true
+       seen_groups = 0
+       signature_groups.each {|k, v|
+       seen_groups += 1
+       next if v[0].file_name =~ /^\._/ # skip annoying mac ._ files
+        curr_color = !curr_color
+          v.each{|item| %>
+       <tr><td style="background-color:<%= bgcolors[curr_color] -%>">
+       <%= item.file_name %>
+       <%
+       # If it's a file, name the archive it's in
+       if item.class.to_s == "ProjectFile" then
+       %> <i>in</i>
+       <%= ProjectArchive.find(item.project_archive_id).file_name %>
+       <% else %>
+        [Archive]
+       <% end %>
+       </td></tr>
+       <% }
+        # Put an empty cell of padding except at the very end 
+        %>
+      <%="<tr><td></td></tr>" unless seen_groups == signature_groups.length -%>
+     <% } %>
   </table>
+
+<% end %>
+</td></tr></table>
 </div>
