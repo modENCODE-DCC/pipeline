@@ -977,9 +977,11 @@ class PipelineController < ApplicationController
     if File.exists? "#{RAILS_ROOT}/config/database.yml" then
       # Re-read FTP config on the fly
       open("#{RAILS_ROOT}/config/database.yml") { |f| YAML.load(f.read) }.each_pair { |name, definition|
-        @use_ftp = true if (name == "ftpUrl" && !definition.nil?)
-        @ftpMount = definition if name == "ftpMount"
-        @ftpUrl = definition if name == "ftpUrl"
+        if name == RAILS_ENV then
+          @use_ftp = true if definition["ftpUrl"]
+          @ftpMount = definition["ftpMount"]
+          @ftpUrl = definition["ftpUrl"]
+        end
       }
     end
 
@@ -2639,7 +2641,16 @@ class PipelineController < ApplicationController
     redirect_to :action => :show, :id => @project
   end
   def ftp_selector
-    @ftpMount = File.expand_path(ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount'])
+    @ftpMount = ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount']
+    if File.exists? "#{RAILS_ROOT}/config/database.yml" then
+      # Re-read FTP config on the fly
+      open("#{RAILS_ROOT}/config/database.yml") { |f| YAML.load(f.read) }.each_pair { |name, definition|
+        if name == RAILS_ENV then
+          @ftpMount = definition["ftpMount"]
+        end
+      }
+    end
+    @ftpMount = File.expand_path(@ftpMount)
     @selected_dir = params[:dir] || "."
     @selected_dir = File.expand_path(File.join(@ftpMount, @selected_dir))
     unless @selected_dir.start_with?(@ftpMount) then
