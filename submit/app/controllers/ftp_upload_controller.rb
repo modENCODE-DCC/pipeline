@@ -20,6 +20,14 @@ class FtpUploadController < UploadController
       command_object.status = Upload::Status::UPLOADING
       begin
         ftpMount = ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount']
+        if File.exists? "#{RAILS_ROOT}/config/database.yml" then
+          # Re-read FTP config on the fly
+          open("#{RAILS_ROOT}/config/database.yml") { |f| YAML.load(f.read) }.each_pair { |name, definition|
+            if name == RAILS_ENV then
+              ftpMount = definition["ftpMount"]
+            end
+          }
+        end
         upftp = File.expand_path(File.join(ftpMount, upftp))
         if upftp.start_with?(ftpMount) && File.file?(upftp) then
           # Get the file
