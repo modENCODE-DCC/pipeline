@@ -974,6 +974,15 @@ class PipelineController < ApplicationController
     @ftpMount = ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount']
     @ftpUrl = ActiveRecord::Base.configurations[RAILS_ENV]['ftpUrl']
     @use_ftp = !@ftpMount.nil?
+    if File.exists? "#{RAILS_ROOT}/config/database.yml" then
+      # Re-read FTP config on the fly
+      open("#{RAILS_ROOT}/config/database.yml") { |f| YAML.load(f.read) }.each_pair { |name, definition|
+        @use_ftp = true if (name == "ftpUrl" && !definition.nil?)
+        @ftpMount = definition if name == "ftpMount"
+        @ftpUrl = definition if name == "ftpUrl"
+      }
+    end
+
 
     return unless request.post?
 
