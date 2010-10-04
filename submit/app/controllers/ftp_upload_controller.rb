@@ -24,6 +24,9 @@ class FtpUploadController < UploadController
         if upftp.start_with?(ftpMount) && File.file?(upftp) then
           # Get the file
           FileUtils.copy(upftp, destfile)
+          if (File.file?(upftp)) then
+            FileUtils.rm(upftp :force => true)
+          end
           command_object.status = Upload::Status::UPLOADED
           command_object.save
         else
