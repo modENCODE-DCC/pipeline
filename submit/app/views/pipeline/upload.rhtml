@@ -51,7 +51,7 @@
         <li>
         <label for="project_upload_ftp">From your (empty) FTP space:</label><br/>
         First upload a file to your FTP space (<%= link_to 'directions', '/help.html#ftpHelp' -%>), 
-        at <%= link_to @ftpUrl, @ftpUrl %>.<br/>
+        at <%= link_to(@ftpUrl, @ftpUrl) if @ftpUrl %>.<br/>
         Once the file is uploaded, <%= link_to 'refresh', @controller.request.request_uri %> this page.
         </li>
     <% end %>
