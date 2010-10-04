@@ -1,0 +1,64 @@
+<html>
+  <head>
+    <title>FTP File Selection</title>
+    <style type="text/css">
+      UL { list-style-type: none; padding-left: 10px; }
+      UL LI { padding-bottom: 2px; }
+      UL LI A               { text-decoration: none; color: black; padding: 2px; }
+      UL LI A.file          { background-color: #aaaaff; }
+      UL LI A.directory     { background-color: #aaaacc; }
+      UL LI A.up.directory  { background-color: #c7c7e7; }
+      UL LI A:hover         { background-color: #ddddff; }
+      SPAN.choose_button    { font-weight: bold; font-size: 80%; cursor: pointer; padding-left: 5px; vertical-align: middle }
+    </style>
+    <script src="/submit/javascripts/prototype.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function selectFile(evt, file) {
+        evt.stop(); // Don't actually follow a link
+        var href = $H(file.href.toQueryParams());
+        if (opener.selectorParentCallback) {
+          opener.selectorParentCallback(href.get('file'));
+          window.close();
+        } else if (console.log) {
+          console.log(href.get('file'));
+        }
+      }
+      Event.observe(window, 'load', function() {
+          $$('A.file').each(function(file) {
+            var choose = file.next('SPAN.choose_button');
+            file.observe('click', function(evt) { selectFile(evt, file); return false; });
+            choose.observe('click', function(evt) { selectFile(evt, file); });
+          });
+        });
+    </script>
+  </head>
+<body>
+  <ul>
+    <% @files.each do |file| %>
+      <li>
+        <%
+          full_path = File.join(@ftpMount, @selected_dir, file)
+          filename = file
+          is_file = File.file?(full_path)
+        %>
+        <% next if file == ".." && @selected_dir.length == 0 %>
+        <% if file == ".." then
+             new_dir = File.dirname(file)
+             new_dir = (@selected_dir.length == 0 ? "" : File.dirname(@selected_dir)) if new_dir == "." %>
+             <%= link_to "up...", { :dir => new_dir }, { :class => "up directory" } %><br/>
+        <% else 
+            new_dir = file
+            if File.directory?(full_path) then
+              %><%= link_to filename+"/", { :dir => File.join(@selected_dir, new_dir) }, { :class => "directory" } %><br/><%
+            elsif is_file
+              %><%= link_to filename, { :file => File.join(@selected_dir, new_dir) }, { :class => "file" } %><span class="choose_button">[click to select]</span><br/><%
+            else
+              # Not a file or a directory!
+              next
+            end
+        end %>
+      </li>
+    <% end %>
+  </ul>
+</body>
+</html>

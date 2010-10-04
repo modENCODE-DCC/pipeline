@@ -970,24 +970,10 @@ class PipelineController < ApplicationController
     extensions = ["zip", "ZIP", "tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"]
 
     # handle FTP stuff
-    @use_ftp = (ActiveRecord::Base.configurations[RAILS_ENV]['ftpServer'].nil? ? false : true)
-    if @use_ftp then
-      @ftpList = []
-      @ftpUrl = "ftp://#{@user.login}@#{ActiveRecord::Base.configurations[RAILS_ENV]['ftpServer']}"+
-             ":#{ActiveRecord::Base.configurations[RAILS_ENV]['ftpPort']}"
-      ftpFullPath = ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount']+'/'+@user.login
-      if File.exists?(ftpFullPath)
-        Dir.entries(ftpFullPath).each do
-          |file|
-          fullName = File.join(ftpFullPath,file)
-          if File.ftype(fullName) == "file"
-            if extensions.any? {|ext| file.ends_with?("." + ext) }
-              @ftpList << file
-            end
-          end
-        end
-      end
-    end
+    @use_ftp = (ActiveRecord::Base.configurations[RAILS_ENV]['ftpUrl'].nil? ? false : true)
+    @ftpMount = ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount']
+    @ftpUrl = ActiveRecord::Base.configurations[RAILS_ENV]['ftpUrl']
+    @use_ftp = !@ftpMount.nil?
 
     return unless request.post?
 
@@ -1003,7 +989,7 @@ class PipelineController < ApplicationController
     upurl = params[:upload_url]
     upfile = params[:upload_file]
     upcomment = params[:upload_comment]
-    upftp = params[:ftp]
+    upftp = params[:upload_ftp]
     uprsync = params[:upload_rsync]
     upurl = "" if upurl.nil? or upurl == "http://" # If it's the default value, ignore it
     upftp = "" unless upftp # Don't let upftp be nil
@@ -1076,10 +1062,10 @@ class PipelineController < ApplicationController
     
       # Upload in background
       do_upload(upurl, upftp, upfile, uprsync, 
-                upcomment, filename, ftpFullPath)
+                upcomment, filename)
     else # we _are_ chaining -- queue upload, then queue remaining commands
       do_upload(upurl, upftp, upfile, uprsync, 
-                upcomment, filename, ftpFullPath)
+                upcomment, filename)
     
       chain_commands  #(:id =>@project) 
     end
@@ -2374,7 +2360,7 @@ class PipelineController < ApplicationController
   end
 
   def do_upload(upurl, upftp, upfile, uprsync, 
-                upcomment, filename, ftpFullPath)
+                upcomment, filename)
     # TODO: Make this function private
 
     # Create a ProjectArchive to handle the upload
@@ -2402,13 +2388,13 @@ class PipelineController < ApplicationController
       upload_controller.queue(:user => current_user)
     elsif !upftp.blank?
       # Uploading from the FTP site
-      FileUtils.copy(File.join(ftpFullPath,upftp), path_to_file(project_archive.file_name))
-      upload_controller = FileUploadController.new(:source => File.join(ftpFullPath,upftp), :filename => path_to_file(project_archive.file_name), :project => @project) 
-      upload_controller.timeout = 600 # 10 minutes
+      upload_controller = FtpUploadController.new(:source => upftp,
+        :filename => path_to_file(project_archive.file_name),
+        :project => @project)
+      upload_controller.timeout = 36000 # 10 hours
 
       # Queue ftp upload command
       upload_controller.queue(:user => current_user)
-
     elsif !uprsync.blank? || uprsync == "rsync://"
       # Uploading via rsync - similar to URL
       upload_controller = RsyncUploadController.new(:source => uprsync, 
@@ -2642,6 +2628,26 @@ class PipelineController < ApplicationController
       cmd.save
     }
     redirect_to :action => :show, :id => @project
+  end
+  def ftp_selector
+    @ftpMount = File.expand_path(ActiveRecord::Base.configurations[RAILS_ENV]['ftpMount'])
+    @selected_dir = params[:dir] || "."
+    @selected_dir = File.expand_path(File.join(@ftpMount, @selected_dir))
+    unless @selected_dir.start_with?(@ftpMount) then
+      @selected_dir = @ftpMount
+    end
+    @selected_dir = @ftpMount unless File.directory?(@selected_dir)
+    mount = Dir.new(@selected_dir)
+
+    @files = Array.new
+    @dirs = Array.new
+    mount.each { |file|
+      next if file == "."
+      @files.push file
+    }
+
+    @selected_dir = @selected_dir[(@ftpMount.length)..-1]
+    render :layout => false
   end
 private
 

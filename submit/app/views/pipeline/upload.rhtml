@@ -1,6 +1,18 @@
 <style type="text/css">
   ul.uploads li { padding-bottom: 20px }
 </style>
+<script type="text/javascript">
+  function openFtpSelector(dest_input) {
+    var newWindow = window.open('<%= url_for( :action => :ftp_selector, :id => @project.id ) %>', 'ftp_selector_window', 'height=400,width=600,location=no,toolbar=no,status=no,menubar=no,scrollbars=yes');
+    dest_input = $(dest_input);
+    window.selectorParentCallback = function(filename) {
+      dest_input.setValue(filename);
+      dest_input.focus();
+      return true;
+    };
+  }
+
+</script>
 <p>
 <b>Submit data to project '<%= @project.name -%>':</b>
 </p>
@@ -28,23 +40,20 @@
     </li>
 
     <% if @use_ftp then %>
-      <% if @ftpList.length > 0 %>
-        <li>
-        <label for="project_upload_ftp">From your <%= link_to 'FTP', '/help.html#ftpHelp' -%> space:</label><br/>
-        <%= link_to @ftpUrl, @ftpUrl %><br/>
-        <select id="ftp" name="ftp">
-          <option selected></option>
-          <%= options_for_select(@ftpList) %>
-        </select>
-        </li>
-      <% else %>
+      <li>
+        <label for="project_upload_ftp">Select from FTP space:</label><br/>
+        First, upload a file to <%= link_to @ftpUrl, @ftpUrl %>.<br/>
+        <%= button_to_function "Choose File...", "openFtpSelector('upload_ftp')" %>
+        <%= text_field_tag "upload_ftp", "", { "readonly" => "readonly" } %>
+        <%= button_to_function "Clear", "$('upload_ftp').setValue('')" %>
+      </li>
+    <% else %>
         <li>
         <label for="project_upload_ftp">From your (empty) FTP space:</label><br/>
         First upload a file to your FTP space (<%= link_to 'directions', '/help.html#ftpHelp' -%>), 
         at <%= link_to @ftpUrl, @ftpUrl %>.<br/>
         Once the file is uploaded, <%= link_to 'refresh', @controller.request.request_uri %> this page.
         </li>
-      <% end %>
     <% end %>
     <% if @allow_skip_content_type %>
       <li>

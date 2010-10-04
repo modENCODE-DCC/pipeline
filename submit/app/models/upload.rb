@@ -164,6 +164,22 @@ class Upload < Command
    output_string
    end
   end
+  
+  # FTP uploader
+  class Ftp < Upload
+    def formatted_status
+      (source, destfile) = self.command.split(/ to /).map { |i| URI.unescape(i) }
+      basename = ::File.basename(destfile)
+      case self.status
+      when Upload::Status::UPLOADED
+        "Finished uploading #{basename}."
+      when Upload::Status::UPLOAD_FAILED
+        "Failed to upload #{basename}: #{self.stderr}"
+      else
+        "Currently uploading #{basename}."
+      end
+    end
+  end
 
   def fail
     self.status = Upload::Status::UPLOAD_FAILED
