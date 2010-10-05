@@ -44,8 +44,8 @@ class CommandNotifier < ActionMailer::Base
             EmailMessage.new(:to_user => user, :command => command, :to_type => "user").save
             logger.info("Saved batch message for #{user.name} <#{user.email}>")
           else
-            # Notify immediately unless the command was really short-running
-            if runtime >= MIN_RUNTIME_NOTIFY || user_wants_all_notifications then
+            # Notify immediately unless the command was really short-running and successful
+            if runtime >= MIN_RUNTIME_NOTIFY || user_wants_all_notifications || command.failed? then
               CommandNotifier.deliver_command_notification_for_user(user, command)
             end
           end
