@@ -6,9 +6,6 @@ body {
 A { color: blue; }
 
 #command_panel {
-  float: right;
-  width: 25%;
-  overflow: hidden;
   font-size: 80%;
   border: thin solid #CCCCCC;
   border-bottom: medium solid #CCCCCC;
@@ -16,16 +13,16 @@ A { color: blue; }
 }
 
 #tools_panel {
-  float: right;
-  width: 25%;
-  overflow: hidden;
   font-size: 80%;
   border: thin solid #CCCCCC;
   border-bottom: medium solid #CCCCCC;
   border-right: medium solid #CCCCCC;
-  clear: right
 }
-
+#right_panels{
+  float: right;
+  width: 25%;
+  overflow: hidden;
+}
 #project_details {
   text-align: left;
 }
