@@ -219,6 +219,7 @@ class Project < ActiveRecord::Base
     include Delete::Status
     include Report::Status
     include PreviewBrowser::Status
+    include Liftover::Status
     # Status constants
     NEW = "new"
     CONFIGURING = "configuring tracks"
@@ -235,8 +236,8 @@ class Project < ActiveRecord::Base
           FAILED, DELETING, DELETED, DELETE_FAILED
         ],
         1 => [NEW, UPLOADING, UPLOAD_FAILED],
-        2 => [UPLOADED, EXPANDING, EXPAND_FAILED],
-        3 => [EXPANDED, VALIDATING, VALIDATION_FAILED],
+        2 => [UPLOADED, EXPANDING, EXPAND_FAILED, LIFTED],
+        3 => [EXPANDED, VALIDATING, VALIDATION_FAILED, LIFTING, LIFTOVER_FAILED],
         4 => [VALIDATED, LOADING, LOAD_FAILED, UNLOADING, UNLOADED, UNLOAD_FAILED],
         5 => [LOADED, FINDING, FINDING_FAILED],
         6 => [FOUND, CONFIGURING],
@@ -267,6 +268,7 @@ class Project < ActiveRecord::Base
         FindTracks::Status::FINDING,
         Report::Status::REPORTING,
         PreviewBrowser::Status::GENERATING_PREVIEW,
+        Liftover::Status::LIFTING,
       ]
       return active_states.include?(state)
     end
@@ -283,6 +285,7 @@ class Project < ActiveRecord::Base
         Unload::Status::UNLOAD_FAILED,
         Report::Status::REPORTING_FAILED,
         PreviewBrowser::Status::PREVIEW_FAILED,
+        Liftover::Status::LIFTOVER_FAILED,
       ]
       return failed_states.include?(state)
     end
@@ -301,6 +304,7 @@ class Project < ActiveRecord::Base
         Report::Status::REPORT_TARBALL_GENERATED,
         Report::Status::REPORT_GENERATED,
         PreviewBrowser::Status::PREVIEW_GENERATED,
+        Liftover::Status::LIFTED,
       ]
       return failed_states.include?(state)
     end
@@ -309,8 +313,10 @@ class Project < ActiveRecord::Base
       state = project.is_a?(Project) ? project.status : project
       ordered_status = [
         Project::Status::CANCELING, Project::Status::CANCELED, Project::Status::FLAGGED, Project::Status::NEW, Project::Status::FAILED,
-        Project::Status::UPLOADING, Project::Status::UPLOAD_FAILED, Project::Status::UPLOADED, Project::Status::EXPANDING,
-        Project::Status::EXPAND_FAILED, Project::Status::EXPANDED, Project::Status::VALIDATING, Project::Status::VALIDATION_FAILED,
+        Project::Status::UPLOADING, Project::Status::UPLOAD_FAILED, Project::Status::UPLOADED, 
+        Project::Status::LIFTED,  Project::Status::EXPANDING,
+        Project::Status::EXPAND_FAILED, Project::Status::EXPANDED, Project::Status::VALIDATING,
+        Project::Status::LIFTING, Project::Status::VALIDATION_FAILED, Project::Status::LIFTOVER_FAILED,
         Project::Status::VALIDATED, Project::Status::LOADING, Project::Status::LOAD_FAILED, Project::Status::LOADED,
         Project::Status::UNLOADING, Project::Status::UNLOAD_FAILED, Project::Status::UNLOADED, Project::Status::FINDING,
         Project::Status::FINDING_FAILED, Project::Status::FOUND, Project::Status::CONFIGURING, Project::Status::CONFIGURED,
@@ -339,7 +345,11 @@ class Project < ActiveRecord::Base
       when EXPAND_FAILED
         ok = [ UPLOADING, DELETING, VALIDATING ]
       when EXPANDED
+        ok = [ UPLOADING, DELETING, GENERATING_PREVIEW, LIFTING, VALIDATING ]
+      when LIFTED
         ok = [ UPLOADING, DELETING, GENERATING_PREVIEW, VALIDATING ]
+      when LIFTOVER_FAILED
+        ok = [ UPLOADING, DELETING, GENERATING_PREVIEW, VALIDATING  ]
       when VALIDATION_FAILED
         ok = [ UPLOADING, DELETING, GENERATING_PREVIEW, VALIDATING ]
       when VALIDATED

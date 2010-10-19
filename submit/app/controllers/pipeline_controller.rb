@@ -1198,6 +1198,48 @@ class PipelineController < ApplicationController
     redirect_to :action => :show, :id => @project
   end 
 
+  def liftover
+    begin
+      @project = Project.find(params[:id])
+      unless check_user_can_write @project then
+        redirect_to :action => :show, :id => @project
+        return false
+      end
+      # Make sure the project is expanded at all
+      if (
+        Project::Status.is_failed_state(@project.status) ||
+        Project::Status.state_position(@project.status) < Project::Status.state_position(Project::Status::EXPANDED)
+      ) then
+         flash[:error] = "Can't run liftover&mdash;the project must first be re-expanded." 
+         redirect_to :action => :show, :id => @project
+      end 
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    # Make a list of the files that will be lifted 
+    extracted_dir = File.join(path_to_project_dir(@project), "extracted")
+    @liftable_files = LiftoverController.find_liftable_files(extracted_dir)
+    @liftable_files.map!{|f| f.sub(extracted_dir + "/", "")}
+    @available_builds = LiftoverController::GENOME_BUILDS
+
+    # Performing the liftover -- create a Command and run it
+    if params[:run_liftover] then 
+      archive_only = case params["which_lift"]
+        when "make_archive" then true
+        when "whole_project" then false
+        else nil
+      end
+      liftover_controller = LiftoverController.new(
+        :source => params["source_ws"],
+        :dest => params["dest_ws"], :project => @project, 
+        :archive_only => archive_only
+      )
+      liftover_controller.queue
+      redirect_to :action => "show", :id => @project
+    end
+  end
   def unload
     begin
       @project = Project.find(params[:id])

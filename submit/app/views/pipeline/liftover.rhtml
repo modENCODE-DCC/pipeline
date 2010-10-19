@@ -1,0 +1,65 @@
+<h3>Liftover Tool</h3>
+<h4>
+  <%= link_to( "Project #{@project.id} : #{@project.name}", :action => :show, :id => @project.id) %> 
+</h4>
+<br/>
+
+<% if @liftable_files.empty? then %>  
+  No files suitable for lifting were found in this project!
+  <br/>
+  <%= link_to( "Back to project page", :action => :show, :id => @project.id) %> 
+<% else %>   
+  The following files will be lifted: 
+  <ul>
+    <% @liftable_files.each{|lf| %>
+      <li><%= lf %></li>
+    <% } %>
+  </ul>
+  <br/>
+  <br/>
+  <div style="float:left;">
+  <% 
+    form_tag(url_for(:action => 'liftover'), :name => "liftover_form", :id => "liftover_form"){
+  %>
+    <%= # Let them choose which lifting to do (default is lift whole project)
+      radio_button_tag 'which_lift', 'whole_project', true
+    %>
+    <%= label_tag 'which_lift_whole_project', "Update the project to the target genome build and " +
+      "create a deactived archive of the original files." %>
+    <br/>
+    <%= radio_button_tag 'which_lift', 'make_archive' %>
+    <%= label_tag 'which_lift_make_archive', "Lift into the target genome build and create a " +
+          " deactived archive of the files lifted."
+    %>
+    <br/>
+    <br/>
+
+    <label for="source_ws">Liftover from WS</label>
+    <%=
+      select_tag :source_ws, options_for_select(@available_builds, 
+        @available_builds[2])
+    %><%=
+      label_tag( 'dest_ws', ' to WS')
+    %><%=
+      select_tag :dest_ws, options_for_select(@available_builds, @available_builds[4])
+    %>
+    <br/>
+    
+    <%
+      # put a confirmation in the submit button if the project's validated.
+      status_number = Project::Status.status_number(@project.status)
+      is_validated =  status_number >= Project::Status.status_number(Project::Status::VALIDATED )
+    %>
+    <%= if is_validated then
+        submit_tag "Lift!", { :name => :run_liftover, :confirm => "You will need to"+
+          " revalidate this project after lifting! (Unless you're just lifting into an archive.)" }
+      else
+        submit_tag "Lift!", { :name => :run_liftover }
+      end
+    %>  
+  <%
+    } 
+  %>
+  </div>
+  <div id="errors" style="float:left; background:#fbb; color:#222; font-size: 12pt;"></div>  
+<% end %>
