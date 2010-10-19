@@ -15,6 +15,17 @@ A { color: blue; }
   border-right: medium solid #CCCCCC;
 }
 
+#tools_panel {
+  float: right;
+  width: 25%;
+  overflow: hidden;
+  font-size: 80%;
+  border: thin solid #CCCCCC;
+  border-bottom: medium solid #CCCCCC;
+  border-right: medium solid #CCCCCC;
+  clear: right
+}
+
 #project_details {
   text-align: left;
 }
@@ -255,6 +266,10 @@ a#step9-link { display: block; width: 75px; height: 50px; position: relative; to
 a#step10-link { display: block; width: 75px; height: 50px; position: relative; top: 0px; left: 740px; }
 
 DIV#command_panel_content {
+  border: thin solid black;
+  padding: 2px;
+}
+DIV#tools_panel_content {
   border: thin solid black;
   padding: 2px;
 }
