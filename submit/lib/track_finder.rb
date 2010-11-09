@@ -1554,6 +1554,7 @@ class TrackFinder
       sth_get_gff.execute seen_feature_ids.shift[0]
     end
     row = sth_get_gff.fetch
+    return if row.nil?
     parents = row[1].nil? ? '' : row[1].split(',').map { |parent| parent.split('/') }
     parents.each { |reltype, parent_id|
       if seen_feature_ids[parent_id] then
