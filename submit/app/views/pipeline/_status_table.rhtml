@@ -73,6 +73,7 @@ Select page:
       <th><%= link_to "ID", :action => refresh_action_name, :sort => { 'id' => @new_sort_direction['id'] } %></th>
       <th><%= link_to "Submission<br/>Name", :action => refresh_action_name, :sort => { 'name' => @new_sort_direction['name'] } %></th>
       <th><%= link_to "Current<br/>Status", :action => refresh_action_name, :sort => { 'status' => @new_sort_direction['status'] } %></th>
+
       <% if total_queued_commands > 0 %>
         <th>
           Q
@@ -96,7 +97,7 @@ Select page:
         <th><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
       <% end %>
 
-      <th><span style="font-size:50%">(PST)</span><br/>Last<br/>Updated</th>
+    <th><span style="font-size:50%">(PST)</span><br/><%= link_to "Last<br/>Updated", :action => refresh_action_name, :sort => { 'updated_at' => @new_sort_direction['updated_at'] } %></th>
       <th>Duration</th>
       <th>Submitter</th>
       <th>

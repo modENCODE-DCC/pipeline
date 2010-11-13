@@ -38,18 +38,19 @@
   <table>
     <tr>
       <th colspan="2">Command</th>
-      <th>Owner</th>
       <th>Project</th>
       <th>Running On</th>
-      <th>Control</th>
+      <th>Running Since</th>
+      <th>Owner</th>
     </tr>
     <% @active_commands.each do |command| %>
     <tr>
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
-      <td><%= link_to command.project.id, url_for(:controller => :pipeline, :action => :show, :id => command.project) %></td> 
-      <td><%= command.project.user.login if command.project %></td> 
+      <td><%= link_to "#{command.project.id}: #{command.project.name}", url_for(:controller => :pipeline, :action => :show, :id => command.project) %></td> 
       <td><%= command.host if command.host %></td>
+      <td><%= command.start_time if command.start_time %></td>
+      <td><%= command.user.login if command.project %></td> 
       <td>
          <% if command.throttle == false then %>
          <%= link_to "throttle", url_for(:action => :throttle_command, :id => command.id) %> or

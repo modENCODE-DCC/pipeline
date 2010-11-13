@@ -2825,7 +2825,7 @@ private
       }
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
     else
-      @projects = @projects.sort { |p1, p2| p1.name <=> p2.name }
+      @projects = @projects.sort { |p1, p2| p1.updated_at <=> p2.updated_at }.reverse
     end
 
     if params[:page_size] then
