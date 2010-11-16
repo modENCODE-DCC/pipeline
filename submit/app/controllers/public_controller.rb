@@ -460,6 +460,10 @@ class PublicController < ApplicationController
     end
     @listing.sort! { |l1, l2| (l1[0] == :folder ? "0#{l1[1]}" : "1#{l1[1]}") <=> (l2[0] == :folder ? "0#{l2[1]}" : "1#{l2[1]}") }
     @listing.reject! { |l| !(l[1].include? @highlight) } if @highlight
+
+    unless @project.released? then
+      flash[:warning] = "This project is not yet verified and released, and the data is subject to major change!"
+    end
   end
 
   def get_file

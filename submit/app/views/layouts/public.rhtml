@@ -105,6 +105,7 @@
       <% if flash[:error] %><div id="error"><%= flash[:error] %></div><% end %>  
       <% if flash[:warning] %><div id="warning"><%= flash[:warning] %></div><% end %>  
       <% if flash[:notice] %><div id="notice"><%= flash[:notice] %></div><% end %>  
+      <% flash.discard %>
     </div>
 
     <div id="content">
