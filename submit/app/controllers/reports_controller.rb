@@ -1,6 +1,6 @@
 require 'date'
-NIH_SPREADSHEET_TABLE = "/users/yostinso/tmp/reporting/output_nih.csv"
-GEO_REPORTED_PROJECTS = "/users/ekephart/tmp/reporting/released_and_notified.tsv"
+NIH_SPREADSHEET_TABLE = "/home/yostinso/tmp/reporting/output_nih.csv"
+GEO_REPORTED_PROJECTS = "/home/ekephart/tmp/reporting/released_and_notified.tsv"
 class Array
   def median
     self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
