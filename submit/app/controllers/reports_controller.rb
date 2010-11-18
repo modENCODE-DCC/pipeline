@@ -1,3 +1,6 @@
+require 'date'
+NIH_SPREADSHEET_TABLE = "/users/yostinso/tmp/reporting/output_nih.csv"
+GEO_REPORTED_PROJECTS = "/users/ekephart/tmp/reporting/released_and_notified.tsv"
 class Array
   def median
     self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
@@ -408,6 +411,162 @@ class ReportsController < ApplicationController
 
 
     @all_projects = undeprecated_projects
+
+  end
+  
+  # uses the NIH spreadsheet table to find all released submissions
+  def self.get_released_submissions
+    released_subs = []
+    File.open(NIH_SPREADSHEET_TABLE).each{|line|
+      fields = line.split "\t"
+      released_subs.push fields if fields[13] == "released"
+    }
+    return released_subs
+  end
+  
+
+  
+  # Finds all submissions released since the last time this was run
+  def self.newly_released_submissions
+    released_subs = ReportsController.get_released_submissions 
+    already_notified = []
+    File.open(GEO_REPORTED_PROJECTS).each{|proj|
+      next if proj.empty? || proj.strip[0] == "#"
+      fields = proj.split("\t")
+      already_notified.push fields[0]
+    }
+    # Remove all subs for which a notification has already been sent
+    released_subs.reject!{|item| already_notified.include? item[14] }
+    released_subs
+  end
+ 
+  # Add the passed IDs to the file indicating that
+  # an email has been sent regarding the released submissions  
+  # Takes: an array of IDs
+  def self.mark_subs_as_notified(sub_ids)
+    rep_proj_file = File.open(GEO_REPORTED_PROJECTS, "a")
+    sub_ids.each{|id|
+      rep_proj_file.puts "#{id}\t#{Time.now}"
+    }
+    rep_proj_file.close
+  end
+
+  def separate_geo_sra_ids(idstring)
+    # Parse the string and separate into two separate arrays
+    geoids = []
+    sraids = []
+    idstring.split(", ").each{|id|
+      case id[0,1].downcase
+        when "g" then geoids.push id
+        when "s" then sraids.push id
+        else # TODO handle other things if they exist
+      end
+    }
+    [geoids, sraids]
+  end
+
+  # Present a table of GEO IDs / SRA IDS
+  def geoid_table
+    # Get the dates released projects were emailed
+    reported_projects = Hash.new{}
+    @seen_dates = Array.new
+    File.open(GEO_REPORTED_PROJECTS).each{|rep_proj|
+      next if rep_proj.empty? || rep_proj.strip[0] == "#"
+      fields = rep_proj.split("\t")
+      # Make a hash of ProjectID => date release notified
+      notified_date = fields[1].nil? ? nil : Date.parse(fields[1])
+      reported_projects[fields[0].to_i] = notified_date
+      @seen_dates.push notified_date unless (notified_date.nil?) || (@seen_dates.include? notified_date)
+    }
+    @seen_dates.sort!
+    @seen_dates.insert(0, "any time")
+    
+    oldest_release_date = @seen_dates[1]
+    newest_release_date = @seen_dates.last
+    
+    # Open the NIH spreadsheet table
+    # and parse out the relevant information
+    @projects = []
+    ReportsController.get_released_submissions.each{|proj|
+      proj_id = proj[14].to_i
+      projhash =     
+        {
+          :id => proj_id,
+          :name => proj[0],
+          :date_notified => reported_projects[proj_id]
+        }
+      (projhash[:geoids], projhash[:sraids]) = separate_geo_sra_ids(proj[15])  
+      @projects.push(projhash)
+    }
+    # Remove hidden projects
+    # Hide nothing by default
+    session[:hidden_geo_projs] = :no_projs if session[:hidden_geo_projs].nil?
+    # Otherwise, hide if it's been given in a paremeter
+    session[:hidden_geo_projs] = params[:hide_projs].nil? ? session[:hidden_geo_projs] : params[:hide_projs].to_sym
+    case session[:hidden_geo_projs]
+      when :no_ids then
+        @projects.reject!{|proj| proj[:geoids].empty? && proj[:sraids].empty? }
+      when :has_id then
+        @projects.reject!{|proj| !(proj[:geoids].empty? && proj[:sraids].empty?) }
+      when :no_projs then 
+      else # show all projects
+    end
+
+    @hidden_projs = session[:hidden_geo_projs]
+  
+    # Filtering by date
+    # If prev_start & end don't exist, set them to oldest & newest
+    previous_start = params["prev_time_start"].nil? ? oldest_release_date : Date.parse(params["prev_time_start"])
+    previous_end = params["prev_time_end"].nil? ? newest_release_date : Date.parse(params["prev_time_end"])
+
+    # If there's not a current date filter, roll forward the previous one
+    if params["commit"] != "Go" then
+      @earliest = previous_start
+      @latest = previous_end
+      logger.info "NO GO : earliest = #{@earliest} and latest #{@latest} why"
+    else
+      # Set up the current filter
+      curr_start = params["time_start"] == "any time" ? oldest_release_date : Date.parse(params["time_start"])
+      # If we want them only from one week, set it all to curr_start
+      if params["same_week"] == "on" then
+        @earliest = @latest = curr_start 
+      else
+        curr_end = params["time_end"] == "any time" ? newest_release_date : Date.parse(params["time_end"])
+        @earliest, @latest  = [curr_start, curr_end].sort
+      end
+    end
+    # Remove all projects that don't fit within boundaries
+    @projects.reject!{|proj| proj[:date_notified] < @earliest || proj[:date_notified] > @latest }
+
+    # Sorting
+    @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }
+    # If sort param given, update sort_list  
+    if params[:sort] then
+      session[:sort_geo_list] = Hash.new unless session[:sort_geo_list]
+      params[:sort].each_pair { |column, direction| session[:sort_geo_list][column.to_sym] = [ direction, Time.now ] }
+    end
+    
+    # If there's non-default sorting, apply the sorts
+    if session[:sort_geo_list] then
+      sorts = session[:sort_geo_list].sort_by { |column, sortby| sortby[1] }.reverse.map { |column, sortby| column }      
+      @projects = @projects.sort { |p1, p2|
+        p1_attrs = sorts.map { |col|
+          col = col.to_sym
+          session[:sort_geo_list][col] = [] if session[:sort_geo_list][col].nil?
+          sort_attr = (session[:sort_geo_list][col][0] == 'backward') ?  p2[col] : p1[col]
+          sort_attr = sort_attr.nil? ? -999 : sort_attr
+        } << p1.id
+        p2_attrs = sorts.map { |col|
+          session[:sort_geo_list][col] = [] if session[:sort_geo_list][col].nil?
+          sort_attr = (session[:sort_geo_list][col][0] == 'backward') ?  p1[col] : p2[col] 
+          sort_attr = sort_attr.nil? ? -999 : sort_attr
+        } << p2.id
+        p1_attrs.nil_flatten_compare p2_attrs
+      }   
+      session[:sort_geo_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
+    else    
+      @projects = @projects.sort { |p1, p2| p1[:name] <=> p2[:name] }
+    end
 
   end
 

@@ -1,0 +1,149 @@
+<% form_tag({:action => :geoid_table}, {:id => :hider} )  {
+  %>
+<div style="font-size: 13px">
+  <%= radio_button_tag :hide_projs, :no_projs, @hidden_projs == :no_projs, 
+    :onclick => "document.forms[0].submit();"   %>
+  <%= label_tag :hide_projs_no_projs, "Show projects with or without IDs" %>
+  <br/>
+  <%= radio_button_tag :hide_projs, :no_ids, @hidden_projs == :no_ids,
+    :onclick => "document.forms[0].submit();"%>
+  <%= label_tag :hide_projs_no_ids, "Show only projects with GEO or SRA ids" %>
+  <br/>
+  <%= radio_button_tag :hide_projs, :has_id, @hidden_projs == :has_id ,
+    :onclick => "document.forms[0].submit(\"Test\");"%>
+  <%= label_tag :hide_projs_has_id, "Show only projects with no associated ids" %>
+  <p/>
+  
+  Show only projects released between <br/> 
+  <%= select_tag "time_start", options_for_select(@seen_dates, 0) %>
+  and
+  <%= select_tag "time_end", options_for_select(@seen_dates, 0)  %>
+  <br/>
+  <%= check_box_tag "same_week", nil, false , :onclick => 
+    "document.forms[0].time_end.disabled = ! document.forms[0].time_end.disabled" %>
+
+  <%= label_tag "same_week", "For a single week only" %>
+  
+  
+  <%= hidden_field_tag "prev_time_end" , @latest.to_s %>
+  <%= hidden_field_tag "prev_time_start", @earliest.to_s  %>
+  <br/> 
+  <%= submit_tag "Go"%>
+</div>
+<%
+  }
+  %>
+<p/>
+<h3><center>
+<%
+  if @earliest == @latest then
+%>Projects released the week of <%= @earliest %>
+<%
+ elsif @earliest != @seen_dates[1] || @latest != @seen_dates.last then
+ %> Projects released from <%= @earliest %> to <%= @latest %>
+ <% else %>
+  All Released Projects
+<% end %>
+<%
+  case session[:hidden_geo_projs]
+    when :no_ids %>
+      with GEO or SRA IDs
+<%  when :has_id %>
+      with no ID associated
+<%end %>
+
+</center></h3><p/>
+
+<% unless @projects.empty? then %>
+
+<table > 
+ <tr><td colspan=4><hr noshade></td></tr>
+  <tr>
+    <th align="center">
+    <%= link_to "ID", :action => :geoid_table, 
+      :sort => { :id => @new_sort_direction[:id] }, 
+      "prev_time_end" => @latest.to_s ,
+      "prev_time_start" => @earliest.to_s
+      %>
+    </th>
+    <th align="center">
+    <%= link_to "Project Name", :action => :geoid_table,
+      :sort => { :name => @new_sort_direction[:name] },
+      "prev_time_end" => @latest.to_s ,
+      "prev_time_start" => @earliest.to_s
+    %>
+    </th>
+    <th align="center" style="max-width:100px">
+    <%= link_to "GEO ids", :action => :geoid_table,
+      :sort => { :geoids => @new_sort_direction[:geoids] },
+      "prev_time_end" => @latest.to_s ,
+      "prev_time_start" => @earliest.to_s
+    %>
+    </th>
+    <th align="center" style="max-width:100px">
+    <%= link_to "SRA ids", :action => :geoid_table,
+      :sort => { :sraids => @new_sort_direction[:sraids] },
+      "prev_time_end" => @latest.to_s ,
+      "prev_time_start" => @earliest.to_s
+    %>
+    </th>
+  </tr>
+  <tr><td colspan=4><hr noshade></td></tr>
+<% 
+  # get the data from the NIH spreadsheet table
+    colors = [ '#eeeeee', '#f2f2ff']
+    i = 0
+    @projects.each{|rp|
+      color = colors[i%2]
+      i += 1
+  %>
+  <tr style="background-color:<%= color %>">
+    <td align="center">
+      <%= link_to "modENCODE_#{rp[:id]}", {
+          :controller => :pipeline,
+          :action => :show,
+          :id => rp[:id]
+        } 
+      -%>
+    </td>
+    <td align="left">
+      <%= link_to truncate(rp[:name], 60, "..."), {
+          :controller => :pipeline,
+          :action => :show,
+          :id => rp[:id] 
+        } 
+      %>
+    </td>
+    <td style="align:left;max-width:25%">
+    <%
+      rp[:geoids].each{|id|
+      next if id.empty?
+      url = "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=#{id}" 
+    %>
+      <%= link_to id, url -%>
+      <%= "," unless id == rp[:geoids].last %>
+    <%
+      }
+    %>
+    </td>
+    <td style="align:left;max-width:25%">
+      <%
+        rp[:sraids].each{|id|
+          next if id.empty?
+          url = "http://www.ncbi.nlm.nih.gov/sra/#{id}?report=full"
+     %>
+     <%= link_to id, url -%>
+     <%= "," unless id == rp[:sraids].last %>
+     <%
+      }
+    %>
+    </td>
+  </tr>
+  <%
+    }
+  %>
+</table>
+
+<% else %>
+<h3>No projects were found that met these criteria!</h3>
+<% end %>
