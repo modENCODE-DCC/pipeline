@@ -35,22 +35,29 @@
   %>
 <p/>
 <h3><center>
-<%
-  if @earliest == @latest then
-%>Projects released the week of <%= @earliest %>
-<%
- elsif @earliest != @seen_dates[1] || @latest != @seen_dates.last then
- %> Projects released from <%= @earliest %> to <%= @latest %>
- <% else %>
-  All Released Projects
-<% end %>
-<%
+<% last_real_date = @seen_dates[-2] %>
+<%= # Display in a title which projects are currently showing
+  case 
+    when @future_date == @earliest then
+      "Projects released since #{last_real_date}"
+    when @earliest == @latest then
+      "Projects released the week of #{ @earliest }"
+    when @earliest == @seen_dates[1] && @latest == @future_date then
+      "All Released Projects"
+    when @latest == @future_date then
+      "Projects released #{@earliest} or later"
+    else
+      "Projects released from #{@earliest} to #{@latest}"
+  end
+%>
+<%=
   case session[:hidden_geo_projs]
-    when :no_ids %>
-      with GEO or SRA IDs
-<%  when :has_id %>
-      with no ID associated
-<%end %>
+    when :no_ids
+      "with GEO or SRA IDs"
+    when :has_id
+      "with no ID associated"
+  end
+%>
 
 </center></h3><p/>
 

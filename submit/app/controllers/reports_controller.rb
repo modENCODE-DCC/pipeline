@@ -1,6 +1,7 @@
 require 'date'
 NIH_SPREADSHEET_TABLE = "/home/yostinso/tmp/reporting/output_nih.csv"
 GEO_REPORTED_PROJECTS = "/home/ekephart/tmp/reporting/released_and_notified.tsv"
+
 class Array
   def median
     self.size % 2 == 1 ? self.sort[self.size/2] : self.sort[self.size/2-1..self.size/2].sum.to_f/2
@@ -417,17 +418,17 @@ class ReportsController < ApplicationController
   # uses the NIH spreadsheet table to find all released submissions
   def self.get_released_submissions
     released_subs = []
+    cols = ReportsController.get_geoid_columns
     File.open(NIH_SPREADSHEET_TABLE).each{|line|
       fields = line.split "\t"
-      released_subs.push fields if fields[13] == "released"
+      released_subs.push fields if fields[cols["Status"]] == "released"
     }
     return released_subs
   end
   
-
-  
   # Finds all submissions released since the last time this was run
   def self.newly_released_submissions
+    cols = ReportsController.get_geoid_columns
     released_subs = ReportsController.get_released_submissions 
     already_notified = []
     File.open(GEO_REPORTED_PROJECTS).each{|proj|
@@ -436,7 +437,7 @@ class ReportsController < ApplicationController
       already_notified.push fields[0]
     }
     # Remove all subs for which a notification has already been sent
-    released_subs.reject!{|item| already_notified.include? item[14] }
+    released_subs.reject!{|item| already_notified.include? item[cols["Submission ID"]] }
     released_subs
   end
  
@@ -465,10 +466,23 @@ class ReportsController < ApplicationController
     [geoids, sraids]
   end
 
+  # Give a hash of column names => index for that name in the nih spreadsheet.
+  def self.get_geoid_columns
+    table = File.open(NIH_SPREADSHEET_TABLE)
+    cols = table.gets.split("\t")
+    table.close
+    cols.last.chomp!
+    col_hash = Hash.new
+    cols.each{|col| col_hash[col] = cols.index(col) }
+    col_hash
+  end
+  
   # Present a table of GEO IDs / SRA IDS
   def geoid_table
     # Get the dates released projects were emailed
-    reported_projects = Hash.new{}
+    # If a project doens't have a date, mark it
+    @future_date = Date.parse("2112-12-21") # Fake later-than-latest date for un-notified-yet projects
+    reported_projects = Hash.new{@future_date}
     @seen_dates = Array.new
     File.open(GEO_REPORTED_PROJECTS).each{|rep_proj|
       next if rep_proj.empty? || rep_proj.strip[0] == "#"
@@ -479,23 +493,26 @@ class ReportsController < ApplicationController
       @seen_dates.push notified_date unless (notified_date.nil?) || (@seen_dates.include? notified_date)
     }
     @seen_dates.sort!
-    @seen_dates.insert(0, "any time")
-    
-    oldest_release_date = @seen_dates[1]
+
+    oldest_release_date = @seen_dates[0]
     newest_release_date = @seen_dates.last
+    # Then, add the two special values
+    @seen_dates.insert(0, "any time")
+    @seen_dates.push("after #{@seen_dates.last.to_s}")
     
     # Open the NIH spreadsheet table
     # and parse out the relevant information
+    cols = ReportsController.get_geoid_columns 
     @projects = []
     ReportsController.get_released_submissions.each{|proj|
-      proj_id = proj[14].to_i
+      proj_id = proj[cols["Submission ID"]].to_i
       projhash =     
         {
           :id => proj_id,
-          :name => proj[0],
+          :name => proj[cols["Description"]],
           :date_notified => reported_projects[proj_id]
         }
-      (projhash[:geoids], projhash[:sraids]) = separate_geo_sra_ids(proj[15])  
+      (projhash[:geoids], projhash[:sraids]) = separate_geo_sra_ids(proj[cols["GEO/SRA IDs"]])  
       @projects.push(projhash)
     }
     # Remove hidden projects
@@ -516,22 +533,33 @@ class ReportsController < ApplicationController
   
     # Filtering by date
     # If prev_start & end don't exist, set them to oldest & newest
-    previous_start = params["prev_time_start"].nil? ? oldest_release_date : Date.parse(params["prev_time_start"])
-    previous_end = params["prev_time_end"].nil? ? newest_release_date : Date.parse(params["prev_time_end"])
-
+    if params["prev_time_start"] =~ /after/ then
+      previous_start = @future_date
+    else
+      previous_start = params["prev_time_start"].nil? ? oldest_release_date : Date.parse(params["prev_time_start"])
+    end
+    if params["prev_time_end"] =~ /after/ then
+      previous_end = @future_date
+    else
+      previous_end = params["prev_time_end"].nil? ? @future_date : Date.parse(params["prev_time_end"])
+    end
+    
     # If there's not a current date filter, roll forward the previous one
     if params["commit"] != "Go" then
       @earliest = previous_start
       @latest = previous_end
-      logger.info "NO GO : earliest = #{@earliest} and latest #{@latest} why"
     else
       # Set up the current filter
-      curr_start = params["time_start"] == "any time" ? oldest_release_date : Date.parse(params["time_start"])
+      if params["time_start"] =~ /after/ then
+        curr_start = @future_date
+      else
+        curr_start = params["time_start"] == "any time" ? oldest_release_date : Date.parse(params["time_start"])
+      end
       # If we want them only from one week, set it all to curr_start
       if params["same_week"] == "on" then
         @earliest = @latest = curr_start 
       else
-        curr_end = params["time_end"] == "any time" ? newest_release_date : Date.parse(params["time_end"])
+        curr_end = (( params["time_end"] == "any time") || (params["time_end"] =~ /after/ )) ? @future_date : Date.parse(params["time_end"])
         @earliest, @latest  = [curr_start, curr_end].sort
       end
     end
