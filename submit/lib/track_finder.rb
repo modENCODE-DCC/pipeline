@@ -818,12 +818,13 @@ class TrackFinder
               seen[row['data_value']] = true
               # Datum name
 #              begin
+                rowval = row['data_value'].nil? ? nil : row['data_value'][0...250],
                 TrackTag.new(
                   :experiment_id => experiment_id,
-                  :name => row['data_value'],
+                  :name => rowval,
                   :project_id => project_id,
                   :track => tracknum,
-                  :value => row['data_value'],
+                  :value => rowval,
                   :cvterm => row['data_type'],
                   :history_depth => history_depth
                 ).save
@@ -833,7 +834,7 @@ class TrackFinder
 #              begin
                 TrackTag.new(
                   :experiment_id => experiment_id,
-                  :name => row['data_value'],
+                  :name => rowval,
                   :project_id => project_id,
                   :track => tracknum,
                   :value => row['db_url'],
