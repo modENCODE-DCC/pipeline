@@ -97,14 +97,14 @@
     #modencode_ids = ["modENCODE Reference"]
     modencode_ids = ["referenced_submission"]
 
-    animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, animals])
-    #strain_reagents = TrackTag.find(:all, :conditions => ["project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, strains])
-    antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, antibodies])
-    array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, arrays])
-    sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, samples])
-    repository_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, external_ids])
-    modencode_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, modencode_ids])
-    condition_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?])", @project_id, conditions])
+    animal_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, animals])
+    #strain_reagents = TrackTag.find(:all, :conditions => ["project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, strains])
+    antibody_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, antibodies])
+    array_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, arrays])
+    sample_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, samples])
+    repository_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, external_ids])
+    modencode_records = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, modencode_ids])
+    condition_reagents = TrackTag.find(:all, :conditions => [ "project_id = ? AND cvterm = ANY(ARRAY[?]) AND value IS NOT NULL", @project_id, conditions])
 
   %>
 <%= "<h2>Experimental Reagents</h2>" if (antibody_reagents.size+array_reagents.size) > 0 %>
