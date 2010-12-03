@@ -352,7 +352,7 @@ class TrackFinder
                    HAVING 
                      count(wig.*) > 0 OR 
                      COUNT(df.*) > 0 OR 
-                     c.name = 'Sequence_Alignment/Map (SAM)'") 
+                     (c.name = 'Sequence_Alignment/Map (SAM)' OR c.name = 'Binary Sequence_Alignment/Map (BAM)')") 
     }
     @sth_get_features_by_data_ids = dbh_safe {
       @dbh.prepare("SELECT
@@ -1053,7 +1053,7 @@ class TrackFinder
               data_ids_with_features.push row["data_id"].to_i
             elsif row['number_of_wiggles'].to_i > 0 then
               data_ids_with_wiggles.push row["data_id"].to_i
-            elsif row['type'] == "Sequence_Alignment/Map (SAM)" then
+            elsif row['type'] == "Sequence_Alignment/Map (SAM)" || row['type'] == "Binary Sequence_Alignment/Map (BAM)" then
               data_ids_with_sam_files.push row["data_id"]
             end
           end
