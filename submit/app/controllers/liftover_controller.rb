@@ -25,9 +25,11 @@ class LiftoverController < CommandController
   # Constructs the liftover command
   def liftover_command(srcpath, destpath, srcver, destver)
     path_to_liftover = File.join(RAILS_ROOT, "script", "liftover")
-    base_cmd = "java " +
-      "-cp #{File.join(path_to_liftover, "liftover/bin/")}:#{File.join(path_to_liftover, "picard/bin/")}:#{File.join(path_to_liftover, "liftover/lib/JSAP-2.1.jar")} " +
-      "org.modencode.tools.liftover.Liftover"
+    base_cmd = "java -jar #{File.join(path_to_liftover, "WormbaseLiftover.jar")}"
+
+    #base_cmd = "java " +
+    #  "-cp #{File.join(path_to_liftover, "liftover/bin/")}:#{File.join(path_to_liftover, "picard/bin/")}:#{File.join(path_to_liftover, "liftover/lib/JSAP-2.1.jar")} " +
+    #  "org.modencode.tools.liftover.Liftover"
    
     filetype_flag = case File.extname(srcpath.downcase)
       when ".gff", ".gff3"
@@ -40,7 +42,8 @@ class LiftoverController < CommandController
         "-b"
       else
         "-x"
-        command_object.stderr += "\nWanted to lift #{File.basename srcpath} but couldn't detect type!"
+        command_object.stdout += "\n#{Liftover::ERR_BEG}Wanted to lift #{File.basename srcpath
+          } but couldn't detect type!#{Liftover::ERR_END}"
         command_object.stdout += "\nCan't lift #{File.basename srcpath}--type can't be detected from extension"
         # You'll never get here from normal user-running of program
         return false
@@ -117,6 +120,9 @@ class LiftoverController < CommandController
   def system_with_logging(system_command)
     last_update = Time.now
     (exitvalue, errormessage) = Open5.popen5(system_command) { |stdin, stdout, stderr, exitvaluechannel, sidechannel|
+      # Send both stdout and stderr to the command's stdout
+      cmd_out = ""
+      cmd_err = Liftover::ERR_BEG 
       while result = IO.select([stdout, stderr], nil, nil) do
         break if result[0].empty? # End if we got EOF
         # Read a character
@@ -133,8 +139,18 @@ class LiftoverController < CommandController
           # Break the loop if we're at EOF for both stderr and stdout
           break
         end
-        command_object.stdout += out_chr unless out_chr.nil?
-        command_object.stderr += err_chr unless err_chr.nil?
+        cmd_out += out_chr unless out_chr.nil?
+        cmd_err += err_chr unless err_chr.nil?
+
+        # If we've gotten a newline, write the line
+        if (out_chr == "\n" || out_chr == "\r") then
+          command_object.stdout += cmd_out
+          cmd_out = ""
+        end
+        if (err_chr == "\n" || err_chr == "\r") then
+          command_object.stdout += cmd_err + Liftover::ERR_END
+          cmd_err = Liftover::ERR_BEG
+        end
 
         # Save the Liftover object if it's been 2 seconds and the last chr read
         # from one of the pipes was a newline - application-side flushing, basically
@@ -150,6 +166,10 @@ class LiftoverController < CommandController
           end
         end
       end # while result
+      # Write any remaining chars
+      command_object.stdout += cmd_out
+      command_object.stdout += cmd_err + Liftover::ERR_END unless cmd_err == Liftover::ERR_BEG # Only write nonempty err
+
       command_object.save
       exitvalue = exitvaluechannel[0].read.to_i
       errormessage = sidechannel[0].read
@@ -158,13 +178,34 @@ class LiftoverController < CommandController
     [exitvalue, errormessage]
   end
   
+  # Search filename for comments that were included by the liftover process,
+  # and insert them into the Liftover's stderr.
+  def find_liftover_comments(fullpath)
+    liftover_comment = /^\s*#liftover:/ # The string to check for
+    lifted = File.open(fullpath)
+    found_comment = false
+    while line = lifted.gets
+      if line =~ liftover_comment then
+        found_comment = true
+        command_object.stderr += ">> #{line.sub("#liftover: ", "")}"
+        # TODO : also include the following un-commented lines
+        # ie, the next line for most thing, or the entire next
+        # fasta-feature.
+      end
+    end
+    lifted.close
+    command_object.stderr += "(none)\n" unless found_comment 
+    command_object.save 
+  end
+
+  
   # Run assumes that a) the project being lifted is worm and
   # b) the project is currently in the WS it's given. Checks need to be made elsewhere.
   def run
     super do
       command_object.status = Liftover::Status::LIFTING
       command_object.stdout = command_object.stderr = ""
-      command_object.stdout += "Running liftover: #{command_object.command}!"
+      command_object.stdout += "Running liftover from #{command_object.command.gsub(/(\d+)/, 'WS\1')}."
       command_object.save
       
       project_dir = PipelineController.new.path_to_project_dir(command_object.project)
@@ -180,9 +221,9 @@ class LiftoverController < CommandController
       debug "Lifting into an archive! " if archive_only
 
       unless sourceWS && destWS then
-        command_object.stderr += "\nCannot lift without a non-nil source and" + 
-        " destination genome build. Source was #{sourceWS.inspect} and" +
-        " destination was #{destWS.inspect}."
+        command_object.stdout += "\n#{Liftover::ERR_BEG}Cannot lift without a non-nil source and" + 
+        " destination genome build! Source is #{sourceWS.inspect} and" +
+        " destination is #{destWS.inspect}#{Liftover::ERR_END}."
         command_object.status = Liftover::Status::LIFTOVER_FAILED
         command_object.save
         return false
@@ -206,9 +247,9 @@ class LiftoverController < CommandController
       # Make WSdest folder to hold lifted files temporarily.
       # TODO : Should complain if there's the same folder [possibly with different caps]?
       if File.exist? dest_dir then
-        command_object.stdout += "\nLiftover folder #{dest_dir} exists in "+
-          "extracted&mdash;the project may have been lifted already; try deactivating the archive "+
-          "containing the #{dest_dir} folder."
+        command_object.stdout += "\n#{Liftover::ERR_BEG}Liftover folder #{dest_dir} exists in "+
+          "extracted&mdash;the project may have been lifted already. Try deactivating the archive "+
+          "containing the #{dest_dir} folder.#{Liftover::ERR_END}"
         command_object.status = Liftover::Status::LIFTOVER_FAILED
         command_object.save
         return false
@@ -218,8 +259,10 @@ class LiftoverController < CommandController
   
       # Also make dir that originals will be copied into late
       if File.exist? source_dir then
-        command_object.stdout += "\nCouldn't make #{source_dir} to store originals--it already " +
-          " exists! Has this project already been lifted in-place?" 
+        truncated_source_dir = source_dir.sub(/.*?extracted\//, "")
+        command_object.stdout += "\n#{Liftover::ERR_BEG}Couldn't make dir #{truncated_source_dir} " +
+          "to store original files: it already exists! There is likely an active archive that " +
+          "has already been lifted from WS#{sourceWS}.#{Liftover::ERR_END}" 
         command_object.status = Liftover::Status::LIFTOVER_FAILED
         command_object.save
         return false
@@ -230,7 +273,7 @@ class LiftoverController < CommandController
       lifted_files = [] # Path to files successfully lifted
       # Lift each file!
       files_to_convert.each{|src_fullpath|
-        debug "Now lifting #{src_fullpath}"
+        debug "Now lifting #{src_fullpath}\n"
         # Make the directory tree in the destination ws dir if necessary
         # also make it in the source WS dir now - we'll copy those files later.
 
@@ -252,7 +295,7 @@ class LiftoverController < CommandController
 
         # make the liftover command
         liftover_cmd = liftover_command(src_fullpath, dest_fullpath, sourceWS, destWS)
-        command_object.stdout += "\n   Now lifting #{localpath}" # Show containing folders
+        command_object.stdout += "\n   Now lifting #{localpath}\n" # Show containing folders
         exitvalue = errormessage = nil
         if debug? then
           debug "\nConstructed liftover command: #{liftover_cmd}"
@@ -264,13 +307,18 @@ class LiftoverController < CommandController
         end
         unless exitvalue == 0 then
           # Error!
-          command_object.stderr += "\nError lifting #{src_fullpath}"
-          command_object.stdout += "\nAn error was detected! Liftover will now exit."
+          command_object.stdout += "\n#{Liftover::ERR_BEG}Error lifting #{src_fullpath}"
+          command_object.stdout += "\nAn error was detected! Liftover will now exit.#{Liftover::ERR_END}"
           command_object.stdout += "\nThis project should be re-expanded."
           command_object.status = Liftover::Status::LIFTOVER_FAILED
           command_object.save
           return false
         end 
+        # After lifting the file, grep through it to find any internal changes and report them
+        # to the stderr field.
+        # Put the name of the file & the comments inside it
+        command_object.stderr += "\nFile #{localpath}:\n"
+        find_liftover_comments(dest_fullpath)
       }
       
       # Lifting finished! Clean up based on whether we're making a lifted
@@ -299,7 +347,8 @@ class LiftoverController < CommandController
           source_lifted = main_dir_file.sub(extracted_dir , dest_dir)
           # Check that we aren't clobbering any files -- they should have already been moved!
           if File.exist? main_dir_file then
-            command_object.stderr += "\nFound file #{main_dir_file} that should have been moved!"
+            command_object.stdout += "\n#{Liftover::ERR_BEG}Found file #{main_dir_file} that should have been moved!"
+            command_object.stdout += Liftover::ERR_END
             # Assume something went wrong earlier and abort
             command_object.stdout += "\nProblem moving lifted files! Liftover will now exit."
             command_object.stdout += "\nThis project should be re-expanded."
