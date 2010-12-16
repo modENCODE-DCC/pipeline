@@ -11,6 +11,6 @@
     <% next if command.nil? %>
     <br/>
     <%= command.class.name %>: 
-    <%= Inflector.ordinalize(all_queued_commands.index(command)+1) %> in the queue.
+    <%= queued_cmd_idx = all_queued_commands.index(command); queued_cmd_idx ? Inflector.ordinalize(queued_cmd_idx+1) : "Not" %> in the queue.
   <% end %>
 <% end %>
