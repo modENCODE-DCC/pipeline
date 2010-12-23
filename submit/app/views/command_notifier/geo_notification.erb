@@ -1,0 +1,37 @@
+Hello <%= @name %>,
+
+The following projects have been recently released.
+You can always find a list of released projects and their GEO & SRA ids at
+<%= url_for(:host => @hostname, :controller => "submit/reports",
+:action => :geoid_table) %>.
+
+------ Projects with GEO or SRA IDs ------
+<% if @subs_with_geo.empty? then %>
+  No projects with GEO or SRA IDs have been
+  released since the previous email.
+<% else %>
+  <% @subs_with_geo.each{|sub|
+    %>
+      <%= sub[14] # ID 
+      -%>	<%= sub[0] # name
+      -%>	<%= sub[15] # geoids
+      -%>
+      <%
+  }
+  %>
+<% end %>
+------ Projects without GEO or SRA IDs ------
+<% if @subs_no_geo.empty? then %>
+ No projects without IDs have been 
+ released since the previous email.
+<% else %>
+  <% @subs_no_geo.each{|sub|
+    %>
+      <%= sub[14] # ID 
+      -%> <%= sub[0] # name
+      -%>
+      <%
+  }
+  %>
+<% end %>
+----------

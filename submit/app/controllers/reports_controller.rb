@@ -1,5 +1,5 @@
 require 'date'
-NIH_SPREADSHEET_TABLE = "/home/yostinso/tmp/reporting/output_nih.csv"
+#NIH_SPREADSHEET_TABLE = "/home/yostinso/tmp/reporting/output_nih.csv"
 GEO_REPORTED_PROJECTS = "/home/ekephart/tmp/reporting/released_and_notified.tsv"
 
 class Array
@@ -415,11 +415,23 @@ class ReportsController < ApplicationController
 
   end
   
+  # Returns full path to most recently generated version of NIH spreadsheet
+  def self.nih_spreadsheet_table
+    basepath = "/modencode/raw/tools/report/output"
+    basepath = "/users/ekephart/deletemenih"
+    all_nih_spreadsheet = Dir.glob(File.join(basepath, "output_nih_*.csv"))
+    basename = /output_nih_(.*)\.csv/
+    all_nih_spreadsheet.sort!{|s1, s2|
+      Date.parse(basename.match(s1).to_s) <=> Date.parse(basename.match(s2).to_s)
+      }
+    all_nih_spreadsheet.last
+  end
+  
   # uses the NIH spreadsheet table to find all released submissions
   def self.get_released_submissions
     released_subs = []
     cols = ReportsController.get_geoid_columns
-    File.open(NIH_SPREADSHEET_TABLE).each{|line|
+    File.open(nih_spreadsheet_table()).each{|line|
       fields = line.split "\t"
       released_subs.push fields if fields[cols["Status"]] == "released"
     }
@@ -468,7 +480,7 @@ class ReportsController < ApplicationController
 
   # Give a hash of column names => index for that name in the nih spreadsheet.
   def self.get_geoid_columns
-    table = File.open(NIH_SPREADSHEET_TABLE)
+    table = File.open(nih_spreadsheet_table())
     cols = table.gets.split("\t")
     table.close
     cols.last.chomp!

@@ -2,6 +2,7 @@ class CommandNotifier < ActionMailer::Base
   MIN_RUNTIME_NOTIFY = 60*10 # Ten minutes
   SUBJECT_TEMPLATE = "A modENCODE submission pipeline notification"
   SUBJECT_TEMPLATE_CHAINING = "Your modENCODE submission has been processed!"
+  GEO_SUBJECT_TEMPLATE = "Newly released submissions : GEO & SRA IDs"
   def self.send_batched_notifications
     messages = EmailMessage.all
     logger.info("Sending #{messages.size} batched messages")
@@ -68,7 +69,36 @@ class CommandNotifier < ActionMailer::Base
         CommandNotifier.deliver_command_notification_for_liason(liason, command)
       end
     end
+  
+  end
+ 
+  # Once a week, send an email notifying about geoids.
+  def self.process_geo_notifications(to_user, cc_user, host)
+    # Only process emails on Mondays
+    return unless Time.now.wday == 1
+    new_subs = ReportsController.newly_released_submissions
+    sorted_subs = Hash.new
+    sorted_subs[:with_geo] = new_subs.reject{|sub|
+      sub[15].empty?
+     }
+    sorted_subs[:no_geo] = new_subs.reject{|sub|
+      !sub[15].empty?
+    }
+    CommandNotifier.deliver_geo_notification(to_user, cc_user, sorted_subs, host)
+    ReportsController.mark_subs_as_notified(new_subs.map{|sub| sub[14]})
+  end
 
+  # This method sends an email listing newly released submissions and their GEO / SRA ID.
+  def geo_notification(to_user, cc_user, new_subs, hostname)
+    recipients  "#{to_user.name} <#{to_user.email}>"
+    cc          "#{cc_user.name} <#{cc_user.email}>"
+    from        "pipeline@modencode.org"
+    reply_to    "help@modencode.org"
+    subject     GEO_SUBJECT_TEMPLATE
+    body        :name => to_user.name.split(/ /).first,
+                :subs_with_geo => new_subs[:with_geo],
+                :subs_no_geo => new_subs[:no_geo],
+                :hostname => hostname
   end
 
   def command_notification_for_liason(to_user, *commands)
