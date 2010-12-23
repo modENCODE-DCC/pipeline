@@ -1,6 +1,6 @@
 require 'date'
-#NIH_SPREADSHEET_TABLE = "/home/yostinso/tmp/reporting/output_nih.csv"
-GEO_REPORTED_PROJECTS = "/home/ekephart/tmp/reporting/released_and_notified.tsv"
+# Path to the list of released projects that have been included in a notification email
+GEO_REPORTED_PROJECTS = "/modencode/raw/tools/reporter/released_and_notified.tsv"
 
 class Array
   def median
@@ -417,8 +417,7 @@ class ReportsController < ApplicationController
   
   # Returns full path to most recently generated version of NIH spreadsheet
   def self.nih_spreadsheet_table
-    basepath = "/modencode/raw/tools/report/output"
-    basepath = "/users/ekephart/deletemenih"
+    basepath = "/modencode/raw/tools/reporter/output"
     all_nih_spreadsheet = Dir.glob(File.join(basepath, "output_nih_*.csv"))
     basename = /output_nih_(.*)\.csv/
     all_nih_spreadsheet.sort!{|s1, s2|

@@ -10,4 +10,14 @@ require 'config/environment'
 
 CommandNotifier.logger.level = Logger::INFO
 CommandNotifier.send_batched_notifications
-CommandNotifier.process_geo_notifications(User.find(84), User.find(84), "smaug.lbl.gov")
+wranglers =
+  [
+    User.find_by_login("yostinso"),
+    User.find_by_login("pruzanov"),
+    User.find_by_login("MPerry"),
+    User.find_by_login("ellen"),
+    User.find_by_login("paul")
+  ]
+
+zheng = User.find_by_login("zhengzha")
+CommandNotifier.process_geo_notifications(zheng, wranglers, "submit.modencode.org")
