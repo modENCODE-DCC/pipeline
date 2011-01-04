@@ -73,25 +73,29 @@ class CommandNotifier < ActionMailer::Base
   end
  
   # Once a week, send an email notifying about geoids.
-  def self.process_geo_notifications(to_user, cc_user, host)
+  # to_user = single user ; cc_users = an array
+  # cc_users = array
+  def self.process_geo_notifications(to_user, cc_users, host)
     # Only process emails on Mondays
     return unless Time.now.wday == 1
+    cols = ReportsController.get_geoid_columns
+    
     new_subs = ReportsController.newly_released_submissions
     sorted_subs = Hash.new
     sorted_subs[:with_geo] = new_subs.reject{|sub|
-      sub[15].empty?
+      sub[cols["GEO/SRA IDs"]].empty?
      }
     sorted_subs[:no_geo] = new_subs.reject{|sub|
-      !sub[15].empty?
+      !sub[cols["GEO/SRA IDs"]].empty?
     }
-    CommandNotifier.deliver_geo_notification(to_user, cc_user, sorted_subs, host)
-    ReportsController.mark_subs_as_notified(new_subs.map{|sub| sub[14]})
+    CommandNotifier.deliver_geo_notification(to_user, cc_users, sorted_subs, host)
+    ReportsController.mark_subs_as_notified(new_subs.map{|sub| sub[cols["Submission ID"]]})
   end
 
   # This method sends an email listing newly released submissions and their GEO / SRA ID.
-  def geo_notification(to_user, cc_user, new_subs, hostname)
+  def geo_notification(to_user, cc_users, new_subs, hostname)
     recipients  "#{to_user.name} <#{to_user.email}>"
-    cc          "#{cc_user.name} <#{cc_user.email}>"
+    cc          cc_users.map{|user| "#{user.name} <#{user.email}>"}
     from        "pipeline@modencode.org"
     reply_to    "help@modencode.org"
     subject     GEO_SUBJECT_TEMPLATE

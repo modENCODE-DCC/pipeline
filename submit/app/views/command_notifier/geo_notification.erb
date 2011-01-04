@@ -5,16 +5,20 @@ You can always find a list of released projects and their GEO & SRA ids at
 <%= url_for(:host => @hostname, :controller => "submit/reports",
 :action => :geoid_table) %>.
 
+<%
+  cols = ReportsController.get_geoid_columns
+%>
 ------ Projects with GEO or SRA IDs ------
 <% if @subs_with_geo.empty? then %>
   No projects with GEO or SRA IDs have been
   released since the previous email.
 <% else %>
+Project ID	GEO & SRA IDs	Name
   <% @subs_with_geo.each{|sub|
     %>
-      <%= sub[14] # ID 
-      -%>	<%= sub[0] # name
-      -%>	<%= sub[15] # geoids
+      <%= sub[cols["Submission ID"]] # ID 
+      -%>	<%= sub[cols["GEO/SRA IDs"]] # geoids
+      -%>	<%= sub[cols["Description"]] # name
       -%>
       <%
   }
@@ -25,10 +29,11 @@ You can always find a list of released projects and their GEO & SRA ids at
  No projects without IDs have been 
  released since the previous email.
 <% else %>
+Project ID	Name 
   <% @subs_no_geo.each{|sub|
     %>
-      <%= sub[14] # ID 
-      -%> <%= sub[0] # name
+      <%= sub[cols["Submission ID"]] # ID 
+      -%>	<%= sub[cols["Description"]] # name
       -%>
       <%
   }
