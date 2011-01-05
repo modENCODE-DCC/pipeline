@@ -214,7 +214,7 @@ class ReportsController < ApplicationController
 
   def levels
     index
-    pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
+    pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Oliver","Piano","Snyder","Waterston","White"]
     levels = [0,1,2,3]
     level_names = levels.map{|l| "Level "+l.to_s}
 
@@ -253,7 +253,7 @@ class ReportsController < ApplicationController
 
     @quarters = quarters
     #these are the pis to include in the display - modify to add additional pis	
-    pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Piano","Snyder","Waterston","White"]
+    pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Oliver","Piano","Snyder","Waterston","White"]
     status = ["New","Uploaded","Validated","DBLoad","Trk found","Configured","Aprvl-PI","Aprvl-DCC","Aprvl-Both","Published"]
     @all_status = status
     active_status = status[0..6]
