@@ -28,7 +28,7 @@ Numbers in parentheses indicate the total for that particular level.
       data_hash = Hash.new{|k,v| k[v] = []}
       @all_distribution_levels_by_pi.sort.each{|pi,level| level.map{|k,v| data_hash[k] += [v]}}
       legend = @all_distribution_levels_by_pi.sort.map{|pi,level| pi}
-      pi_colors=["ff0000","ff9900","ffff00","00cc00","00ccff","0033ff","9999ff","9900cc","cc0099","660066","666666"]
+      pi_colors=["ff0000","ff9900","ffff00","00cc00","00ccff","0033ff","9999ff","9900cc","cc0099","660066","cc00cc","666666"]
       color = ["cccccc","cc0099", "ffff00", "00cc00"]
     %>
 

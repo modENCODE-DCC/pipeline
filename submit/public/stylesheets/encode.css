@@ -44,14 +44,16 @@ tr.Lieb th { background-color: #00ccff; }
 tr.Lieb td { background-color: #adefff; }
 tr.MacAlpine th { background-color: #0033ff; }
 tr.MacAlpine td { background-color: #bdcbff; }
-tr.Piano th { background-color: #9999ff; }
-tr.Piano td { background-color: #e0e0ff; }
-tr.Snyder th { background-color: #9900cc; }
-tr.Snyder td { background-color: #deb8eb; }
-tr.Waterston th { background-color: #cc0099; }
-tr.Waterston td { background-color: #ffd9f6; }
-tr.White th { background-color: #660066; text-align: right; width: 15px; }
-tr.White td { background-color: #cabbca; height: 25px; }
+tr.Oliver th { background-color: #9999ff; }
+tr.Oliver td { background-color: #e0e0ff; }
+tr.Piano th { background-color: #9900cc; }
+tr.Piano td { background-color: #deb8eb; }
+tr.Snyder th { background-color: #cc0099; }
+tr.Snyder td { background-color: #ffd9f6; }
+tr.Waterston th { background-color: #660066; }
+tr.Waterston td { background-color: #cabbca; }
+tr.White th { background-color: #cc00cc; text-align: right; width: 15px; }
+tr.White td { background-color: #dacada; height: 25px; }
 
 tr.Active th { background-color: #cccccc; }
 tr.Active td { background-color: #e6e6e6; }
