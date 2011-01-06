@@ -1858,7 +1858,7 @@ class PipelineController < ApplicationController
     else
       response = "1;"
       if update_errors.size > 0 then
-        response = "alert('#{update_errors.map { |ue| ue.gsub(/\n/, "\\n") }.join('\n').gsub("'", "\\'")}');"
+        response = "alert('#{update_errors.map { |ue| ue.gsub(/\n/, "\\n") }.join('\n').gsub(/'/, "\\\\'")}');"
       end
       render :text => response
     end
