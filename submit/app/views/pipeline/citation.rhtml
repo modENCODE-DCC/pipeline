@@ -33,8 +33,8 @@
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
         url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
-        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
-        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
+        link_to(h(protocol_name), "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(h(protocol_name), url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -47,8 +47,8 @@
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
         url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
-        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
-        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
+        link_to(h(protocol_name), "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(h(protocol_name), url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -61,8 +61,8 @@
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
         url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
-        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
-        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
+        link_to(h(protocol_name), "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(h(protocol_name), url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ") : "[Please Fill In]"
       %>
     </li>
@@ -75,8 +75,8 @@
           p1.history_depth <=> p2.history_depth 
         }.map { |protocol| protocol.name }.uniq.map { |protocol_name| 
         url_tags.find { |ut| ut.name == protocol_name }.value.nil? ? 
-        link_to(protocol_name, "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
-        link_to(protocol_name, url_tags.find { |ut| ut.name == protocol_name }.value)
+        link_to(h(protocol_name), "http://wiki.modencode.org/project/index.php?title=#{protocol_name}") : 
+        link_to(h(protocol_name), url_tags.find { |ut| ut.name == protocol_name }.value)
         }.join(", ")
       %>
     </li>
@@ -118,7 +118,7 @@
           counter += 1
           name = tag.value 
 	  #name += tag.name=="age" ? "h" : ""
-	  name
+	  h name
         }.uniq.join(", ") 
      %>
       <%= ", and #{condition_reagents.size - @max_entries} more." if condition_reagents.size > @max_entries %>
@@ -135,13 +135,13 @@
 
         short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
         if url_tag then
-          link_to short_name, "#{url_tag.value}#{name}"
+          link_to h(short_name), "#{url_tag.value}#{name}"
         elsif name =~ /^[A-Z]\w+:/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         else
-          short_name
+          h(short_name)
         end
       }.uniq.join(", ") %>
       <%= ", and #{antibody_reagents.size - @max_entries} more." if antibody_reagents.size > @max_entries %>
@@ -157,13 +157,13 @@
 
         short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
         if url_tag then
-          link_to short_name, "#{url_tag.value}#{name}"
+          link_to h(short_name), "#{url_tag.value}#{name}"
         elsif name =~ /^[A-Z]\w+:/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-          link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         else
-          short_name
+          h(short_name)
         end
       }.uniq.join(", ") %>
       <%= ", and #{array_reagents.size - @max_entries} more." if array_reagents.size > @max_entries %>
@@ -185,13 +185,13 @@
           name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
           short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
           if url_tag then
-            link_to short_name, "#{url_tag.value}#{name}"
+            link_to h(short_name), "#{url_tag.value}#{name}"
           elsif name =~ /^[A-Z]\w+:/ then
-            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+            link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
           elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-            link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+            link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
           else
-            short_name
+            h(short_name)
           end
         }.uniq.join(", ") 
       %>
@@ -212,16 +212,16 @@
         short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
 	v = ""
         if url_tag then
-          v = link_to short_name, "#{url_tag.value}#{name}"
+          v = link_to h(short_name), "#{url_tag.value}#{name}"
         elsif name =~ /^[A-Z]\w+:/ then
-          v = link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          v = link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         elsif name =~ /&oldid=/ || name =~ /&amp;oldid=/ then
-          v = link_to short_name, "http://wiki.modencode.org/project/index.php?title=#{name}"
+          v = link_to h(short_name), "http://wiki.modencode.org/project/index.php?title=#{name}"
         else
-          v = short_name
+          v = h(short_name)
         end
 	if related_tag then
-          v += " (DCC-#{related_tag.value})"
+          v += " (DCC-#{h(related_tag.value)})"
 	end
 	v
       }.uniq.join(", ") %>
@@ -237,15 +237,15 @@
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, external_ids)
 
         if url_tag then
-          link_to name_tag.value, url_tag.value
+          link_to h(name_tag.value), url_tag.value
         elsif name_tag then
           if (name_tag.cvterm == "TraceArchive_record") then
-            "TA:" + name_tag.value
+            "TA:" + h(name_tag.value)
           else
-            name_tag.value
+            h(name_tag.value)
           end
         else
-          tag.cvterm + ":" + name
+          h(tag.cvterm + ":" + name)
         end
       }.uniq.join(", ") %>
       <%= ", and #{repository_records.size - @max_entries} more." if repository_records.size > @max_entries %>
@@ -261,7 +261,7 @@
      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         submission_num = tag.value.to_i 
         begin
-	"<li><b>DCC-#{submission_num}</b>: #{link_to Project.find(submission_num).name, :action => 'citation', :controller => 'public', :id => submission_num}</li>"
+          "<li><b>DCC-#{submission_num}</b>: #{link_to Project.find(submission_num).name, :action => 'citation', :controller => 'public', :id => submission_num}</li>"
         rescue
           "<li><b>DCC-#{submission_num}</b></li>"
         end
@@ -273,7 +273,7 @@
 	p = Project.find(id)
         
         url = "/submit/public/citation/#{p.id}"
-        "<li><b>DCC-#{p.id.to_s}</b>: #{link_to(p.name, url) }</li>"
+        "<li><b>DCC-#{p.id.to_s}</b>: #{link_to(h(p.name), url) }</li>"
 	}.uniq.join("\n") 
   %>
 </ul>
