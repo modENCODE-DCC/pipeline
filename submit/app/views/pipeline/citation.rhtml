@@ -261,7 +261,7 @@
      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         submission_num = tag.value.to_i 
         begin
-          "<li><b>DCC-#{submission_num}</b>: #{link_to Project.find(submission_num).name, :action => 'citation', :controller => 'public', :id => submission_num}</li>"
+          "<li><b>DCC-#{submission_num}</b>: #{link_to h(Project.find(submission_num).name), "/submit/public/citation/" + submission_num.to_s}</li>"
         rescue
           "<li><b>DCC-#{submission_num}</b></li>"
         end
