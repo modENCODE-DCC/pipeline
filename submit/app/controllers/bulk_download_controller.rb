@@ -296,17 +296,51 @@ class BulkDownloadController < ApplicationController
         freeze_files[organism].push [ date, fname ]
       }
     end
+
+    # Nightlies
+    freeze_dir = "#{RAILS_ROOT}/config/freeze_data/nightly/"
+    if File.directory? freeze_dir then
+      Dir.glob(File.join(freeze_dir, "celegans_*.csv")).each { |f| 
+        fname = File.basename(f)[0..-5]
+        (organism, date) = fname.split(/_/)
+        organism = organism[0..0].upcase + ". " + organism[1..-1]
+        freeze_files[organism + " nightlies"].push [ date, fname ]
+      }
+      Dir.glob(File.join(freeze_dir, "dmelanogaster_*.csv")).each { |f| 
+        fname = File.basename(f)[0..-5]
+        (organism, date) = fname.split(/_/)
+        organism = organism[0..0].upcase + ". " + organism[1..-1]
+        freeze_files[organism + " nightlies"].push [ date, fname ]
+      }
+    end
+
     freeze_files = freeze_files.to_a
     freeze_files = freeze_files + { "Combined" => freeze_files.map { |k, v| v }.flatten(1).reject { |f| f.nil? }.map { |f| [ f[0], "combined_#{f[0]}" ] }.uniq }.to_a
     freeze_files.each { |file, dates| dates.sort! { |d1, d2| Date.parse(d2[0]) <=> Date.parse(d1[0]) } }
     freeze_files.each { |file, dates| dates.each { |date| date[0] += " #{date[1][0..3]}" unless date.nil?; }; dates.first[0] += " (newest)" if dates.first }
+    @sort_order = {
+      "" => 0,
+      "C. elegans nightlies" => 1,
+      "D. melanogaster nightlies" => 2,
+      "C. elegans" => 3,
+      "D. melanogaster" => 4,
+      "Combined" => 5
+    }
+    freeze_files = freeze_files.to_a.sort { |group1, group2| @sort_order[group1[0]] <=> @sort_order[group2[0]] }
     return freeze_files
   end
   def get_freeze_data(freeze_files)
     data = Array.new
     freeze_files.each { |freeze_file|
-      if File.exists? "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv" then
-        File.open("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") { |f|
+      filename = nil
+      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
+      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+      end
+
+      if filename then
+        File.open(filename) { |f|
           headers = f.gets.chomp.split(/\t/)
           while ((line = f.gets) != nil) do
             fields = line.chomp.split(/\t/).map { |field| (field == "" ? "N/A" : field) }
@@ -330,7 +364,7 @@ class BulkDownloadController < ApplicationController
       "Platform" => :array_platforms,
       "Compound" => :compounds,
       "RNAi Target" => :rnai_targets,
-      "Stage/Treatment" => :stages
+      "Stage/Treatment" => :stages,
     }
 
     if freeze_data.find { |project_info| project_info["Experimental Factor"] } then
@@ -347,10 +381,13 @@ class BulkDownloadController < ApplicationController
         }
 
         project_info[:antibodies]      = factors["AbName"].zip(factors["Target"]).map { |pair| pair.join("=>") }
-        project_info[:array_platforms] = factors["Platform"]
+        project_info[:array_platforms] = (factors["Platform"].blank? ? factors["ArrayPlatform"] : factors["Platform"])
         project_info[:compounds]       = factors["SaltConcentration"].map  { |compound| "SaltConcentration=#{compound}" }
         project_info[:rnai_targets]    = treatments["RNAiTarget"]
-        project_info[:stages]          = project_info["Stage"].split(/, /)
+        stage_info = (project_info["Stage"] || project_info["Stage/Treatment"] || "")
+        stage_info_m = stage_info.match(/^(.*):/)
+        project_info[:stages]          = stage_info_m.nil? ? stage_info.split(/,\s*/) : [ stage_info_m[1] ]
+        project_info["Stage"]          = stage_info_m.nil? ? stage_info.split(/,\s*/) : [ stage_info_m[1] ]
         project_info[:submission_id]   = project_info["Submission ID"].sub(/ .*/, '')
 
         project_info[:antibodies] = ["N/A"] if project_info[:antibodies].size == 0
