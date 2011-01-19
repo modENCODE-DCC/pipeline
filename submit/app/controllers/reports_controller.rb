@@ -1,6 +1,5 @@
 require 'date'
 # Path to the list of released projects that have been included in a notification email
-GEO_REPORTED_PROJECTS = "/modencode/raw/tools/reporter/released_and_notified.tsv"
 
 class Array
   def median
@@ -62,23 +61,40 @@ class ReportsController < ApplicationController
     end
   end
 
-  def nih_summary
-    unless params[:filter] then
-      redirect_to :action => :nih_summary, :filter => "released"
-      return
+  def nih_spreadsheet
+    @freeze_files = get_freeze_files
+    @selected_freeze = params[:freeze].nil? ? "" : params[:freeze]
+    unless params[:commit].nil? then
+      just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
+      selected_freeze_files = just_filenames.find_all { |fname| fname == params[:freeze] }.map { |fname| 
+        if fname =~ /^combined_/ then
+          date = fname.match(/^combined_(.*)/)[1]
+          [ "dmelanogaster_#{date}", "celegans_#{date}" ]
+        else
+          fname
+        end
+      }.flatten
+      if params[:commit] == "View" then
+        ( @data, @headers ) = get_freeze_data(selected_freeze_files)
+        @data.each { |d| d.delete_if { |x, y| x.is_a?(Symbol) } }
+      elsif params[:commit] == "Download" then
+        freeze_file = selected_freeze_files.first
+        filename = nil
+        if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
+          filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
+        elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
+          filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+        end
+        if File.exists?(filename) then
+          send_file filename, :x_sendfile => true, :type => "text/csv"
+        else
+          flash[:error] = "File not found"
+        end
+      end
     end
-
-    @filter = params[:filter] == "released" ? { "Released Data Sets" => true } : { "Unreleased Data Sets" => false }
-    @all_types_by_project = TrackTag.find(:all, :conditions => { :name => "Feature" }, :select => "cvterm, project_id", :group => "cvterm, project_id")
-
-    if params[:mode] == "tsv" then
-      @tsv = true
-      headers['Content-Type'] = "text/csv"
-      render :action => :nih_summary_tsv, :layout => false
-    end
+    @freeze_files = @freeze_files.find { |ff| !ff[0].empty? }[1]
+    @freeze_files.each { |ff| ff[0].sub!(/\s+\S+/, '') }
   end
-
-
   def vetting_stats
     index
   end
@@ -417,8 +433,7 @@ class ReportsController < ApplicationController
   
   # Returns full path to most recently generated version of NIH spreadsheet
   def self.nih_spreadsheet_table
-    basepath = "/modencode/raw/tools/reporter/output"
-    all_nih_spreadsheet = Dir.glob(File.join(basepath, "output_nih_*.csv"))
+    all_nih_spreadsheet = Dir.glob(File.join(nightlies_dir, "output_nih_*.csv"))
     basename = /output_nih_(.*)\.csv/
     all_nih_spreadsheet.sort!{|s1, s2|
       Date.parse(basename.match(s1).to_s) <=> Date.parse(basename.match(s2).to_s)
@@ -442,7 +457,7 @@ class ReportsController < ApplicationController
     cols = ReportsController.get_geoid_columns
     released_subs = ReportsController.get_released_submissions 
     already_notified = []
-    File.open(GEO_REPORTED_PROJECTS).each{|proj|
+    File.open(self.geo_reported_projects_path).each{|proj|
       next if proj.empty? || proj.strip[0] == "#"
       fields = proj.split("\t")
       already_notified.push fields[0]
@@ -456,7 +471,7 @@ class ReportsController < ApplicationController
   # an email has been sent regarding the released submissions  
   # Takes: an array of IDs
   def self.mark_subs_as_notified(sub_ids)
-    rep_proj_file = File.open(GEO_REPORTED_PROJECTS, "a")
+    rep_proj_file = File.open(self.geo_reported_projects_path, "a")
     sub_ids.each{|id|
       rep_proj_file.puts "#{id}\t#{Time.now}"
     }
@@ -495,7 +510,7 @@ class ReportsController < ApplicationController
     @future_date = Date.parse("2112-12-21") # Fake later-than-latest date for un-notified-yet projects
     reported_projects = Hash.new{@future_date}
     @seen_dates = Array.new
-    File.open(GEO_REPORTED_PROJECTS).each{|rep_proj|
+    File.open(self.class.geo_reported_projects_path).each{|rep_proj|
       next if rep_proj.empty? || rep_proj.strip[0] == "#"
       fields = rep_proj.split("\t")
       # Make a hash of ProjectID => date release notified
@@ -663,7 +678,128 @@ class ReportsController < ApplicationController
 
 
   end
-
+  def self.geo_reported_projects_path
+    "#{RAILS_ROOT}/config/freeze_data/geoid_table/released_and_notified.tsv"
+  end
+  def self.nightlies_dir
+    "#{RAILS_ROOT}/config/freeze_data/nightly/"
+  end
 
 end
+
+private
+  def get_freeze_files
+    freeze_files = Hash.new { |h, k| h[k] = Array.new }
+    freeze_files[""] = [ nil ]
+    freeze_dir = "#{RAILS_ROOT}/config/freeze_data/"
+    if File.directory? freeze_dir then
+      Dir.glob(File.join(freeze_dir, "output_nih_*.csv")).each { |f| 
+        fname = File.basename(f)[0..-5]
+        (organism, date) = fname.split(/_/)
+        organism = organism[0..0].upcase + ". " + organism[1..-1]
+        freeze_files[organism].push [ date, fname ]
+      }
+    end
+
+    # Nightlies
+    freeze_dir = "#{RAILS_ROOT}/config/freeze_data/nightly/"
+    if File.directory? freeze_dir then
+      Dir.glob(File.join(freeze_dir, "output_nih_*.csv")).each { |f| 
+        fname = File.basename(f)[0..-5]
+        (organism, date) = fname.split(/nih_/)
+        organism = organism[0..0].upcase + ". " + organism[1..-1]
+        freeze_files[organism + " nightlies"].push [ date, fname ]
+      }
+    end
+
+    freeze_files = freeze_files.to_a
+    freeze_files.each { |file, dates| dates.sort! { |d1, d2| Date.parse(d2[0]) <=> Date.parse(d1[0]) } }
+    freeze_files.each { |file, dates| dates.each { |date| date[0] += " #{date[1][0..3]}" unless date.nil?; }; dates.first[0] += " (newest)" if dates.first }
+    return freeze_files
+  end
+  def get_freeze_data(freeze_files)
+    data = Array.new
+    headers = []
+    freeze_files.each { |freeze_file|
+      filename = nil
+      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
+      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+      end
+
+      if filename then
+        File.open(filename) { |f|
+          headers = f.gets.chomp.split(/\t/)
+          while ((line = f.gets) != nil) do
+            fields = line.chomp.split(/\t/).map { |field| (field == "" ? "N/A" : field) }
+            d = Hash.new; headers.each_index { |n| d[headers[n]] = (fields[n].nil? ? nil : fields[n].gsub(/^"|"$/, '')) }
+            data.push d
+          end
+        }
+      end
+    }
+    extract_and_attach_factor_info(data)
+    return [ data, headers ]
+  end
+  def extract_and_attach_factor_info(freeze_data)
+    # We group some fields together and put them into symbol-keyed entries in the @freeze_data hash
+    # because older generated spreadsheets had these fields separate
+    # This is the mapping of human-readable column name to grouped field, which gets used when
+    # defining a matrix view
+    @freeze_header_translation = {
+      "Antibody" => :antibodies,
+      "Platform" => :array_platforms,
+      "Compound" => :compounds,
+      "RNAi Target" => :rnai_targets,
+      "Stage/Treatment" => :stages,
+    }
+
+    if freeze_data.find { |project_info| project_info["Experimental Factor"] } then
+      freeze_data.each { |project_info| 
+        factors = project_info["Experimental Factor"].split(/[;,]\s*/).flatten.uniq.inject(Hash.new { |h, k| h[k] = Array.new }) { |h, factor| 
+          (k,v) = factor.split(/=/)
+          h[k].push v
+          h
+        }
+        treatments = project_info["Treatment"].split(/[;,]\s*/).flatten.uniq.inject(Hash.new { |h, k| h[k] = Array.new }) { |h, treatment| 
+          (k,v) = treatment.split(/=/)
+          h[k].push v
+          h
+        }
+
+        project_info[:antibodies]      = factors["AbName"].zip(factors["Target"]).map { |pair| pair.join("=>") }
+        project_info[:array_platforms] = (factors["Platform"].blank? ? factors["ArrayPlatform"] : factors["Platform"])
+        project_info[:compounds]       = factors["SaltConcentration"].map  { |compound| "SaltConcentration=#{compound}" }
+        project_info[:rnai_targets]    = treatments["RNAiTarget"]
+        stage_info = (project_info["Stage"] || project_info["Stage/Treatment"] || "")
+        stage_info_m = stage_info.match(/^(.*):/)
+        project_info[:stages]          = stage_info_m.nil? ? stage_info.split(/,\s*/) : [ stage_info_m[1] ]
+        project_info["Stage"]          = stage_info_m.nil? ? stage_info.split(/,\s*/) : [ stage_info_m[1] ]
+        project_info[:submission_id]   = project_info["Submission ID"].sub(/ .*/, '')
+
+        project_info[:antibodies] = ["N/A"] if project_info[:antibodies].size == 0
+        project_info[:array_platforms] = ["N/A"] if project_info[:array_platforms].size == 0
+        project_info[:compounds] = ["N/A"] if project_info[:compounds].size == 0
+        project_info[:rnai_targets] = ["N/A"] if project_info[:rnai_targets].size == 0
+        project_info[:stages] = ["N/A"] if project_info[:stages].size == 0
+      }
+    else
+      freeze_data.each { |project_info|
+        project_info[:antibodies] = project_info["Antibody"].split(/, /)
+        project_info[:array_platforms] = project_info["Platform"].split(/, /)
+        project_info[:compounds] = project_info["Compound"].split(/, /)
+        project_info[:rnai_targets] = project_info["RNAi Target"].split(/, /)
+        project_info[:stages] = project_info["Stage/Treatment"].split(/, /)
+        project_info[:submission_id]   = project_info["Submission ID"].sub(/ .*/, '')
+
+        project_info[:antibodies] = ["N/A"] if project_info[:antibodies].size == 0
+        project_info[:array_platforms] = ["N/A"] if project_info[:array_platforms].size == 0
+        project_info[:compounds] = ["N/A"] if project_info[:compounds].size == 0
+        project_info[:rnai_targets] = ["N/A"] if project_info[:rnai_targets].size == 0
+        project_info[:stages] = ["N/A"] if project_info[:stages].size == 0
+      }
+    end
+  end
+
 

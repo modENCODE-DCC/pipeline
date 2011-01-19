@@ -1,0 +1,24 @@
+<h1>Select a reporting date and choose View or Download:</h1>
+<% form_tag(:action => :nih_spreadsheet) do %>
+  <%= select_tag "freeze", options_for_select(@freeze_files, @selected_freeze) %>
+  <%= submit_tag "View" %>
+  <%= submit_tag "Download" %>
+<% end %>
+
+<% if @headers && @data then %>
+  <% width = (100 / @headers.length).to_i %>
+  <style type="text/css">
+    TH { height: 1em; width: <%= width %>px; overflow: hidden ; border: thin solid red }
+    TD { height: 1em; width: <%= width %>px; overflow: hidden; border: thin solid black }
+  </style>
+  <table>
+    <tr>
+      <th><%= @headers.join("</th><th>") %></th>
+    </tr>
+    <% @data.each do |row| %>
+      <tr>
+        <%= @headers.map { |h| "<td>#{row[h]}</td>" } %>
+      </tr>
+    <% end %>
+  </table>
+<% end %>
