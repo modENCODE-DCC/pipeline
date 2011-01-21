@@ -50,7 +50,7 @@
       <td><%= link_to "#{command.project.id}: #{command.project.name}", url_for(:controller => :pipeline, :action => :show, :id => command.project) %></td> 
       <td><%= command.host if command.host %></td>
       <td><%= command.start_time if command.start_time %></td>
-      <td><%= command.user.login if command.project %></td> 
+      <td><%= command.user.login if command.project && command.user %></td> 
       <td>
          <% if command.throttle == false then %>
          <%= link_to "throttle", url_for(:action => :throttle_command, :id => command.id) %> or
