@@ -110,7 +110,7 @@ class CommandNotifier < ActionMailer::Base
     body        :name => to_user.name.split(/ /).first,
                 :subs_with_geo => new_subs[:with_geo],
                 :subs_no_geo => new_subs[:no_geo],
-                :subs_processing => new_subs[:processing]
+                :subs_processing => new_subs[:processing],
                 :hostname => hostname
   end
 
