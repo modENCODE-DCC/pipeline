@@ -80,16 +80,24 @@ class CommandNotifier < ActionMailer::Base
     return unless Time.now.wday == 1
     cols = ReportsController.get_geoid_columns
     
-    new_subs = ReportsController.newly_released_submissions
+    new_subs = ReportsController.recent_submissions
+    new_released = new_subs[:released]
+
     sorted_subs = Hash.new
-    sorted_subs[:with_geo] = new_subs.reject{|sub|
+    sorted_subs[:processing] = new_subs[:processing]
+   
+   sorted_subs[:with_geo] = new_released.reject{|sub|
       sub[cols["GEO/SRA IDs"]].empty?
      }
-    sorted_subs[:no_geo] = new_subs.reject{|sub|
+    sorted_subs[:no_geo] = new_released.reject{|sub|
       !sub[cols["GEO/SRA IDs"]].empty?
     }
+
     CommandNotifier.deliver_geo_notification(to_user, cc_users, sorted_subs, host)
-    ReportsController.mark_subs_as_notified(new_subs.map{|sub| sub[cols["Submission ID"]]})
+    ReportsController.mark_subs_as_notified(
+                                            new_subs[:released].map{|sub| sub[cols["Submission ID"]]},
+                                            new_subs[:processing].map{|sub| sub.id }
+                                            )
   end
 
   # This method sends an email listing newly released submissions and their GEO / SRA ID.
@@ -102,6 +110,7 @@ class CommandNotifier < ActionMailer::Base
     body        :name => to_user.name.split(/ /).first,
                 :subs_with_geo => new_subs[:with_geo],
                 :subs_no_geo => new_subs[:no_geo],
+                :subs_processing => new_subs[:processing]
                 :hostname => hostname
   end
 

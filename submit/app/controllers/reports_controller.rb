@@ -1,5 +1,4 @@
 require 'date'
-# Path to the list of released projects that have been included in a notification email
 
 class Array
   def median
@@ -452,30 +451,56 @@ class ReportsController < ApplicationController
     return released_subs
   end
   
-  # Finds all submissions released since the last time this was run
-  def self.newly_released_submissions
+  # Finds all submissions released and processing
+  # since the last time subs were found and marked
+  def self.recent_submissions
     cols = ReportsController.get_geoid_columns
     released_subs = ReportsController.get_released_submissions 
+    processing_subs = ReportsController.get_processing_submissions # not a parallel format to released!
+
     already_notified = []
-    File.open(self.geo_reported_projects_path).each{|proj|
-      next if proj.empty? || proj.strip[0] == "#"
-      fields = proj.split("\t")
-      already_notified.push fields[0]
+    
+    [self.geo_reported_projects_path,
+     self.geo_processing_projects_path].each{|file|
+      File.open(file).each{|proj|
+        next if proj.empty? || proj.strip[0] == "#"
+        fields = proj.split("\t")
+        already_notified.push fields[0]
+      }
     }
+
     # Remove all subs for which a notification has already been sent
     released_subs.reject!{|item| already_notified.include? item[cols["Submission ID"]] }
-    released_subs
+    processing_subs.reject!{|item| already_notified.include? item.id }
+    {:released => released_subs, :processing => processing_subs }
   end
- 
-  # Add the passed IDs to the file indicating that
-  # an email has been sent regarding the released submissions  
-  # Takes: an array of IDs
-  def self.mark_subs_as_notified(sub_ids)
-    rep_proj_file = File.open(self.geo_reported_projects_path, "a")
-    sub_ids.each{|id|
-      rep_proj_file.puts "#{id}\t#{Time.now}"
+
+  # Finds all submissions that are loaded but not yet published
+  def self.get_processing_submissions
+    processing_subs = Project.all.select{|p|
+     ( Project::Status.status_number(p.status) >= Project::Status.status_number(Project::Status::LOADED) ) &&
+     ( Project::Status.status_number(p.status) < Project::Status.status_number(Project::Status::RELEASED) )
     }
-    rep_proj_file.close
+    processing_subs
+  end
+
+  # Add the passed IDs to the file indicating that
+  # an email has been sent regarding the released & processing submissions  
+  # Takes: an array of IDs for released subs, and another one for processing
+  def self.mark_subs_as_notified(sub_ids_released, sub_ids_processing)
+    # Mark released subs
+    rel_proj_file = File.open(self.geo_reported_projects_path, "a")
+    sub_ids_released.each{|id|
+      rel_proj_file.puts "#{id}\t#{Time.now}"
+    }
+    rel_proj_file.close
+
+    # and repeat for processing subs
+    pro_proj_file = File.open(self.geo_processing_projects_path, "a")
+    sub_ids_processing.each{|id|
+      pro_proj_file.puts "#{id}\t#{Time.now}"
+    }
+    pro_proj_file.close
   end
 
   def separate_geo_sra_ids(idstring)
@@ -680,6 +705,9 @@ class ReportsController < ApplicationController
   end
   def self.geo_reported_projects_path
     "#{RAILS_ROOT}/config/freeze_data/geoid_table/released_and_notified.tsv"
+  end
+  def self.geo_processing_projects_path
+    "#{RAILS_ROOT}/config/freeze_data/geoid_table/processing_and_notified.tsv"
   end
   def self.nightlies_dir
     "#{RAILS_ROOT}/config/freeze_data/nightly/"

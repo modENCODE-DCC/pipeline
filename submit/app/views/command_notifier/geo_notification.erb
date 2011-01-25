@@ -8,7 +8,7 @@ You can always find a list of released projects and their GEO & SRA ids at
 <%
   cols = ReportsController.get_geoid_columns
 %>
------- Projects with GEO or SRA IDs ------
+------ Released Projects with GEO or SRA IDs ------
 <% if @subs_with_geo.empty? then %>
   No projects with GEO or SRA IDs have been
   released since the previous email.
@@ -24,7 +24,7 @@ Project ID	GEO & SRA IDs	Name
   }
   %>
 <% end %>
------- Projects without GEO or SRA IDs ------
+------ Released Projects without GEO or SRA IDs ------
 <% if @subs_no_geo.empty? then %>
  No projects without IDs have been 
  released since the previous email.
@@ -38,5 +38,22 @@ Project ID	Name
       <%
   }
   %>
+<% end %>
+
+------ Projects now being processed ------
+<% if @subs_processing.empty? then %>
+  No projects have begun processing since the previous email.
+<% else %>
+Project ID	Status	Name
+	<% # Note that each sub here is a Project, not a string 
+		@subs_processing.each{|sub|
+	%>
+		<%= sub.id
+		-%><%= sub.status
+		-%><%= sub.name
+		-%>
+		<%
+	}
+	%>
 <% end %>
 ----------
