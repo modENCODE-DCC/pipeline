@@ -61,7 +61,7 @@ class ReportsController < ApplicationController
   end
 
   def nih_spreadsheet
-    @freeze_files = get_freeze_files
+    @freeze_files = ReportsController.get_freeze_files
     @selected_freeze = params[:freeze].nil? ? "" : params[:freeze]
     unless params[:commit].nil? then
       just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
@@ -74,7 +74,7 @@ class ReportsController < ApplicationController
         end
       }.flatten
       if params[:commit] == "View" then
-        ( @data, @headers ) = get_freeze_data(selected_freeze_files)
+        ( @data, @headers ) = ReportsController.get_freeze_data(selected_freeze_files)
         @data.each { |d| d.delete_if { |x, y| x.is_a?(Symbol) } }
       elsif params[:commit] == "Download" then
         freeze_file = selected_freeze_files.first
@@ -712,11 +712,7 @@ class ReportsController < ApplicationController
   def self.nightlies_dir
     "#{RAILS_ROOT}/config/freeze_data/nightly/"
   end
-
-end
-
-private
-  def get_freeze_files
+  def self.get_freeze_files
     freeze_files = Hash.new { |h, k| h[k] = Array.new }
     freeze_files[""] = [ nil ]
     freeze_dir = "#{RAILS_ROOT}/config/freeze_data/"
@@ -745,7 +741,7 @@ private
     freeze_files.each { |file, dates| dates.each { |date| date[0] += " #{date[1][0..3]}" unless date.nil?; }; dates.first[0] += " (newest)" if dates.first }
     return freeze_files
   end
-  def get_freeze_data(freeze_files)
+  def self.get_freeze_data(freeze_files)
     data = Array.new
     headers = []
     freeze_files.each { |freeze_file|
@@ -767,10 +763,10 @@ private
         }
       end
     }
-    extract_and_attach_factor_info(data)
+    self.extract_and_attach_factor_info(data)
     return [ data, headers ]
   end
-  def extract_and_attach_factor_info(freeze_data)
+  def self.extract_and_attach_factor_info(freeze_data)
     # We group some fields together and put them into symbol-keyed entries in the @freeze_data hash
     # because older generated spreadsheets had these fields separate
     # This is the mapping of human-readable column name to grouped field, which gets used when
@@ -829,5 +825,5 @@ private
       }
     end
   end
-
+end
 
