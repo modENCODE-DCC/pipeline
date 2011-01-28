@@ -1,0 +1,48 @@
+Method:
+  [
+  "ChIP",
+  "Salt_Fractionation",
+  "Tiling_Array",
+  "Sequencing",
+  "RACE",
+  "RTPCR",
+  "RNAi"
+  ]
+Data_type:
+  [
+  "transcription",
+  "replication",
+  "chromatin",
+  "histone",
+  "miRNA",
+  "gene_model",
+  "EST",
+  "cDNA"
+  ]
+Cell_line: 
+  [
+  "true",
+  "false"
+  ]
+Stage:
+  [
+  "embryo",
+  "larva",
+  "pupae",
+  "adult"
+  ]
+Tissue:
+  [
+  "whole_organism",
+  "ovary",
+  "imaginal_disk",
+  "salivary_gland"
+  ]
+Sex:
+  [
+  "female",
+  "male",
+  "hermaphrodite"
+  ]
+
+

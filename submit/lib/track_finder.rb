@@ -31,10 +31,10 @@ class TrackFinder
   @debugging = false
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
-  CHROMOSOMES = [ 
-              '2L', '2LHet', '2R', '2RHet', '3L', '3LHet', '3R', '3RHet', '4', 'X', 'XHet', 'YHet', 'U', 'Uextra', 'M',
-              'I', 'II', 'III', 'IV', 'V', 'X', 'MtDNA'
-  ]
+  CHROMOSOMES = {
+              :dmelanogaster => [ '2L', '2LHet', '2R', '2RHet', '3L', '3LHet', '3R', '3RHet', '4', 'X', 'XHet', 'YHet', 'U', 'Uextra', 'M' ],
+              :celegans => ['I', 'II', 'III', 'IV', 'V', 'X', 'MtDNA' ]
+  }
 
   # GBrowse configuration
   def self.gbrowse_root
@@ -112,91 +112,17 @@ class TrackFinder
   $wigfile->stdev($stdev);
   
   EOP
-  WIGGLE_TO_WIGDB_PERL = <<-EOP
-  package Bio::Graphics::Wiggle::ModENCODELoader;
+  WIGGLE_TO_BIGWIG_PERL = <<-EOP
   use strict;
-  use lib '#{TrackFinder.gbrowse_lib}';
-  use Bio::Graphics::Wiggle;
-  use Bio::Graphics::Wiggle::Loader;
-  use base qw(Bio::Graphics::Wiggle::Loader);
-  use Carp qw(croak);
+  use Bio::DB::BigFile;
 
-  sub new {
-    my $class = shift;
-    my $base = shift;
-    return bless {
-      base => $base,
-      tracks => {},
-      track_options => {},
-    }, ref($class) || $class;
-  }
+  my $wiggle_source_file = <>;
+  my $chrom_file = <>;
+  my $bigwig_output_file = <>; 
+  chomp $bigwig_output_file; chomp $chrom_file; chomp $wiggle_source_file;
 
-  sub wigfile {
-    my $self = shift;
-    my $seqid = shift;
-    my $current_track = $self->{tracknum};
-    my $tname          = $self->{trackname};
-    unless (exists $self->current_track->{seqids}{$seqid}{wig}) {
-      my $path = sprintf($self->{base}, $seqid);
-      my @stats;
-      foreach (qw(min max mean stdev)) {
-          my $value = $self->current_track->{seqids}{$seqid}{$_} ||
-              $self->{FILEWIDE_STATS}{$_} || next;
-          push @stats,($_=>$value);
-     }
-
-      my $step = $self->{track_options}{step} || 1;
-      my $span = $self->{track_options}{span} || $self->{track_options}{step} || 1;
-
-      my $trim      = $self->current_track->{display_options}{trim};# || 'stdev2';
-      my $transform = $self->current_track->{display_options}{transform};
-      my $wigfile = Bio::Graphics::Wiggle->new(
-                                               $path,
-                                               1,
-                                               {
-                                                seqid => $seqid,
-                                                step  => $step,
-                                                span  => $span,
-                                                trim  => $trim,
-                                                @stats,
-                                               },
-                                              );
-      $wigfile or croak "Couldn't create wigfile $wigfile: $!";
-
-      $self->current_track->{seqids}{$seqid}{wig}     = $wigfile;
-      $self->current_track->{seqids}{$seqid}{wigpath} = $path;
-    }
-    return $self->current_track->{seqids}{$seqid}{wig};
-  }
-  1;
-
-  package main;
-  use File::Basename;
-  use strict;
-
-  my $wig_db_file_template = <>;
-  my $gff_file_path = <>;
-  my $gff_type = <>;
-  my $source = <>;
-  my $filename = <>;
-  chomp $wig_db_file_template; chomp $gff_file_path; chomp $gff_type; chomp $source; chomp $filename;
-
-  my $loader = Bio::Graphics::Wiggle::ModENCODELoader->new($wig_db_file_template) or die "Could not create loader";
-  my $fh = IO::File->new($filename) or die "Couldn't open $filename: $!";
-  $loader->load($fh);
-
-  # Write out the GFF
-  open GFF, ">$gff_file_path";
-  my $line = $loader->featurefile('gff3', $gff_type, $source);
-  my $tmppath = dirname($wig_db_file_template);
-  my $realpath = dirname($gff_file_path);
-  # Fix GFF to point at real path
-  $line =~ s/\\Q$tmppath\\E/$realpath/g;
-  # Fix GFF to remove any wiggles that don't span a region
-  $line =~ s/^.*\t\t.*\n//gm;
-  print GFF $line;
-  close GFF;
-
+  Bio::DB::BigFile->createBigWig($wiggle_source_file, $chrom_file, $bigwig_output_file); 
+  
   EOP
   LOAD_GFF_TO_GFFDB_PERL = <<-EOP
   use strict;
@@ -368,6 +294,9 @@ class TrackFinder
                    INNER JOIN data d ON df.data_id = d.data_id
                    INNER JOIN generate_series(1, ?) idx(n) ON (CAST(? AS int[]))[idx.n] = df.data_id
                    ORDER BY f.feature_id")
+    }
+    @sth_get_data_value_by_data_id = dbh_safe {
+      @dbh.prepare("SELECT value FROM data WHERE data_id = ?")
     }
     @sth_get_featureprops_by_feature_id = dbh_safe {
       @dbh.prepare("SELECT 
@@ -563,6 +492,244 @@ class TrackFinder
     return s.value
   end
 
+  # Helper methods: converting wiggle to bed as a preface for converting to bigWig
+
+  # Given a track declaration line, parses it, making a hash of the result.
+  def parse_wiggle_params_line(line)
+    wiggle_params = { :format => false }
+
+    # If there's no span, it won't need to be reformatted
+    if !( line =~ /span/i) then
+      wiggle_params[:format] = "noSpan"
+    # Otherwise, it must be either fixed or variableStep
+    elsif line =~ /^fixedStep/ then
+      wiggle_params[:format] = "fixedStep"
+      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1]
+      wiggle_params[:start] = /start=\d+/.match(line).to_s[6..-1].to_i
+      wiggle_params[:step] = /step=\S+/.match(line).to_s[5..-1].to_i
+      wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
+    elsif line =~ /^variableStep/ then
+      wiggle_params[:format] = "variableStep"
+      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1]
+      wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
+    else
+      # It has a span, but it's neither fixed nor variableStep
+      wiggle_params[:format] = "unknown"
+    end
+    wiggle_params
+  end
+
+  # Takes: a variable_step line as a hash of
+  #   :chrom, :score, :start0, :end0, :needs_printing
+  #   where :start0, :end0 are 0 based half-open
+  #   and the following line's 0-based start coordinate
+  # Returns: the string of that line in .bed format.
+  def finish_varstep_line(line, next_start=nil)
+    # If the next line starts before this would finish, move this one's end up.
+    line[:end0] = next_start if next_start && ( next_start < line[:end0] )
+    "#{line[:chrom]}\t#{line[:start0]}\t#{line[:end0]}\t#{line[:score]}"
+  end
+
+  # Takes an array of possible organisms and a chrom string
+  # Returns the array of organisms who have chrom as a chromosome
+  # If there is but one, returns it in organism
+  def eliminate_organisms(possible_organisms, chrom)
+    possible_organisms = possible_organisms.select{|org| # Don't use select! - returns nil if no changes made
+      CHROMOSOMES[org].include? chrom
+    }
+    organism = possible_organisms.length == 1 ? possible_organisms[0] : false
+    cmd_puts "Unrecognized chromosome #{chrom}--unable to determine organism!" if possible_organisms.empty?
+    [possible_organisms, organism] 
+  end
+
+  # Given an organism, return the path to the chromosome file to use
+  def organism_to_chromfile(wig_organism)
+    case wig_organism
+      when :dmelanogaster
+        File.join(RAILS_ROOT, "config", "FlyBase_r5.chrom")
+      when :celegans
+        File.join(RAILS_ROOT, "config", "WormBase_WS190.chrom")
+      else
+        cmd_puts "    Error: cannot find chromosome file for organism \"#{wig_organism}\"!"
+        false
+    end
+  end
+
+  # Runs the bigwig writer
+  # wig_path = source , bigwig_path = dest, chrom_path = chromosome file
+  # Returns true if the bigwig file is created successfully ; false otherwise.
+  def convert_to_bigwig(wig_path, chrom_path, bigwig_path)
+    # TODO: Write the wiggle file locally, then move it to tracks dir
+    # Do the bigwig conversion
+    wiggle_writer = IO.popen("perl", "w")
+    wiggle_writer.puts WIGGLE_TO_BIGWIG_PERL + "\n\004\n"
+    wiggle_writer.puts wig_path # Input
+    wiggle_writer.puts chrom_path
+    wiggle_writer.puts bigwig_path # Output
+    wiggle_writer.close
+    # Return false if the bigwig file wasn't created.
+    File.exist?(bigwig_path)
+  end
+
+
+  # Takes: a read-filehandle source & write-filehandle output
+  # converts a wiggle (fixed or variable step) file into bed format
+  # Sourcename is for converting tmp wiggle files where the path may not be helpful in debugging
+  # Returns an array [failed, original_ok, organism]
+  # Failed -- the bed conversion failed but source is not necessarily appropriate to cvt to bigwig
+  # Original_ok -- if true, no conversion done because original acceptable to cvt to bigwig
+  # Organism -- organism determined based on correlation with the CHROMOSOMES hash
+  def convert_wiggle_to_bed(source, output, sourcename)
+    failed = false # did the wiggle fail to process?
+    found_span = false # Have we seen a section with span yet?
+    effective_span = false # We will use the step value if span > step in a fixedStep file
+    original_ok = false # Can we just use the original wig
+    params = {} # The parameters (1-based)
+    # params are :format, :chrom, :start (for fixedStep), :step (for fixedStep), :span
+    to_print = { :needs_printing => false }
+
+    possible_organisms = CHROMOSOMES.keys # We wish to narrow down the organisms that it could be. 
+    organism = false
+    determining_organism = false # Whether to figure out the organism & then quit
+    
+    source.each{|line|
+      # Skip track definitions, comments, and blank lines
+      next if line =~ /^#|^track|^\s*$/
+      
+      # If all we are doing is finding the organism
+      if determining_organism then
+        # Find the chrom more quickly - and bed-able.
+        if params[:format]== "bed_file" then
+          # If this is a chrom we've not encountered yet, check it
+          curr_chrom = /^\S+\s/.match(line).to_s.strip
+          unless params[:chrom] == curr_chrom then
+            possible_organisms, organism = eliminate_organisms(possible_organisms, curr_chrom) 
+            params[:chrom] = curr_chrom
+          end
+        end
+        if line =~ /chrom/ then
+          params = parse_wiggle_params_line(line)
+          possible_organisms, organism = eliminate_organisms(possible_organisms, params[:chrom])
+        end
+        
+        break if organism # We've found it
+
+        if possible_organisms.empty? then
+          failed = true # No idea what the organism is--abort
+          break
+        end
+        next
+      end
+
+      # This part wants refactoring imo--see /gbrowse/lib/Bio/Graphics/Wiggle/Loader.pm for
+      # a possible way to go about it
+      # If there's a new declaration line, get new params 
+      if line =~ /chrom/ then
+        # First check to see if there's a previous line to finish off
+        if to_print[:needs_printing] then
+          output.puts finish_varstep_line(to_print)
+          to_print[:needs_printing] = false
+        end
+        params = parse_wiggle_params_line(line)
+
+        # Retain organisms which still match the chromosomes
+        possible_organisms, organism = eliminate_organisms(possible_organisms, params[:chrom]) unless organism
+
+        # reset the effective span (used in fixedStep if step > span)
+        effective_span = false
+
+        # Process inconsistent span
+        if found_span && ( params[:format] == "noSpan" || params[:span] != found_span ) then
+          cmd_puts "      Wigfile #{sourcename} at #{source.path} has an inconsistent span declaration--span must be the same for all sections."
+          failed = true
+          break
+        end
+        # If there's no span on the first pass, don't worry about inconsistency & use the file as is
+        if params[:format] == "noSpan" then
+          failed = false
+          original_ok = true
+          determining_organism = true
+          break if organism # Escape if we already know the organism
+        else 
+          unless params[:format] =~ /Step/ then
+            # Wasn't fixedStep or variableStep - we don't recognize the format!
+            cmd_puts "      Error: Wigfile #{sourcename} at #{source.path} has a span,"
+            cmd_puts "      but format #{params[:format]} is unrecognized--should be fixedStep or variableStep!"
+            failed = true
+            break
+          end
+        end
+        found_span = params[:span] # If we got this far, a span exists in the file
+        next
+      end
+      
+      # Process a data line
+      case params[:format]
+        when "fixedStep"
+          # fixedStep -- line is just score.
+          # Convert from 1 based to 0-based half-open
+          
+          # Set the span -- if it's more than step, complain & set to step anyhow.
+          effective_span = params[:span] unless effective_span
+          if effective_span > params[:step] then
+            cmd_puts "      Wigfile #{sourcename} has a span greater than the step--reducing it to step & proceeding anyway."
+            effective_span = params[:step]
+          end
+         
+          start0 = params[:start] - 1
+          end0 = start0 + params[:span]
+          score = line.to_f
+          
+          output.puts "#{params[:chrom]}\t#{start0}\t#{end0}\t#{score}"
+          # and update the params for when we get the next line
+          params[:start] += params[:step]
+        when "variableStep"
+          contents = line.split # this is 1-based
+          start0 = contents[0].to_i - 1
+          
+          # First, if there's a previous line to process, do that now
+          if to_print[:needs_printing] then
+            output.puts finish_varstep_line(to_print, start0)
+            to_print[:needs_printing] = false
+          end
+          # Then continue with the current line
+          score = contents[1].to_f
+          # Set up the line to be printed once the end coordinate is confirmed
+          to_print = {:chrom => params[:chrom], 
+                      :score => score, 
+                      :start0 => start0, 
+                      :end0 => start0 + params[:span],
+                      :needs_printing => true}
+        when nil
+          # Didn't see a formatting line -- it might be a bed!
+          if line =~ /^\S+\s+\d+\s+\d+\s+-?[\dEe.]+/ then
+            # It matches bed's /chr start end score/ formatting
+            params[:format] = "bed_file"
+            original_ok = true
+            determining_organism = true 
+          else
+            cmd_puts "      Error: can't determine format for wigfile #{sourcename} at #{source.path} from line:"
+            cmd_puts "        #{line}"
+            failed = true
+            break
+          end
+        else
+          cmd_puts "      Error: wigfile #{sourcename} at #{source.path} has unrecognized format #{params[:format]}!"
+          failed = true
+          break
+      end
+    }
+
+    # Then print one last line if necessary
+    if to_print[:needs_printing] then
+      output.puts finish_varstep_line(to_print)
+      to_print[:needs_printing] = false
+    end
+    
+    # If it failed, we don't have an appropriate output 
+    return failed, original_ok, organism
+  end 
+
   # Track finding and output
   def find_usable_tracks(experiment_id, project_id)
     # Find the datum objects that have attached features (via data_feature) 
@@ -664,9 +831,42 @@ class TrackFinder
     cmd_puts "    Collapsing applied protocols to reduce duplicate tracks."
     # Figure out if the inputs of applied_protocols in a particular column differ
     tracks_per_column = Hash.new
+    values_per_column = Hash.new
     (0...column).each do |col|
       tracks_per_column[col] = applied_protocols.values.find_all { |ap| ap.column == col }.map { |ap| ap.inputs.sort }.uniq.size
+      values_per_column[col] = applied_protocols.values.find_all { |ap| ap.column == col }.map { |ap| ap.inputs.sort }.flatten.uniq
+      if (col == column-1) then
+        values_per_column[col+1] = applied_protocols.values.find_all { |ap| ap.column == col }.map { |ap| ap.outputs.sort }.flatten.uniq
+      end
     end
+
+    # Filter values_per_column so we only keep things that could be separate tracks (e.g. GFF, SAM, WIG)
+    sth_is_a_track = dbh_safe { @dbh.prepare("SELECT COUNT(feature_id) FROM data_feature WHERE data_id = ?") }
+#    cmd_puts "Values per column:\n#{values_per_column.pretty_inspect.gsub('<', '&lt;').gsub('>', '&gt;')}"
+    values_per_column.each { |k, v|
+      v.delete_if { |data_id|
+        dbh_safe { sth_is_a_track.execute(data_id) }
+        row = dbh_safe { sth_is_a_track.fetch }
+        row[0] == 0
+      }
+    }
+    values_per_column.each { |k, v| values_per_column[k] = [] if v.size > TRACKS_PER_COLUMN }
+    standalone_tracks = values_per_column.values.flatten.uniq.map { |data_id|
+      # Find any applied protocols that use this 
+      aps = applied_protocols.values.find_all { |ap| ap.inputs.include?(data_id) }
+      aps = applied_protocols.values.find_all { |ap| ap.outputs.include?(data_id) } if aps.size == 0
+      aps.map { |ap|
+        AppliedProtocol.new(
+          :applied_protocol_id => ap.applied_protocol_id,
+          :inputs => [ data_id ],
+          :protocols => ap.protocols
+        )
+      }
+    }
+
+#    cmd_puts "Applied protocols example:\n#{tracks_per_column.pretty_inspect.gsub('<', '&lt;').gsub('>', '&gt;')}"
+#    cmd_puts "Values per column:\n#{values_per_column.pretty_inspect.gsub('<', '&lt;').gsub('>', '&gt;')}"
+#    cmd_puts "Standalone tracks:\n#{standalone_tracks.pretty_inspect.gsub('<', '&lt;').gsub('>', '&gt;')}"
 
     # For each column, figure out what to do based on the number of possible tracks
     # found for that column
@@ -751,8 +951,18 @@ class TrackFinder
     end
     dbh_safe { sth_data_names.finish }
 
+    col = usable_tracks.keys.max
+    usable_tracks = usable_tracks.map { |k, v| [k, v] }
+    standalone_tracks.each { |aps|
+      col += 1
+      aps.each { |ap| ap.column = col }
+      usable_tracks.push [ col, [aps.map { |ap| ap }], true ]
+    }
+
     cmd_puts "\n      " + (usable_tracks.sort_by { |col, set_of_tracks| col }.map { |col, set_of_tracks| "Protocol #{col} has #{set_of_tracks.size} set(s) of potential track(s)" }.join(", "))
     cmd_puts "    Done."
+
+
     return usable_tracks
   end
   def attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
@@ -1021,7 +1231,7 @@ class TrackFinder
     return nil if usable_tracks.nil?
     # Figure out the protocol order
     protocol_ids_by_column = Hash.new {|h, k| h[k] = Array.new }
-    usable_tracks.each { |col, set_of_tracks| 
+    usable_tracks.each { |col, set_of_tracks, standalone_track| 
       protocol_ids_by_column[col] = set_of_tracks.first.map { |ap| ap.protocols.map { |p| p[:id] } }.uniq
     }
 
@@ -1036,7 +1246,8 @@ class TrackFinder
 
     cmd_puts "  Finding features, wiggle files, and SAM files attached to tracks."
     found_any_tracks = false
-    usable_tracks.each do |col, set_of_tracks|
+#    cmd_puts "Usable tracks:\n#{usable_tracks.pretty_inspect.gsub('<', '&lt;').gsub('>', '&gt;')}"
+    usable_tracks.each do |col, set_of_tracks, standalone_track|
       cmd_puts "    For the protocol in column #{col}, with #{set_of_tracks.size} possible tracks:"
       set_of_tracks.each do |applied_protocols|
         # Get the data objects for the applied protocol
@@ -1046,18 +1257,22 @@ class TrackFinder
         data_ids_with_wiggles = Array.new
         data_ids_with_sam_files = Array.new
 
-        dbh_safe {
-          @sth_get_data_by_applied_protocols.execute(ap_ids)
-          @sth_get_data_by_applied_protocols.fetch_hash do |row|
-            if row['number_of_features'].to_i > 0 then
-              data_ids_with_features.push row["data_id"].to_i
-            elsif row['number_of_wiggles'].to_i > 0 then
-              data_ids_with_wiggles.push row["data_id"].to_i
-            elsif row['type'] == "Sequence_Alignment/Map (SAM)" || row['type'] == "Binary Sequence_Alignment/Map (BAM)" then
-              data_ids_with_sam_files.push row["data_id"]
+        if standalone_track then
+          data_ids_with_features = applied_protocols.map { |ap| ap.inputs }.flatten.uniq
+        else
+          dbh_safe {
+            @sth_get_data_by_applied_protocols.execute(ap_ids)
+            @sth_get_data_by_applied_protocols.fetch_hash do |row|
+              if row['number_of_features'].to_i > 0 then
+                data_ids_with_features.push row["data_id"].to_i
+              elsif row['number_of_wiggles'].to_i > 0 then
+                data_ids_with_wiggles.push row["data_id"].to_i
+              elsif row['type'] == "Sequence_Alignment/Map (SAM)" then
+                data_ids_with_sam_files.push row["data_id"]
+              end
             end
-          end
-        }
+          }
+        end
 
         # No need to continue if there isn't anything to make tracks of
         if data_ids_with_wiggles.size <= 0 && data_ids_with_features.size <= 0 && data_ids_with_sam_files.size <= 0 then
@@ -1074,6 +1289,20 @@ class TrackFinder
           cmd_puts "          Using tracknum #{tracknum}"
           cmd_puts "        Done."
 
+          if (standalone_track && data_ids_with_features.size == 1) then
+            # Record this filename in a tracktag so we can differentiate files when configging tracks
+            @sth_get_data_value_by_data_id.execute(data_ids_with_features.first)
+            gff_filename = @sth_get_data_value_by_data_id.fetch[0]
+            TrackTag.new(
+              :experiment_id => experiment_id,
+              :name => 'GFF File',
+              :project_id => project_id,
+              :track => tracknum,
+              :value => gff_filename,
+              :cvterm => 'gff_file',
+              :history_depth => 0
+            ).save
+          end
 
           analyses = Hash.new
           organisms = Hash.new
@@ -1298,42 +1527,99 @@ class TrackFinder
             end
             gff_file.close
 
-            # Generate a wiggle file
-            cmd_puts "        Generating a wiggle file for zoomed-out views."
+            # Generate a wiggle file (bigwig)
+            cmd_puts "        Generating a bigwig file for zoomed-out views."
             sth_get_all_gff.execute
-            wiggle_writers = Hash.new { |hash, chromosome| 
-              hash[chromosome] = Hash.new { |chrhash, type|
-                wiggle_db_file_path = File.join(output_dir, "#{tracknum}_#{chromosome}_#{type}.wigdb")
-                wiggle_writer = IO.popen("perl", "w")
-                wiggle_writer.puts GFF_TO_WIGDB_PERL + "\n\n"
-                wiggle_writer.puts wiggle_db_file_path
-                wiggle_writer.puts chromosome
-                wiggle_writer.puts "0 255"
-                chrhash[type] = { :fmin => nil, :fmax => nil, :writer => wiggle_writer, :path => wiggle_db_file_path }
+            
+            wiggle_writers = Hash.new { |hash, types|
+              hash[types] = Hash.new { |typehash, chrom|
+                typehash[chrom] = [] # This array will contain the bedGraph lines for that chromosome & type.
               }
             }
+            poss_organisms = CHROMOSOMES.keys
+            got_organism = false
+            seen_chroms = []
             sth_get_all_gff.fetch_hash { |row|
-              if row['fmin'] && row['fmax'] && CHROMOSOMES.include?(row['srcfeature']) then
-                wiggle_writer = wiggle_writers[row['srcfeature']][row['type']]
-                wiggle_writer[:writer].puts "#{(row['fmin'].to_i+1).to_s} #{row['fmax']} 255"
-                wiggle_writer[:fmin] = [ row['fmin'].to_i, row['fmax'].to_i, wiggle_writer[:fmin].to_i ].reject { |a| a <= 0 }.min
-                wiggle_writer[:fmax] = [ row['fmax'].to_i, row['fmax'].to_i, wiggle_writer[:fmax].to_i ].reject { |a| a <= 0 }.max
+              if row['fmin'] && row['fmax'] && CHROMOSOMES.values.flatten.include?(row['srcfeature']) then
+                # Attempt to infer organism
+                unless (got_organism || ( seen_chroms.include? row['srcfeature'] )) then 
+                  poss_organisms, got_organism = eliminate_organisms(poss_organisms, row['srcfeature']) 
+                  seen_chroms.push row['srcfeature']
+                end
+                # Add the row to the bed array
+                # Note that when writing for wigdb, the start and end coords were fmin+1 and fmax;
+                # so we can infer that the plain fmin is 0-based; our only formats are 0-based
+                # half open and one-based ; fmax will be the same either way. Therefore, we can 
+                # use plain fmin and fmax when writing the bedGraph.
+                current_bed = wiggle_writers[row['type']][row['srcfeature']]
+                #current_bed.push "#{row['srcfeature']}\t#{(row['fmin'].to_i).to_s}\t#{row['fmax']}\t255"
+                current_bed.push [ row['srcfeature'], row['fmin'].to_i, row['fmax'].to_i, 255 ]
               end
             }
 
-            # Generate GFF file that refers to wigdb files
-            gff_file = File.new(File.join(output_dir, "#{tracknum}_wiggle.gff"), "w")
-            gff_file.puts "##gff-version 3"
-            wiggle_writers.each { |chromosome, types|
-              types.each { |type, writer|
-                writer[:writer].close
-                track_name = type + " features from " +  tracknum_to_data_name[tracknum]
-                gff_file.puts "#{chromosome}\t#{tracknum}\t#{type}\t#{writer[:fmin]}\t#{writer[:fmax]}\t.\t.\t.\tName=#{track_name};wigfile=#{writer[:path]}"
+            wiggle_writers.each { |type, chrs|
+              # For each type, make a bedfile of the chrs in order
+              collected_bed = Tempfile.new("#{tracknum}_#{type}.bed", TrackFinder::gbrowse_tmp)
+              chrs.each { |chrom, bed_array|
+                # Sort the array of BED lines by fmin
+                bed_array.sort! { |a, b| a[1] <=> b[1] }
+                # Merge any overlapping features
+                bed_array = bed_array.reduce(Array.new) { |list, line|
+                  last_line = list.last
+                  if last_line && last_line[2] >= line[1] then
+                    last_line[2] = line[2] # Combine overlapping features
+                  else
+                    list.push line
+                  end
+                  list
+                }
+                # Write lines
+                bed_array.each { |line| collected_bed.puts line.join("\t") }
               }
+
+              # Then write the bigwig. 
+              collected_bed.close
+              if got_organism then
+                chrom_file = organism_to_chromfile(got_organism)
+
+                # Store the bigwig in the output dir specified in the gen tf and tags function call
+                bigwig_path = File.join(output_dir, "#{tracknum}_#{type}.bw")
+
+                # The bigwig will never be in a subdirectory, so there's no need to try & find one
+                # When we're making the TrackTag, just use the basename instead of full path (?)
+                wrote_bigwig = convert_to_bigwig(collected_bed.path, chrom_file, bigwig_path)
+                unless wrote_bigwig then
+                  cmd_puts "        Failed to create bigwig file #{bigwig_path}."
+                  next
+                end
+                cmd_puts "        Wrote BigWig file #{bigwig_path}." if debugging?
+                # Bigwig path should be
+
+                # Then add a track tag so we can find the type again
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => "BigWig File #{type}",
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => File.basename(bigwig_path),
+                  :cvterm => 'bigwig_file',
+                  :history_depth => 0
+                ).save 
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Feature Type',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => type,
+                  :cvterm => "feature_type",
+                  :history_depth => 0
+                ).save
+              end
+              collected_bed.unlink     
             }
+
             cmd_puts "        Done."
             cmd_puts "      Done."
-            gff_file.close
           end
 
           sth_get_gff.finish
@@ -1348,7 +1634,6 @@ class TrackFinder
         end
         if data_ids_with_wiggles.size > 0 then
           cmd_puts "      Getting wiggle files."
-          gff_files = Array.new
           dbh_safe {
             @sth_get_wiggles_by_data_ids.execute data_ids_with_wiggles.uniq
             @sth_get_wiggles_by_data_ids.fetch_hash { |row|
@@ -1360,44 +1645,77 @@ class TrackFinder
               cmd_puts "          Using tracknum #{tracknum}"
               cmd_puts "        Done."
               # Write out the current wiggle
-              wiggle_db_file_path = File.join(output_dir, "#{tracknum}_%s.wigdb")
-              wiggle_db_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}_%s.wigdb")
-              gff_file_path = File.join(output_dir, "#{tracknum}_wiggle.gff")
-              gff_files.push(gff_file_path)
-              cmd_puts "    Writing wigdb for wiggle file to: #{wiggle_db_tmp_file_path}"
-
+              # bigwig_file_path gets used for writing the TrackTag, but really the bigwig gets written
+              # into a tempdir and then *moved* to output_dir -- so if that code is changed (eg to allow
+              # it to be moved to a subdir instead) this path should be changed too.
+              bigwig_file_path = File.join(output_dir, "#{tracknum}.bw")
+              bigwig_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
+              cmd_puts "    Writing bigwig file to: #{bigwig_tmp_file_path}"
+              
               # Put the wiggle in a temp file for parsing
+              # BigWig can't handle wiggles with span > distance between values, so
+              # make a temporary .bed for all wiggles with spans.
+ 
+              # Get the source wiggle file
               unless row["cleaned_wiggle_file"] then
-                wiggle_file = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
-                wiggle_file.puts row['wiggle_file']
-                wiggle_file.close
+                
+                wiggle_tempfile = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
+                # TEMP FIXME : save the file so i can look at it later. real line above.
+                #tmp_tmpdir = "/users/ekephart/tmp"
+                #wiggle_tempfile = File.new(File.join(tmp_tmpdir, 'wiggle_file'), "w")
+                wiggle_tempfile.puts row['wiggle_file']
+                wiggle_tempfile.close
+                source_wiggle_file = File.open(wiggle_tempfile.path, "r") # Open it as a regular file for reading
               else
-                wiggle_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
-                wiggle_file = File.open(wiggle_file_path, "r")
+                source_wiggle_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
+                source_wiggle_file = File.open(source_wiggle_file_path, "r")
+              end
+                 
+              # And get the name for more-informative error messages
+              source_wiggle_name = row['name']
+              # Then, convert source_wiggle_file to bed if necessary
+              # Create temp file to put the bed in
+              bed_file = Tempfile.new('bed_file', TrackFinder::gbrowse_tmp)
+              # Then, run the convert tool to convert the wiggle into a bed if necessary
+              # Also get the organism via chromosome names
+              bed_cvt_failed, original_wig_ok, wig_organism = convert_wiggle_to_bed(source_wiggle_file,
+                                                                                    bed_file, 
+                                                                                    source_wiggle_name  )
+
+              bed_file.close 
+              source_wiggle_file.close
+              # Get chromosome file for bigwig conversion unless we've already failed anyways
+              chrom_file_path = bed_cvt_failed ? false : organism_to_chromfile(wig_organism)              
+              # Conversion failed or no organism found - die
+              if bed_cvt_failed || ! chrom_file_path then
+                bed_file.unlink
+                wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
+
+                cmd_puts "    Failed to convert #{source_wiggle_name} at #{source_wiggle_file.path} to bedGraph--cannot proceed with bigWig conversion for this track!" if bed_cvt_failed
+                # Not having a chromfile complained already in organism_to_chromfile
+                return # TrackFinding will fail
+              end
+              
+              source_for_bigwig = original_wig_ok ? source_wiggle_file : bed_file
+              bigwig_written = convert_to_bigwig(source_for_bigwig.path, chrom_file_path, bigwig_tmp_file_path)
+              unless bigwig_written then
+                cmd_puts "    Failed to create bigwig file at #{bigwig_tmp_file_path}."
+                return
               end
 
-              # TODO: Write the wiggle file locally, then move it to tracks dir
-              # Do the conversion
-              wiggle_writer = IO.popen("perl", "w")
-              wiggle_writer.puts WIGGLE_TO_WIGDB_PERL + "\n\n"
-              wiggle_writer.puts wiggle_db_tmp_file_path
-              wiggle_writer.puts gff_file_path
-              wiggle_writer.puts row['term']
-              wiggle_writer.puts tracknum
-              wiggle_writer.puts wiggle_file.path
-              wiggle_writer.close
-
-
-              # Remove the temporary source file
+              # Remove the temporary source files
               unless row["cleaned_wiggle_file"] then
-                wiggle_file.unlink
+                wiggle_tempfile.unlink # unless debugging?
               end
+              bed_file.unlink # unless debugging?
+
               # Move the output file to the output_dir
-              wildcard_tmp = sprintf(wiggle_db_tmp_file_path, "*")
+              wildcard_tmp = sprintf(bigwig_tmp_file_path, "*")
               cmd_puts "        Moving #{wildcard_tmp} to #{output_dir}."
               Dir.glob(wildcard_tmp).each { |filename|
                 File.dirname(wildcard_tmp)
-                cmd_puts "          Moving file #{filename} to #{File.join(output_dir, filename)}"
+                # Output here is misleading & unncessary as with bigwigs this should only loop once anyhow
+                # cmd_puts "          Moving file #{filename} to #{File.join(output_dir, filename)}"
                 FileUtils.mv(filename, output_dir)
               }
               cmd_puts "        Done."
@@ -1416,8 +1734,26 @@ class TrackFinder
                 :name => 'Track Type',
                 :project_id => project_id,
                 :track => tracknum,
-                :value => 'wiggle',
+                :value => 'bigwig',
                 :cvterm => 'track_type',
+                :history_depth => 0
+              ).save
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'BigWig File',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => File.basename(bigwig_file_path),
+                :cvterm => 'bigwig_file',
+                :history_depth => 0
+              ).save 
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'Feature Type',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => row['term'],
+                :cvterm => "feature_type",
                 :history_depth => 0
               ).save
             }
@@ -1636,7 +1972,7 @@ class TrackFinder
     cmd_puts "Generating new tablespace in GBrowse database."
     # Can't execute multiple statements (e.g. DDL) in Ruby DBI
     gff_schema_loader = IO.popen("perl", "w")
-    gff_schema_loader.print LOAD_SCHEMA_TO_GFFDB_PERL + "\n\n"
+    gff_schema_loader.print LOAD_SCHEMA_TO_GFFDB_PERL + "\n\004\n"
     gff_schema_loader.puts dbinfo[:perl_dsn]
     gff_schema_loader.puts dbinfo[:user]
     gff_schema_loader.puts dbinfo[:password]
@@ -1650,7 +1986,7 @@ class TrackFinder
       cmd_puts "  Loading track #{File.basename(gff_file)}."
       # Load using adapted bp_seqfeature_load
       gff_loader = IO.popen("perl", "w")
-      gff_loader.print LOAD_GFF_TO_GFFDB_PERL + "\n\n"
+      gff_loader.print LOAD_GFF_TO_GFFDB_PERL + "\n\004\n"
       gff_loader.puts gff_file
       gff_loader.puts dbinfo[:adaptor]
       gff_loader.puts dbinfo[:perl_dsn]
@@ -1679,6 +2015,7 @@ class TrackFinder
     self.search_path = schema
     @sth_get_experiment_id.execute
     experiment_id = @sth_get_experiment_id.fetch_hash["experiment_id"]
+    cmd_puts "for project #{project_id} got experiment id #{experiment_id}" if debugging?
 
     tags = TrackTag.find_all_by_experiment_id(experiment_id, :select => "DISTINCT(track), null AS cvterm")
 
@@ -1702,8 +2039,17 @@ class TrackFinder
       types.push "read_pair:#{sam_tag.track}"
     end
 
+    # Also find bigwig tags -
+    # Previously these tracks would have been found via typelist above but that is no longer populated
+    bigwig_tags = type_tags.find_all { |tt| tt.value == "feature" }.find_all { |tt| TrackTag.find_by_track_and_cvterm(tt.track, 'bigwig_file') } + type_tags.find_all { |tt| tt.value == "bigwig" }
+    bigwig_tags.each do |bigwig_tag|
+      bigwig_type_tags = TrackTag.find_all_by_track_and_cvterm(bigwig_tag.track, "feature_type")
+      bigwig_type_tags.each { |bigwig_type|
+        # bigwig:tracknum:track type:feature type
+        types.push "bigwig:#{bigwig_tag.track}:#{bigwig_tag.value}:#{bigwig_type.value}"
+      }
+    end
     track_defs = Hash.new
-
 
     # Handle projects with no tracks (generate placeholder citation)
     if types.size == 0 then
@@ -1715,29 +2061,37 @@ class TrackFinder
     end
 
 
-
     sth_get_num_located_types = dbh_safe { gff_dbh.prepare("SELECT COUNT(*) FROM locationlist l INNER JOIN feature f ON l.id = f.seqid INNER JOIN typelist tl ON f.typeid = tl.id WHERE tl.tag = ? AND l.seqname = ANY(?)") }
+
 
     default_organism = "Drosophila melanogaster"
     types.each do |type|
       puts "Testing type #{type}" if @debug
 
       track_type = track_source = tracknum = nil;
-      if type !~ /^read_pair/ then
+      if (type !~ /^read_pair/) && (type !~ /^bigwig/ )  then
         # Make sure this feature type is located to a chromosome
-        sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES)
+        # If it's from bigwig it won't be in the database so let it pass
+        sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES.values.flatten)
         next unless sth_get_num_located_types.fetch[0] > 0
       end
 
-      matchdata = type.match(/(.*):((\d*)(_details)?)$/)
+      matchdata = type.match(/(.*):((\d*)(_details)?)(?::([^:]*))?(?::([^:]*))?$/)
       track_type = matchdata[1]
       track_source = matchdata[2]
       tracknum = matchdata[3]
+      bigwig_type = matchdata[5]
+      feature_type = matchdata[6] if matchdata[6] # If it's a specified feature type from bigwig
+      track_type = "bigwig" if bigwig_type
 
       key = "#{project.id} #{project.name[0..10]} #{track_type}:#{tracknum}"
       tag_wiggle_file = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'wiggle_file')
       if tag_wiggle_file then
         key = "#{project.id} -#{tag_wiggle_file.value}- #{track_type}:#{tracknum}"
+      end
+      tag_gff_file = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'gff_file')
+      if tag_gff_file then
+        key = "#{project.id} -#{tag_gff_file.value}- #{track_type}:#{tracknum}"
       end
 
       track_id = tracknum
@@ -1763,11 +2117,18 @@ class TrackFinder
       label_density = 100
       bump = nil
       maxdepth = nil
+      bigwig_file = nil
       bam_file = nil
       fasta_file = nil
       database = "modencode_preview_#{project.id}"
       zoomlevels = [ nil ]
       feature = type
+      # Get keywords from file and set them all to nil for the moment
+      keywords = Hash.new
+      if File.exists? "#{RAILS_ROOT}/config/keywords.yml" then
+       keywords =  open("#{RAILS_ROOT}/config/keywords.yml"){ |f| YAML.load(f.read) }
+      end
+            
       case track_type
       when "match" then
         glyph = "box"
@@ -1818,6 +2179,21 @@ class TrackFinder
         database = "modencode_bam_#{project.id}_#{tracknum}"
         bam_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BAM File", "bam_file", tracknum).value
         zoomlevels = [ nil, 1000 ]
+      when "bigwig" then
+        track_type = feature_type
+        feature = "summary"
+        glyph = "wiggle_xyplot"
+        height = 10
+        bgcolor = "blue"
+        database = "modencode_bigwig_#{project.id}_#{tracknum}_#{bigwig_type}"
+        puts "FEATURE TYPE SPOSED TO BE #{feature_type}, BIGWIG TYPE IS #{bigwig_type}"
+        if bigwig_type == "feature" then
+          bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File #{feature_type}", "bigwig_file", tracknum).value
+          puts "GOT BIGWIG A: #{bigwig_file}"
+        else
+          bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File", "bigwig_file", tracknum).value
+          puts "GOT BIGWIG B: #{bigwig_file}"
+        end
       end
 
       stanzaname = "#{project.name[0..10].gsub(/[^A-Za-z0-9-]/, "_")}_#{track_type.gsub(/[^A-Za-z0-9-]/, '_')}_#{tracknum}_#{project.id}"
@@ -1836,7 +2212,12 @@ class TrackFinder
       end
       
       tag_track_type = TrackTag.find_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'track_type')
+     
+
+
       if tag_track_type then
+      cmd_puts "got tag_track_type and it's #{tag_track_type.inspect} ok" if debugging?
+
         if tag_track_type.value == "wiggle" then
           # Wiggle-only
           glyph = "wiggle_xyplot"
@@ -1855,6 +2236,14 @@ class TrackFinder
           unique_analyses = TrackTag.find_all_by_experiment_id_and_track_and_cvterm(experiment_id, tracknum.to_i, 'unique_analysis')
           unique_analyses = unique_analyses.size > 1 ? unique_analyses.map { |tt| tt.value }.uniq : nil
         end
+      
+        # Get bigwig information if it's a wiggle or feature
+#        if tag_track_type.value == "wiggle" || tag_track_type.value == "feature" then
+#          puts "finding bigwig with #{project.id}|#{tracknum}ok" if debugging?
+#          bigwig_tags = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File", "bigwig_file", tracknum)
+#          bigwig_file = bigwig_tags.value if bigwig_tags
+#          puts "found bigwig file #{bigwig_file.inspect}ok" if debugging?
+#        end
       end
 
       c = Citation.new(project_id)
@@ -1866,6 +2255,7 @@ class TrackFinder
       track_defs[stanzaname][:organism] = tag_track_organism.value unless tag_track_organism.nil?
       default_organism = track_defs[stanzaname][:organism] unless track_defs[stanzaname][:organism].nil?
       track_defs[stanzaname][:semantic_zoom] = Hash.new if track_defs[stanzaname][:semantic_zoom].nil?
+      
       zoomlevels.each { |zoomlevel|
         if zoomlevel.nil? then
           track_defs[stanzaname]['track_id'] = track_id
@@ -1887,6 +2277,11 @@ class TrackFinder
           track_defs[stanzaname]['connector'] = connector
           track_defs[stanzaname][:unique_analyses] = unique_analyses unless unique_analyses.nil?
 
+          # Make a new hash for the keywords - don't fill in any yet
+          track_defs[stanzaname]['keywords']={}
+          keywords.each{ | key, value |
+            track_defs[stanzaname]['keywords'][key] = nil }
+
           # Wiggle-only stuff
           track_defs[stanzaname]['min_score'] = min_score unless min_score.nil?
           track_defs[stanzaname]['max_score'] = max_score unless max_score.nil?
@@ -1897,6 +2292,10 @@ class TrackFinder
           track_defs[stanzaname]['bicolor_pivot'] = bicolor_pivot unless bicolor_pivot.nil?
           track_defs[stanzaname]['glyph select'] = glyph_select  unless glyph_select .nil?
           track_defs[stanzaname]['sort_order'] = sort_order unless sort_order.nil?
+
+          # Bigwig stuff
+          track_defs[stanzaname][:bigwig_file] = bigwig_file unless bigwig_file.nil? 
+          track_defs[stanzaname]['bigwig_file_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
 
           # SAM-only stuff
           track_defs[stanzaname]['draw_target'] = draw_target unless draw_target.nil?
@@ -1921,10 +2320,20 @@ class TrackFinder
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['neg_color'] = neg_color unless neg_color.nil?
           track_defs[stanzaname][:semantic_zoom][zoomlevel]['pos_color'] = pos_color unless pos_color.nil?
           
+          # Bigwig stuff
+          track_defs[stanzaname][:semantic_zoom][zoomlevel][:bigwig_file] =  bigwig_file.nil? ? "semantic zoom nil bigwig" : bigwig_file
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['bigwig_file_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
+
           if type =~ /read_pair:/ then
             # Special case for zoomed-out SAM
             track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = "coverage"
             track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = "wiggle_xyplot"
+          end
+          if type =~ /bigwig:/ then
+            # Special case for zoomed-out SAM
+            track_defs[stanzaname][:semantic_zoom][zoomlevel]['feature'] = "summary"
+            track_defs[stanzaname][:semantic_zoom][zoomlevel]['glyph'] = "wiggle_density"
+            track_defs[stanzaname][:semantic_zoom][zoomlevel]['database'] = database
           end
         end
       }
