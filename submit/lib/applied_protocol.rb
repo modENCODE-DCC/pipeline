@@ -45,6 +45,9 @@ class AppliedProtocol
   def protocols
     @protocols
   end
+  def protocols=(newprotocols)
+    @protocols = newprotocols
+  end
 
 end
 
