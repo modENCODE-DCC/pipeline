@@ -489,6 +489,7 @@
           </span>
           <br/>
           <% zoom_definition.sort { |o, v| o.to_s <=> v.to_s }.each do |option, value| %>
+            <% next if option.is_a? Symbol %>
             <% if okay_values = @stanza_options[option] then %>
               <span class="flipfield">
                 <span onmousedown="showForm(this, event)">
