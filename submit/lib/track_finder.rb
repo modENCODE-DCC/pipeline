@@ -114,7 +114,7 @@ class TrackFinder
   EOP
   WIGGLE_TO_BIGWIG_PERL = <<-EOP
   use strict;
-  use lib '/usr/local/src/Bio-BigFile-1.04/lib/';
+  use lib '/modencode/raw/tools//Bio-BigFile-1.04/lib';
   use Bio::DB::BigFile;
 
   open STDERR, '>&STDOUT'; # Redirect STDERR to STDOUT
