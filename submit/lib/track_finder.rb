@@ -114,8 +114,10 @@ class TrackFinder
   EOP
   WIGGLE_TO_BIGWIG_PERL = <<-EOP
   use strict;
+  use lib '/usr/local/src/Bio-BigFile-1.04/lib/';
   use Bio::DB::BigFile;
 
+  open STDERR, '>&STDOUT'; # Redirect STDERR to STDOUT
   my $wiggle_source_file = <>;
   my $chrom_file = <>;
   my $bigwig_output_file = <>; 
@@ -561,11 +563,12 @@ class TrackFinder
   def convert_to_bigwig(wig_path, chrom_path, bigwig_path)
     # TODO: Write the wiggle file locally, then move it to tracks dir
     # Do the bigwig conversion
-    wiggle_writer = IO.popen("perl", "w")
+    wiggle_writer = IO.popen("perl", "w+")
     wiggle_writer.puts WIGGLE_TO_BIGWIG_PERL + "\n\004\n"
     wiggle_writer.puts wig_path # Input
     wiggle_writer.puts chrom_path
     wiggle_writer.puts bigwig_path # Output
+    cmd_puts wiggle_writer.readlines.map { |l| "      " + l.sub(/^\s*/, '') }.join("\n")
     wiggle_writer.close
     # Return false if the bigwig file wasn't created.
     File.exist?(bigwig_path)
@@ -1589,10 +1592,10 @@ class TrackFinder
                 # When we're making the TrackTag, just use the basename instead of full path (?)
                 wrote_bigwig = convert_to_bigwig(collected_bed.path, chrom_file, bigwig_path)
                 unless wrote_bigwig then
-                  cmd_puts "        Failed to create bigwig file #{bigwig_path}."
+                  cmd_puts "          Failed to create bigwig file #{bigwig_path}."
                   next
                 end
-                cmd_puts "        Wrote BigWig file #{bigwig_path}." if debugging?
+                cmd_puts "          Wrote BigWig file #{bigwig_path}." if debugging?
                 # Bigwig path should be
 
                 # Then add a track tag so we can find the type again
