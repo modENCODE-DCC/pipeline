@@ -533,24 +533,33 @@ class ReportsController < ApplicationController
     # Get the dates released projects were emailed
     # If a project doens't have a date, mark it
     @future_date = Date.parse("2112-12-21") # Fake later-than-latest date for un-notified-yet projects
+    @past_date = Date.parse("2002-02-20") # Fake 'earliest' date for the first group of projects
     reported_projects = Hash.new{@future_date}
-    @seen_dates = Array.new
+    
+    seen_dates = Array.new # Array of encountered Date objects
     File.open(self.class.geo_reported_projects_path).each{|rep_proj|
       next if rep_proj.empty? || rep_proj.strip[0] == "#"
       fields = rep_proj.split("\t")
       # Make a hash of ProjectID => date release notified
       notified_date = fields[1].nil? ? nil : Date.parse(fields[1])
       reported_projects[fields[0].to_i] = notified_date
-      @seen_dates.push notified_date unless (notified_date.nil?) || (@seen_dates.include? notified_date)
+      seen_dates.push notified_date unless (notified_date.nil?) || (seen_dates.include? notified_date)
     }
-    @seen_dates.sort!
+    seen_dates.sort!
 
-    oldest_release_date = @seen_dates[0]
-    newest_release_date = @seen_dates.last
-    # Then, add the two special values
-    @seen_dates.insert(0, "any time")
-    @seen_dates.push("after #{@seen_dates.last.to_s}")
-    
+    oldest_release_date = seen_dates[0]
+    newest_release_date = seen_dates.last
+
+    seen_dates.insert(0, "any time")
+  
+    # Then separate out the date lists into start and end for filtering
+    @start_dates = Array.new seen_dates
+    @end_dates = Array.new seen_dates
+  
+    # And add special dates
+    @start_dates.insert(1, "before #{@start_dates[1]}") # Before earliest date
+    @end_dates.push("after #{seen_dates.last.to_s}") # Or after latest date
+  
     # Open the NIH spreadsheet table
     # and parse out the relevant information
     cols = ReportsController.get_geoid_columns 
@@ -569,7 +578,7 @@ class ReportsController < ApplicationController
     # Remove hidden projects
     # Hide nothing by default
     session[:hidden_geo_projs] = :no_projs if session[:hidden_geo_projs].nil?
-    # Otherwise, hide if it's been given in a paremeter
+    # Otherwise, hide if it's been given in a parameter
     session[:hidden_geo_projs] = params[:hide_projs].nil? ? session[:hidden_geo_projs] : params[:hide_projs].to_sym
     case session[:hidden_geo_projs]
       when :no_ids then
@@ -584,10 +593,11 @@ class ReportsController < ApplicationController
   
     # Filtering by date
     # If prev_start & end don't exist, set them to oldest & newest
-    if params["prev_time_start"] =~ /after/ then
-      previous_start = @future_date
+   
+    if params["prev_time_start"] =~ /before/ then
+      previous_start = @past_date
     else
-      previous_start = params["prev_time_start"].nil? ? oldest_release_date : Date.parse(params["prev_time_start"])
+      previous_start = params["prev_time_start"].nil? ? @past_date : Date.parse(params["prev_time_start"])
     end
     if params["prev_time_end"] =~ /after/ then
       previous_end = @future_date
@@ -601,21 +611,35 @@ class ReportsController < ApplicationController
       @latest = previous_end
     else
       # Set up the current filter
-      if params["time_start"] =~ /after/ then
-        curr_start = @future_date
+      if params["time_start"] =~ /before/ then
+        curr_start = @past_date
       else
-        curr_start = params["time_start"] == "any time" ? oldest_release_date : Date.parse(params["time_start"])
+        curr_start = params["time_start"] == "any time" ? @past_date : Date.parse(params["time_start"])
       end
-      # If we want them only from one week, set it all to curr_start
+      # If we want them only from one week, set them the same
       if params["same_week"] == "on" then
-        @earliest = @latest = curr_start 
+        @latest = @earliest = curr_start # We'll increment latest in a moment
       else
         curr_end = (( params["time_end"] == "any time") || (params["time_end"] =~ /after/ )) ? @future_date : Date.parse(params["time_end"])
         @earliest, @latest  = [curr_start, curr_end].sort
       end
+      # Then, if earliest = latest then increment latest by one date since these are half-open
+      if @earliest == @latest then
+        @latest = case @earliest
+          when @past_date then oldest_release_date
+          when newest_release_date then @future_date 
+          else seen_dates[seen_dates.index(@earliest) + 1]
+        end
+      end
+
     end
-    # Remove all projects that don't fit within boundaries
-    @projects.reject!{|proj| proj[:date_notified] < @earliest || proj[:date_notified] > @latest }
+    # -- Remove all projects that don't fit within boundaries --
+    # Projects with a date_notified of X were released in the week *BEFORE* X. So
+    # If start is Z - "released from Z to..." -- we want all projects with date > Z;
+    # If end is Y, we want projects with release date <= Y.
+    # So, reject all projects where the date is too early (ie, release date INCLUDES earliest) and
+    # where the date is too late -- ie, is anything LATER than latest.
+    @projects.reject!{|proj| proj[:date_notified] <= @earliest || proj[:date_notified] > @latest }
 
     # Sorting
     @new_sort_direction = Hash.new { |hash, column| hash[column] = 'forward' }

@@ -14,15 +14,15 @@
   <%= label_tag :hide_projs_has_id, "Show only projects with no associated ids" %>
   <p/>
   
-  Show only projects released between <br/> 
-  <%= select_tag "time_start", options_for_select(@seen_dates, 0) %>
-  and
-  <%= select_tag "time_end", options_for_select(@seen_dates, 0)  %>
+  Show only projects released from <br/> 
+  <%= select_tag "time_start", options_for_select(@start_dates, 0) %>
+  until
+  <%= select_tag "time_end", options_for_select(@end_dates, 0)  %>
   <br/>
   <%= check_box_tag "same_week", nil, false , :onclick => 
     "document.forms[0].time_end.disabled = ! document.forms[0].time_end.disabled" %>
 
-  <%= label_tag "same_week", "For a single week only" %>
+  <%= label_tag "same_week", "A single week's projects" %>
   
   
   <%= hidden_field_tag "prev_time_end" , @latest.to_s %>
@@ -35,17 +35,19 @@
   %>
 <p/>
 <h3><center>
-<% last_real_date = @seen_dates[-2] %>
+<% last_real_date = @end_dates[-2] %>
 <%= # Display in a title which projects are currently showing
   case 
     when @future_date == @earliest then
       "Projects released since #{last_real_date}"
     when @earliest == @latest then
-      "Projects released the week of #{ @earliest }"
-    when @earliest == @seen_dates[1] && @latest == @future_date then
+      "Projects released the week beginning #{ @earliest }"
+    when @earliest == @past_date && @latest == @future_date then
       "All Released Projects"
-    when @latest == @future_date then
+    when @latest == @future_date then # earliest guaranteed not to be past_date
       "Projects released #{@earliest} or later"
+    when @earliest == @past_date then # latest guaranteed not to be future_date
+      "Projects released before #{ @latest }"
     else
       "Projects released from #{@earliest} to #{@latest}"
   end
