@@ -403,8 +403,10 @@ class PublicController < ApplicationController
       download_dir = "extracted" 
       params[:root] = "extracted"
     end
+
     @root = download_dir
     @root_directory = File.join(PipelineController.new.path_to_project_dir(@project), download_dir)
+
 
     unless File.directory?(@root_directory) && Dir.glob(File.join(@root_directory, "*")).size > 0 then
       if !File.directory?(PipelineController.new.path_to_project_dir(@project)) || @root.nil? || @root == "" then
@@ -417,52 +419,122 @@ class PublicController < ApplicationController
       return
     end
 
-    @path = params[:path]
-    @current_directory = @path ? File.expand_path(File.join(@root_directory, @path)) : @root_directory
-
-    unless File.directory?(@current_directory) then
-      flash[:warning] = "No data found in: #{@current_directory}"
-      @current_directory = @root_directory
-      redirect_to :action => :list
-    end
-    unless @current_directory.index(@root_directory) == 0 then
-      flash[:error] = "Invalid path"
-      redirect_to :action => :download
-    end
-
-    if @current_directory != @root_directory then
-      @parent = File.split(@current_directory)[0][@root_directory.length..-1]
-    end
-
     @highlight = params[:highlight]
+    if params[:pretty] == "true" && params[:root] == "data" then
+      # If we're in pretty mode, just get all of the files in "extracted" recursively,
+      # flatten them, and apply pretty naming
+      @listing = Array.new
+      @current_directory = @root_directory
+      @current_directory += "/" unless @current_directory =~ /\/$/;
 
-    @listing = Array.new
-    @current_directory += "/" unless @current_directory =~ /\/$/;
-    if params[:debug] then
-      render :text => @root_directory
-      return
-    end
-    Find.find(@current_directory) do |path|
-      next if File.basename(path) == File.basename(@current_directory)
-      relative_path = path[@root_directory.length..-1]
-      if File.directory? path
-        @listing.push [ :folder, relative_path, Array.new, 0 ]
-        Find.prune
-        next
+      # Recursively collect all files
+      Find.find(@current_directory) do |path|
+        next if File.basename(path) == File.basename(@current_directory)
+        unless File.directory?(path) then
+          subdir = File.dirname(path)[@current_directory.length..-1] || ""
+          size = File.size(path)
+          if size.to_f >= (1024**2) then 
+            size = "#{(size.to_f / 1024**2).round(1)}M"
+          elsif size.to_f >= (1024) then
+            size = "#{(size.to_f / 1024).round(1)}K"
+          end
+          @listing.push [ :file, File.join(subdir, File.basename(path)).sub(/^\/*/, ''), nil, size ]
+        end
       end
-      size = File.size(path)
-      if size.to_f >= (1024**2) then 
-        size = "#{(size.to_f / 1024**2).round(1)}M"
-      elsif size.to_f >= (1024) then
-        size = "#{(size.to_f / 1024).round(1)}K"
+    else
+      @path = params[:path]
+      @current_directory = @path ? File.expand_path(File.join(@root_directory, @path)) : @root_directory
+      unless File.directory?(@current_directory) then
+        flash[:warning] = "No data found in: #{@current_directory}"
+        @current_directory = @root_directory
+        redirect_to :action => :list
       end
-      @listing.push [ :file, relative_path, nil, size ]
+      unless @current_directory.index(@root_directory) == 0 then
+        flash[:error] = "Invalid path"
+        redirect_to :action => :download
+      end
+
+      if @current_directory != @root_directory then
+        @parent = File.split(@current_directory)[0][@root_directory.length..-1]
+      end
+
+      @listing = Array.new
+      @current_directory += "/" unless @current_directory =~ /\/$/;
+      Find.find(@current_directory) do |path|
+        next if File.basename(path) == File.basename(@current_directory)
+        relative_path = path[@root_directory.length..-1]
+        if File.directory? path
+          @listing.push [ :folder, relative_path, Array.new, 0 ]
+          Find.prune
+          next
+        end
+        size = File.size(path)
+        if size.to_f >= (1024**2) then 
+          size = "#{(size.to_f / 1024**2).round(1)}M"
+        elsif size.to_f >= (1024) then
+          size = "#{(size.to_f / 1024).round(1)}K"
+        end
+        @listing.push [ :file, relative_path, nil, size ]
+      end
     end
+
     @listing.sort! { |l1, l2| (l1[0] == :folder ? "0#{l1[1]}" : "1#{l1[1]}") <=> (l2[0] == :folder ? "0#{l2[1]}" : "1#{l2[1]}") }
     @listing.reject! { |l| !(l[1].include? @highlight) } if @highlight
 
     unless @project.released? then
       flash[:warning] = "This project is not yet verified and released, and the data is subject to major change!"
+    end
+
+    @filename_width = "40%"
+    if params[:pretty] == "true" then
+      @filename_width = "80%"
+      apply_pretty_naming
+    end
+  end
+  def apply_pretty_naming
+    begin
+      newest_freeze = ReportsController.get_freeze_files.find { |f| !f[0].empty? }[1].find { |f| f[0] =~ /\(newest\)/ }[1]
+      throw :no_good unless (newest_freeze.is_a?(String) && !newest_freeze.empty?)
+    rescue
+      newest_freeze = ReportsController.get_freeze_files.find { |f| !f[0].empty? }[1][0][1]
+    end
+    freeze_data = ReportsController.get_freeze_data([ newest_freeze ])[0].find { |d| d[:submission_id].to_i == @project.id }
+
+    organism = freeze_data["Organism"].sub(/^(.).*? (...).*$/, '\1\2').upcase
+    assay = freeze_data["Assay"].upcase
+
+    types = {
+      :regulome => [ "binding site", "chromatin" ],
+      :regulome_repfactors => [ "replication factors" ],
+      :chromatin => [ "chromatin modification" ],
+      :chromatin_ori => [ "origins of replication" ],
+      :chromatin_reptiming => [ "replication timing" ],
+      :transcriptome => [ "copy number variation", "gene model", "RNA profiling", "transcription" ],
+      :other => [ "(metadata only)", "raw sequences", "signal data" ]
+    }
+
+    category = types.find { |k, v| freeze_data["Data Type"].split(/,\s*/).find { |data_type| v.include?(data_type) } }
+    category = (category.nil? ? :other : category[0]).to_s.upcase
+
+    strain = (freeze_data["Strain"] =~ /N\/A/i) ? nil : "STRAIN_#{freeze_data["Strain"]}"
+    stage = freeze_data[:stages].map { |stage| (stage =~ /N\/A/i) ? nil : stage }.compact.join("_and_")
+    stage = stage.blank? ? nil : "STAGE_#{stage}" 
+    cell_line = (freeze_data["Cell Line"] =~ /N\/A/i) ? nil : "CELL_LINE_#{freeze_data["Cell Line"]}"
+    tissue = (freeze_data["Tissue"] =~ /N\/A/i) ? nil : "TISSUE_#{freeze_data["Tissue"]}"
+    target = (freeze_data["Experimental Factor"] =~ /N\/A/i) ? nil : freeze_data["Experimental Factor"]
+    target = target.split(/;/).map { |d| d.split(/=/) }.find_all { |d| d[0] == "Target" }.map { |k, v| v }.join("_and_") unless target.nil?
+    target = target.blank? ? nil : "TARGET_#{target}"
+    sid = "SID_#{@project.id}"
+
+    @listing.each do |file|
+      (type, path, children, size) = file
+
+      orig_filename = ""
+      orig_filename = File.dirname(path).gsub("/", "_") if File.dirname(path) != "."
+      orig_filename += "_" if orig_filename.length > 0
+      orig_filename += File.basename(path)
+    
+      file[4]= [ organism, category, assay, strain, cell_line, tissue, stage, target, sid, orig_filename ].compact.join("_")
     end
   end
 
