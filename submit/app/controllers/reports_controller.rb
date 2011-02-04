@@ -464,14 +464,12 @@ class ReportsController < ApplicationController
      self.geo_processing_projects_path].each{|file|
       File.open(file).each{|proj|
         next if proj.empty? || proj.strip[0] == "#"
-        fields = proj.split("\t")
-        already_notified.push fields[0]
+        already_notified.push(proj.split("\t")[0]) # Push the id as a string
       }
     }
-
     # Remove all subs for which a notification has already been sent
     released_subs.reject!{|item| already_notified.include? item[cols["Submission ID"]] }
-    processing_subs.reject!{|item| already_notified.include? item.id }
+    processing_subs.reject!{|item| already_notified.include? item.id.to_s } # convert id to string
     {:released => released_subs, :processing => processing_subs }
   end
 
