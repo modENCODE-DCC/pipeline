@@ -54,6 +54,7 @@ class PipelineController < ApplicationController
       'modENCODE tracks: Lai Group',
       'modENCODE tracks: Lieb Group',
       'modENCODE tracks: MacAlpine Group',
+      'modENCODE tracks: Oliver Group',
       'modENCODE tracks: Piano Group',
       'modENCODE tracks: Snyder Group',
       'modENCODE tracks: Waterston Group',
@@ -362,7 +363,7 @@ class PipelineController < ApplicationController
     loading_ok = Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)
     is_released =  (@project.status == Project::Status::RELEASED)
     unless (loading_ok || is_released) then
-      flash[:error] = "Whoops! Project must have generated a ChadoXML file to apply a patch."
+      flash[:error] = "Can't apply patch&mdash;project must have a generated ChadoXML file."
       redirect_to :action => "show", :id => @project
       return
     end
@@ -511,12 +512,33 @@ class PipelineController < ApplicationController
     end
     if ts && ts.stanza && ts.stanza.values.size > 0 then
       organism = ts.stanza.values.first[:organism]
-      if organism == "Caenorhabditis elegans" then
-        @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_wormbase/?name=3L:6066513..6266513;grid=1;label=_scale-_scale:overview-_scale:region"
-      else
-        @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_flybase/?name=III:4200000..4300000;grid=1;label=_scale-_scale:overview-_scale:region"
-      end
-      @gbrowse_url += "-" + ts.stanza.keys.join("-")
+      
+      organism_gbrowse = case organism
+        when "Caenorhabditis elegans"
+          "wormbase"
+        when "Drosophila pseudoobscura pseudoobscura"
+          "dpse"
+        when "Drosophila simulans"
+          "dsim"
+        when "Drosophila sechellia"
+          "dsec"
+        when "Drosophila persimilis"
+          "dper"
+        when "Drosophila mojavensis"
+          "dmoj"
+        else
+          "flybase"
+        end
+
+      @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_#{organism_gbrowse}_quick_#{@project.id}"
+
+      # This originally linked to non-fast gbrowse preview
+      #if organism == "Caenorhabditis elegans" then
+      #  @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_wormbase/?name=3L:6066513..6266513;grid=1;label=_scale-_scale:overview-_scale:region"
+      #else
+      #  @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_flybase/?name=III:4200000..4300000;grid=1;label=_scale-_scale:overview-_scale:region"
+      #end
+      #@gbrowse_url += "-" + ts.stanza.keys.join("-")
     end
 
     if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then
@@ -1042,6 +1064,11 @@ class PipelineController < ApplicationController
     }
     # If it's a browser upload, check content type unless we're skipping the check
     if (!upfile.blank?) and (params["skip_content_check"] != "yes") then 
+      # HACK - FIXME - @content_type is not getting passed in uploads ? so it crashes when chomping
+      if upfile.content_type.nil? then
+        extensions = extensionsByMIME.values.flatten.find_all { |ext| filename.ends_with?(".#{ext}") }
+        upfile.content_type = ""
+      end
       extensions = extensionsByMIME[upfile.content_type.chomp]
     else # Otherwise, either it's a different upload type OR we're skipping content check 
       extensions = extensionsByMIME.values.flatten.find_all { |ext| filename.ends_with?(".#{ext}") }
