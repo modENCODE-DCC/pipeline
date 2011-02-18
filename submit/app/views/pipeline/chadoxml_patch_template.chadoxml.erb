@@ -1,6 +1,6 @@
 <chadoxml>
   <experiment>
-    <uniquename><%= @params["eprop_uname"] %></uniquename>
+    <uniquename><%= CGI.escapeHTML(@params["eprop_uname"]) %></uniquename>
     <experiment_prop>
       <name><%= CGI.escapeHTML(@params["eprop_name"]) %></name>
       <rank><%= @params["eprop_rank"] %></rank>
