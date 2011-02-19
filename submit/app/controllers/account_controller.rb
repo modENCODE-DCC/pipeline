@@ -45,6 +45,9 @@ class AccountController < ApplicationController
       @user = self.current_user
     end
 
+    @user.host = request.host
+    @user.port = request.port
+
     @pis = get_pis.sort.map { |k, v| [ k.sub(/(, \S)\S*$/, '\1.'), v.sort.map { |vv| [ vv.sub(/(, \S)\S*$/, '\1.'), "#{vv}"] } + [[ k.sub(/(, \S)\S*$/, '\1.'), "#{k}"]] ] }
 
     return unless request.post?
@@ -63,6 +66,8 @@ class AccountController < ApplicationController
       end
       @user.save!
       flash[:notice] = "Profile has been successfully changed."
+      # If the email was changed, remind the user they need to confirm it
+      flash[:notice] += "<br/>Please click the link in your confirmation email to finalize your email address change." unless @user.new_email.nil? 
       redirect_to :action => :change_profile
       return
     else
