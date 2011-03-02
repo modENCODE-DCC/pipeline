@@ -129,6 +129,12 @@ class Project < ActiveRecord::Base
     return (file_extensions & file_types).size > 0 ? true : false
   end
 
+  def has_geo_update?
+    # Have geoids been successfully attached to this project
+    attached = commands.find_by_status(AttachGeoids::Status::ATTACHED)
+    return ! attached.nil?
+  end
+  
   def has_config?
     #TODO: fixme
     return true

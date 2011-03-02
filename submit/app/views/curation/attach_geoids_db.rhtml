@@ -1,0 +1,51 @@
+<h2>Attach Geo IDs</h2>
+<%
+  # @info contains the geoids to attach pulled from the geoid_updates.marshal file 
+  unless @info.empty? then 
+    if @temp_sdrf then # We have a marshal file (info) and a temp sdrf -- geoids are ready to be attached
+%>
+    
+
+    The following GEO ids have been generated to be attached to protocol
+      "<%= @info[:previous_protocol_name] %>": <br/>
+      <br/>
+      <%= @info[:geo_record].values.uniq.join("<br/>") %>
+      <br/>
+      <br/>
+      If this is acceptable, confirm and they will be attached.
+      Otherwise, you can press 'Cancel' to return to the AttachGeoids page.
+      <br/>
+      <%= form_tag url_for(:action => :attach_geoids_db), :method => "post" %>
+
+
+      <!-- If there are Geo IDs already, confirm before attaching -->
+      <% if @geo_ids.empty? then %>
+      <%= submit_tag("Attach GEOids") %>
+      <% else %>
+      <%= submit_tag("Attach GEOids", :confirm => "This will overwrite existing GEO ids #{@geo_ids.join(", ")}. Are you sure ?") %>
+      <% end %>
+      <%= submit_tag("Cancel") %>
+      </form>
+
+<%
+    else # marshal file, but no tmp sdrf; probably geoids have been attached - check project
+      if @project.has_geo_update? then
+%>
+      This project has already had GEO ids successfully applied to it! If you wish to view existing GEO ids or re-apply, please
+      start from <%= link_to  "the Attach GEO ids page here", :controller => "curation", :action => "attach_geoids", :id =>@project.id %>.
+<%
+      else
+        # Marshal file, but no sdrf or successful update. Something weird has happened!
+%>
+    This project does not appear to have an sdrf file containing new GEO ids. To create one, use
+    <%= link_to  "the Attach GEO ids page here", :controller => "curation", :action => "attach_geoids", :id =>@project.id %>.
+<%
+      end
+    end
+  else # Whoops, couldn't find a marshal file
+%>
+  Couldn't find any GEO ids waiting to be attached!<br/>
+  Please check the <%= link_to "project's status page", :controller => "pipeline", :action => "show", :id => @project.id %>
+  for info, or
+  <%= link_to "try attaching the GEO ids again", :controller => "curation", :action => "attach_geoids", :id => @project.id %>.
+<% end %>

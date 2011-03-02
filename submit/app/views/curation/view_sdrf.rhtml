@@ -1,7 +1,1 @@
-<% if !@sdrf %>
-  Couldn't discover SDRF to view it.
-<% else %>
-  <table border="1" style="font-size: 90%; font-family: sans-serif">
-    <%= @sdrf.gsub(/\t/, '</td><td>').gsub(/^/m, '<tr><td>').gsub(/$/m, '</td></tr>') %>
-  </table>
-<% end %>
+<%= render :partial => "sdrf" %>

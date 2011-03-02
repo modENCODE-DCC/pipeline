@@ -1,5 +1,13 @@
 class CurationController < ApplicationController
+  include GeoidHelper
   before_filter :login_required, :except => :tickle_me_here
+  before_filter :moderator_required, :only => [:attach_geoids, :attach_geoids_db] 
+  layout "pipeline", :only => [:attach_geoids, :attach_geoids_db]
+
+  def moderator_required
+    access_denied unless current_user.is_a? Moderator 
+  end
+
   def geo_sra_ids
     begin
       @project = Project.find(params[:id])
@@ -12,6 +20,7 @@ class CurationController < ApplicationController
     @geo_ids = TrackTag.find_all_by_project_id_and_cvterm(@project.id, "GEO_record").map { |tt| tt.value }
     @geo_ids += TrackTag.find_all_by_project_id_and_cvterm(@project.id, "data_url").find_all { |tt| tt.name =~ /^GSE|^GSM/ }.map { |tt| tt.name }
     @geo_ids.compact!
+    @geo_ids.uniq!
   end
   def experiment_description
     begin
@@ -62,6 +71,8 @@ class CurationController < ApplicationController
     end
     look_in = File.join(PipelineController.new.path_to_project_dir(@project), "extracted", "**")
     sdrfs = Dir.glob(File.join(look_in, "*SDRF*")) + Dir.glob(File.join(look_in, "*sdrf*"))
+    # Ignore any sdrf with unattached GeoIDs
+    sdrfs.reject!{|f| f.include? AttachGeoidsController::NEW_SDRF_SUFFIX}
     if sdrfs.size > 0 && File.exists?(sdrfs.first) then
       @sdrf = File.read(sdrfs.first)
     end
@@ -133,6 +144,129 @@ class CurationController < ApplicationController
       render :text => "No validation command found to confirm!"
     end
   end
+  def attach_geoids
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :controller => "pipeline", :action => "release", :id => params[:id]
+      return
+    end
+    # First, ensure the project is in an appropriate state
+    unless Project::Status::ok_next_states(@project).include? Project::Status::AWAITING_RELEASE then
+      flash[:error] = "Can't attach Geo IDs to this project until tracks have been configured!"
+      redirect_to :controller => "pipeline", :action => "show", :id => params[:id]
+    end
+
+    # Submitting the form
+    if params[:commit] == "Attach GEOids" then
+      gse = params[:gse].upcase
+      # GSMS are separated by commas and/or spaces
+      gsms = params[:gsms].upcase.gsub(",", " ").split(/\s+/)
+      # Check GSE and GSMS for reasonableness
+      unless (gse =~ /^GSE\d+$/) && (gsms.reject{|g| g =~ /^GSM\d+$/}.empty? ) then
+        flash[:error] =  "Error: A GSE or GSM was invalid.<br/><br/>Input GSE:<br/>#{gse}<br/><br/>Input GSMs:<br/>#{gsms.join("<br/>")}"
+        redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+        return
+      end
+      # Also check for uniqueness of GSMs
+      unless gsms.uniq == gsms then
+        flash[:error] = "Error: Duplicate GMSs found&mdash;GSMs must be unique.<br/><br/>Input GSE:<br/>#{gse}<br/><br/>Input GSMs:<br/>#{gsms.join("<br/>")}"
+        redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+        return
+      end
+
+      # Make controller, creating the geoids marshal object but not attaching it to DB
+      attach_geoids = AttachGeoidsController.new(
+                                                 :gse => gse, 
+                                                 :gsms => gsms.join(","), 
+                                                 :project_id => @project.id,
+                                                 :creating => true,
+                                                 :attaching => false
+                                                )
+      # If it failed to initalize, complain; otherwise, go ahead and queue
+      if attach_geoids.command_object.nil? then
+        flash[:error] = "Couldn't make AttachGeoids controller! <br> Perhaps there are zero or multiple sdrf files extracted for project #{params[:id]}."
+        redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+      else
+        attach_geoids.run
+        # Check for completion
+        if attach_geoids.status == AttachGeoids::Status::CREATED then
+          flash[:notice] = "Created GEOids! Please confirm to attach them to the database."
+          redirect_to :controller => "curation", :action => "attach_geoids_db", :id => params[:id]
+          return
+        else
+          # Failed to create geoids! whoops! Display error log
+          flash[:error] = attach_geoids.command_object.stderr
+          redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+          return
+        end
+      end
+    else
+      # Just displaying page - Get the sdrf data and existing geoids
+      view_sdrf()
+      geo_sra_ids()
+    end
+  end
+
+  def attach_geoids_db
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :controller => "pipeline", :action => "release", :id => params[:id]
+      return
+    end
+  
+    geoid_marshal = File.join(ExpandController.path_to_project_dir(@project), "extracted/#{GEOID_MARSHAL}")
+    
+    # Form submission
+    if params[:commit] == "Attach GEOids" then
+      last_created = AttachGeoids.find_all_by_project_id(@project.id).sort{|a, b| a.id <=> b.id}.last
+      last_created.creating = false
+      last_created.attaching = true
+      last_created.save
+      last_created.controller.run
+      # Check for completion
+      if last_created.status == AttachGeoids::Status::ATTACHED then
+        redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+      else
+        # Failed to attach!
+        flash[:error] = last_created.stderr
+        redirect_to :controller => "curation", :action => "attach_geoids_db", :id => params[:id]
+      end
+    elsif params[:commit] == "Cancel" then
+      # Remove any temporary sdrf
+      last_created = AttachGeoids.find_all_by_project_id(@project.id).sort{|a, b| a.id <=> b.id}.last
+      last_created.controller.delete_temp_sdrf
+      # Also remove a marshal file
+      if File.exist? geoid_marshal then
+        begin
+          File.delete geoid_marshal
+        rescue Exception => e
+          logger.error "Failed to delete #{geoid_marshal}: #{e}"
+        end
+      end
+      redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
+    else
+      # Just displaying page
+      # Get geoids from marshal file. 
+      if File.exist? geoid_marshal then
+        @info = Marshal.restore(File.open(geoid_marshal))
+        else
+         @info = {}
+      end
+      # Check for existence of temp sdrf - just look for a file in extracted with
+      # the tempsdrf string in its filename
+      look_in = File.join(PipelineController.new.path_to_project_dir(@project), "extracted", "**")
+      temp_sdrf = Dir.glob(File.join(look_in, "*#{AttachGeoidsController::NEW_SDRF_SUFFIX}*"))
+      @temp_sdrf = ! temp_sdrf.empty? 
+
+      # Get existing TrackTags with GeoIDS so we can warn if overwriting
+      geo_sra_ids()
+    end
+  end
+
   private
   def self.database
     if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then

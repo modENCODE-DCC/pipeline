@@ -1957,7 +1957,7 @@ class PipelineController < ApplicationController
     @checklist_for_release_by_pi = {
       "01General Items" => [
         [ "Appropriate experiment title?", { :controller => :public, :action => :citation, :id => @project }, "View Citation..." ],
-        [ "GEO/SRA IDs okay?", { :controller => :curation, :action => :geo_sra_ids, :id => @project }, "View GEO and SRA IDs..." ],
+        [ "GEO/SRA IDs okay?", { :controller => :curation, :action => :attach_geoids, :id => @project }, "View and update GEO and SRA IDs..." ],
         [ "Experiment description link okay?", { :controller => :curation, :action => :experiment_description, :id => @project }, "View Experiment Description..." ],
         [ "If a replicate submission, does it replace the old one?", false ],
       ],
@@ -1966,7 +1966,7 @@ class PipelineController < ApplicationController
         [ "Reagent cvterms okay?", false ],
         [ "Reagents submitted to centers?", false ],
         [ "Reagent matches title/filenames", { :controller => :curation, :action => :view_sdrf, :id => @project }, "View SDRF..." ],
-        [ "Reagent matches GEO entry?", { :controller => :curation, :action => :geo_sra_ids, :id => @project }, "View GEO and SRA IDs..." ],
+        [ "Reagent matches GEO entry?", { :controller => :curation, :action => :attach_geoids, :id => @project }, "View and update GEO and SRA IDs..." ],
       ],
 
       "03Data Files" => [

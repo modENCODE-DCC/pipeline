@@ -1,0 +1,38 @@
+<h2>Attach GEO ids</h2>
+<h3>Existing GEO and SRA ids:</h3>
+  <h4>GEO IDs</h4>
+    <% unless @geo_ids.nil? then
+        @geo_ids.each do |geo_id| %>
+          <%= link_to geo_id, "http://www.ncbi.nlm.nih.gov/projects/geo/query/acc.cgi?acc=#{geo_id}" %><br/>
+        <% end
+       end %>
+  <h4>SRA IDs</h4>
+    <% unless @sra_ids.nil? then
+        @sra_ids.each do |sra_id| %>
+          <%= link_to sra_id, "http://www.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=viewer&m=data&s=viewer&run=#{sra_id}", :target => "_blank" %><br/>
+        <% end 
+      end %>
+<br/>
+
+<h3>SDRF contents:</h3>
+<%= render :partial => "sdrf" %>
+<br/>
+<h3>Attach new GEO ids</h3>
+<%= form_tag url_for(:action => :attach_geoids), :method => "post" %>
+
+  GSE for this submission:<br/>
+  <%= text_field_tag 'gse', "" %><br/>
+  GMSs in the order they would appear in the SDRF :
+  (If you aren't sure, this is probably in order by increasing number.)
+  <br/>
+  <%= text_field_tag 'gsms', "", :size => 60 %><br/>
+
+  <br/>
+<%  if @project.has_geo_update? then %>
+  A set of GEO ids has already been successfully attached to this project!<br/>
+  <%= submit_tag("Attach GEOids", :confirm => "This will ovewrite existing attached GEO ids. Are you sure?") %>
+<%  else %>
+  <%= submit_tag("Attach GEOids") %>
+<% end %>
+
+</form>
