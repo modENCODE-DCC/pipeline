@@ -153,7 +153,8 @@ class CurationController < ApplicationController
       return
     end
     # First, ensure the project is in an appropriate state
-    unless Project::Status::ok_next_states(@project).include? Project::Status::AWAITING_RELEASE then
+    unless (Project::Status::ok_next_states(@project).include? Project::Status::AWAITING_RELEASE) || 
+           (@project.released?) then
       flash[:error] = "Can't attach Geo IDs to this project until tracks have been configured!"
       redirect_to :controller => "pipeline", :action => "show", :id => params[:id]
     end
