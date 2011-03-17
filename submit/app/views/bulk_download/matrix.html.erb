@@ -132,7 +132,7 @@
       return;
     }
     /* GET METHOD */
-    window.location = modmineURL.interpolate({ ids: checkedProjects.join(",") });
+    window.location = modmineURL.interpolate({ ids: checkedProjects.map(function (id) { return "modENCODE_" + id; }).join(",") });
     /*
     form.action = modmineURL.interpolate({ ids: checkedProjects.join(",") });
     form.method = "GET";

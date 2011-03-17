@@ -34,7 +34,7 @@ function showModMine(ids) {
     return false;
   }
   var modmineURL = "http://intermine.modencode.org/query/portal.do?externalids=#{ids}&class=Submission";
-  var finalURL = modmineURL.interpolate({ 'ids': ids.join(",") });
+  var finalURL = modmineURL.interpolate({ 'ids': ids.map(function (id) { return "modENCODE_" + id; }).join(",") });
   window.open(finalURL, "_blank");
 }
 var infoDiv;
