@@ -58,7 +58,7 @@ class UrlUploadReplacementController < UrlUploadController
     end
     relative_file = destfile.sub(extracted_dir, "")
     relative_file.gsub!(/^\/*/, '')
-    cmd = "tar -czvf '#{absolute_desttgz.gsub(/'/, escape_quote)}'  -C '#{extracted_dir.gsub(/'/, escape_quote)}' #{relative_file.gsub(/'/, escape_quote)}"
+    cmd = "tar -czvf '#{absolute_desttgz.gsub(/'/, escape_quote)}'  -C '#{extracted_dir.gsub(/'/, escape_quote)}' '#{relative_file.gsub(/'/, escape_quote)}'"
     # TODO: Error handling
     result = `#{cmd} 2>&1`
     command_object.stderr = "#{command_object.stderr}\nCompressed #{result} to #{desttgz}"
