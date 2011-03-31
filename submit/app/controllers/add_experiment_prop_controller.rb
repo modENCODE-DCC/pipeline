@@ -83,10 +83,11 @@ class AddExperimentPropController < CommandController
     erb_renderer = ERB.new(chadoxml_template)
     chadoxml_string = erb_renderer.result(binding)
 
-    patchfile_path = File.join(self.command_object.command, get_next_patch_filename()) 
+    patchfile = get_next_patch_filename()
+    patchfile_path = File.join(self.command_object.command, patchfile)
     write_patchfile = File.open(patchfile_path, 'w'){|wpf| wpf.write(chadoxml_string)}
 
-  return chadoxml_string
+    return patchfile
   end # make_patch_file
 
   def get_patch_filenames

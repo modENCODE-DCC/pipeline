@@ -2064,9 +2064,9 @@ class PipelineController < ApplicationController
       if is_okay then
         reservations = params[:with_reservations] ? params[:reservations] : nil
         if params[:use_deprecated_release_date] && @project_replaces_deprecated_project then
-          do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.", :reservations => reservations)
+          do_dcc_release(@project, :stderr => "Backdated to submission ##{@project_replaces_deprecated_project.id}.", :reservations => reservations, :user => current_user)
         else
-          do_dcc_release(@project, :reservations => reservations)
+          do_dcc_release(@project, :reservations => reservations, :user => current_user)
         end
         redirect_to :action => :show, :id => @project
         return

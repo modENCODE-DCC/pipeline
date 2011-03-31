@@ -21,4 +21,10 @@ class ReleaseWithReservations < Release
     end
     self.stderr = self.stderr + new_r
   end
+
+  def controller
+    @controller = DccReleaseController.new(:command => self) unless @controller
+    return @controller
+  end
+
 end
