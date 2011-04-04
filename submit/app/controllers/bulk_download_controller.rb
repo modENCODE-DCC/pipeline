@@ -584,7 +584,7 @@ class BulkDownloadController < ApplicationController
         [ :stage_vs_antibodies,         { :rows => [ "Stage" ],           :cols => [ "Antibody" ],     :description => "Stage / Antibody" } ],
       ],
       [ "Experiment Type",
-        [ :experiment_type_vs_stage,    { :rows => [ "Assay" ],           :cols => [ "Stage" ],        :description => "Experiment Type / Stage" } ],
+        [ :experiment_type_vs_stage,    { :rows => [ "Assay" ],           :cols => [ "Stage", "Stage/Treatment" ],        :description => "Experiment Type / Stage" } ],
       ],
     ]
     @matrix_styles.extend(FancyGroupedOptions)
@@ -655,7 +655,7 @@ class BulkDownloadController < ApplicationController
       @filter_options = HashWithIndifferentAccess.new(params[:filter])
     elsif @selected_template
       @filter_options = HashWithIndifferentAccess.new(@template_styles.get(@selected_template))
-      @selected_freeze_id = @filter_options.delete(:freeze)
+      @selected_freeze_id = (@selected_freeze_id.nil? || @selected_freeze_id == "") ? @filter_options.delete(:freeze) : @selected_freeze_id
       @selected_matrix_style = @filter_options.delete(:matrix)
       @selected_freeze_files = just_filenames.find_all { |fname| fname == @selected_freeze_id }.map { |fname| 
         if fname =~ /^combined_/ then
@@ -711,6 +711,9 @@ class BulkDownloadController < ApplicationController
 
     # Include N/A columns?
     @include_na_columns = params[:include_na_columns].nil? ? false : true
+
+    # Submit the form once
+    @show_matrix = true if params[:show_matrix] == "true"
 
   end
   def index_freeze_data(freeze_data)

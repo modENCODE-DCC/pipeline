@@ -48,7 +48,9 @@ Below, you can find:
 <br/>
 If you want to download data in bulk, please try:
 <ul>
-  <li>Bulk downloads of full submissions for the <%= link_to "Oct. 19, 2009 fly data freeze", :controller => :bulk_download, :selected_freeze => "dmelanogaster_2009-10-19" %>. <b>NEW</b></li>
+  <li>Bulk downloads of full submissions for the <%= link_to "Apr 01, 2011 fly data freeze", :controller => :bulk_download, :selected_freeze => "dmelanogaster_2011-04-02", :matrix_style => "experiment_type_vs_stage", :show_matrix => "true", :bulk_tab => "filter", :include_na_columns => "true" %>. <b>NEW</b></li>
+  <li>Bulk downloads of full submissions for the <%= link_to "Oct 19, 2009 fly data freeze", :controller => :bulk_download, :selected_freeze => "dmelanogaster_2009-10-19", :matrix_style => "experiment_type_vs_stage", :show_matrix => "true", :bulk_tab => "filter", :include_na_columns => "true" %>.</li>
+  <li>Bulk downloads of full submissions <%= link_to "via the bulk downloads tool", :controller => :bulk_download, %>.</li>
   <li>The <%= link_to "ModMine", "http://intermine.modencode.org/" %> data warehouse.</li>
 </ul>
 
