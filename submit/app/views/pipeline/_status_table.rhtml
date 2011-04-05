@@ -123,22 +123,22 @@ Select page:
     %>
     <% @projects.each do |p| %>
       <%
-        all_project_commands = Command.find(:all, :conditions => { :project_id => p.id }).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-        p_commands = all_project_commands.count
-        deleted_project = all_project_commands.find { |cmd| cmd.is_a?(Delete) && cmd.status != Delete::Status::DELETE_FAILED } ? true : false
+        has_commands = Command.find_by_project_id(p.id) ? true : false
+
+        deleted_project = Command.find_all_by_project_id_and_status(p.id, [ Delete::Status::DELETED, Delete::Status::DELETING] ).find { |cmd| cmd.is_a?(Delete) } ? true : false
         queued_commands = all_queued_commands.find_all { |cmd| cmd.project_id == p.id }
         active_project = Project::Status::is_active_state(p.status)
         failed_project = Project::Status::is_failed_state(p.status)
         released_project = p.status == Project::Status::RELEASED
 
-        last_upload_command = all_project_commands.find { |cmd| cmd.status == Upload::Status::UPLOADED }
-        last_validate_command = all_project_commands.find { |cmd| cmd.status == Validate::Status::VALIDATED }
-        last_load_command = all_project_commands.find { |cmd| cmd.status == Load::Status::LOADED }
-        last_release_command = all_project_commands.find { |cmd| cmd.status == Release::Status::RELEASED }
+        last_upload_command = Command.find_by_project_id_and_status(p.id, Upload::Status::UPLOADED, :order => "queue_position")
+        last_validate_command = Command.find_by_project_id_and_status(p.id, Validate::Status::VALIDATED, :order => "queue_position")
+        last_load_command = Command.find_by_project_id_and_status(p.id, Load::Status::LOADED, :order => "queue_position")
+        last_release_command = Command.find_by_project_id_and_status(p.id, Release::Status::RELEASED, :order => "queue_position")
 
-        total_uploads = all_project_commands.find { |cmd| cmd.status == Upload::Status::UPLOADED || cmd.status == Upload::Status::UPLOAD_FAILED }
-        total_validations = all_project_commands.find { |cmd| cmd.status == Validate::Status::VALIDATED || cmd.status == Validate::Status::VALIDATION_FAILED }
-        total_dbloads = all_project_commands.find { |cmd| cmd.status == Load::Status::LOADED || cmd.status == Load::Status::LOAD_FAILED }
+        total_uploads = Command.find_by_project_id_and_status(p.id, [ Upload::Status::UPLOADED, Upload::Status::UPLOAD_FAILED ], :order => "queue_position")
+        total_validations = Command.find_by_project_id_and_status(p.id, [ Validate::Status::VALIDATED, Validate::Status::VALIDATION_FAILED ], :order => "queue_position")
+        total_dbloads = Command.find_by_project_id_and_status(p.id, [ Load::Status::LOADED, Load::Status::LOAD_FAILED ], :order => "queue_position")
         color = active_project ? '#ffffbb' : colors[i%2]
         i += 1
       %>
@@ -190,15 +190,14 @@ Select page:
             <%= @quarters.find {|k,v| last_upload_command.updated_at.to_date <= v["end"] && last_upload_command.updated_at.to_date >= v["start"]}[0] %>
           <% elsif last_upload_command then %>
             <%= last_upload_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             --
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && !total_uploads.nil? then %>
-            <%#= ((p_commands.find_all_by_status(Upload::Status::UPLOADED).length / total_uploads)*100).to_s + "% (" + total_uploads.to_s + ")" %>
+          <% if has_commands && !total_uploads.nil? then %>
 	    <%= total_uploads.to_s  %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;
@@ -210,15 +209,14 @@ Select page:
             <%= @quarters.find {|k,v| last_validate_command.updated_at.to_date <= v["end"] && last_validate_command.updated_at.to_date >= v["start"]}[0] %>
           <% elsif last_validate_command then %>
             <%= last_validate_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             <span style="color:grey">--</span>
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && !total_validations.nil? then %>
-            <%#= ((p_commands.find_all_by_status(Validate::Status::VALIDATED).length / total_validations)*100).to_s + "% (" + total_validations.to_s + ")" %>
+          <% if has_commands && !total_validations.nil? then %>
 	    <%= total_validations.to_s  %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;
@@ -230,15 +228,14 @@ Select page:
             <%= @quarters.find {|k,v| last_load_command.updated_at.to_date <= v["end"] && last_load_command.updated_at.to_date >= v["start"]}[0] %>
           <% elsif last_load_command then %>
             <%= last_load_command.updated_at.strftime("%y %b %d ") %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             <span style="color:grey">--</span>
           <% end %>
         </td>
         <td>
-          <% if p_commands > 0 && !total_dbloads.nil? then %>
-            <%#= ((p_commands.find_all_by_status(Load::Status::LOADED).length / total_dbloads)*100).to_s + "% (" + total_dbloads.to_s + ")" %>
+          <% if has_commands && !total_dbloads.nil? then %>
 	    <%= total_dbloads.to_s %>
-          <% elsif p_commands > 0 then %>
+          <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
             &nbsp;

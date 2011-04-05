@@ -1,4 +1,4 @@
-  <% form_tag :update => :status_table, :user => @show_user, :url => { :action => :status_table, :user => @show_user }, :html => { :onsubmit => "if ($('display_type_expanded').checked) { $('tr_date_option').show(); } else { $('tr_date_option').hide(); }", :action => url_for(:action => :status) } do %>
+  <% form_tag :update => :status_table, :user => @show_user, :url => { :action => :status_table, :user => @show_user } do %>
     <table class="table_buttons">
       <tr>
         <td class="left" width="20px">

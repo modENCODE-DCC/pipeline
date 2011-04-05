@@ -2802,6 +2802,7 @@ private
 
     @show_filter_pis = Array.new
     same_group_users = User.all.find_all { |u| (u.pis & user_to_view.pis).size > 0 }
+
     if session[:show_filter] == :user then
       @projects = user_to_view.projects
       @show_my_queue = user_to_view
@@ -2821,8 +2822,12 @@ private
     @display_date = session[:status_display_date] || 'quarter'
     @show_status = session[:status_show_status] || 'all'
 
-    @projects = @projects.find_all{|p| p.status==Project::Status::RELEASED} if (session[:status_show_status] == 'released')
-    @projects = @projects.find_all{|p| p.status!=Project::Status::RELEASED} if (session[:status_show_status] == 'active')
+    if (session[:status_show_status] == 'released') then
+      @projects = @projects.find_all{|p| p.status==Project::Status::RELEASED}
+    elsif (session[:status_show_status] == 'active') then
+      @projects = @projects.find_all{|p| p.status!=Project::Status::RELEASED}
+    end
+
 
 
     if params[:sort] then
