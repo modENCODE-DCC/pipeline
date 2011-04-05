@@ -4,7 +4,7 @@ class AdministrationController < ApplicationController
   before_filter :is_worker?, :only => :tickle_me_here
 
   def index
-    @commands = Command.all
+    @commands = Command.all(:limit => 200, :order => "id desc")
     project = Project.first || Project.new(:id => 0)
     project_dir = ExpandController.path_to_project_dir(project)
     if File.directory? project_dir then
@@ -16,9 +16,9 @@ class AdministrationController < ApplicationController
     @all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @all_waiting_commands = (@all_queued_commands + @all_paused_commands).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
 
-    @active_commands = @commands.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-    @show_all = params[:show_all].nil? ? false : true
-
+    @active_commands = Command.find_all_by_status(Project::Status::active_states)
+    @commands = (@commands - @active_commands) + @active_commands
+    
     ## Get a list of all workers in workers.yml
     @all_workers = Workers.get_workers
   end

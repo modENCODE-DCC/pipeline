@@ -263,8 +263,8 @@ class Project < ActiveRecord::Base
       end
     end
 
-    def self.is_active_state(state)
-      active_states = [
+    def self.active_states
+      [
         Delete::Status::DELETING,
         Load::Status::LOADING,
         Expand::Status::EXPANDING,
@@ -277,7 +277,9 @@ class Project < ActiveRecord::Base
         PreviewBrowser::Status::GENERATING_PREVIEW,
         Liftover::Status::LIFTING,
       ]
-      return active_states.include?(state)
+    end
+    def self.is_active_state(state)
+      return self.active_states.include?(state)
     end
 
     def self.is_failed_state(state)

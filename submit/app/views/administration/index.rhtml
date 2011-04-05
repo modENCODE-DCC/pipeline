@@ -93,7 +93,7 @@
   <h1>All Commands</h1>
   <table>
     <tr><th colspan="2">Command</th><th>Project</th><th>Status</th><th>User</th><th>Host</th><th>Start</th><th>End</th></tr>
-    <% show_commands = @show_all ? @commands.sort { |a,b| b.id <=> a.id } : @commands.sort { |a,b| b.id <=> a.id }[0..150] %>
+    <% show_commands = @commands.sort { |a,b| b.id <=> a.id } %>
     <% show_commands.each do |command| %>
       <tr>
         <td><a style="text-decoration: none; color: black" name="<%= "cmd_#{command.id}" %>"><%= command.id %></a></td>
@@ -107,9 +107,4 @@
       </tr>
     <% end %>
   </table>
-  <% if @show_all %>
-    <%= button_to "Show 150 Commands", {}, :method => "get" %>
-  <% else %>
-    <%= button_to "Show All #{@commands.size} Commands", {} , :name => "show_all", :method => "get" %>
-  <% end %>
 </div>
