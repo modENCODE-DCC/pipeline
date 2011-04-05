@@ -87,13 +87,12 @@ Select page:
 
       <% if (@display_type == 'expanded') %>
         <th><%= link_to "Created", :action => refresh_action_name, :sort => { 'created_at' => @new_sort_direction['created_at'] } %></th>
-        <th title="Most recent upload attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
-        <!-- th>% success <br/>(# attempts)</th -->
-        <th>#<br />attempts</th>
-        <th title="Most recent validation attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
-        <th>#<br />attempts</th>
-        <th title="Most recent database load attempt"><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
-        <th>#<br />attempts</th>
+        <th title="Most recent upload success">Last<br/>Success</th>
+        <th>total<br />attempts</th>
+        <th title="Most recent validation success">Last<br/>Success</th>
+        <th>total<br />attempts</th>
+        <th title="Most recent database load success">Last<br/>Success</th>
+        <th>total<br />attempts</th>
         <th><%= @display_date=='quarter' ? "Quarter" : "Date"%></th>
       <% end %>
 
@@ -136,9 +135,11 @@ Select page:
         last_load_command = Command.find_by_project_id_and_status(p.id, Load::Status::LOADED, :order => "queue_position")
         last_release_command = Command.find_by_project_id_and_status(p.id, Release::Status::RELEASED, :order => "queue_position")
 
-        total_uploads = Command.find_by_project_id_and_status(p.id, [ Upload::Status::UPLOADED, Upload::Status::UPLOAD_FAILED ], :order => "queue_position")
-        total_validations = Command.find_by_project_id_and_status(p.id, [ Validate::Status::VALIDATED, Validate::Status::VALIDATION_FAILED ], :order => "queue_position")
-        total_dbloads = Command.find_by_project_id_and_status(p.id, [ Load::Status::LOADED, Load::Status::LOAD_FAILED ], :order => "queue_position")
+        upload_count = Command.count(:all, :conditions => { :project_id => p.id, :status => [ Upload::Status::UPLOADED, Upload::Status::UPLOAD_FAILED ]})
+        validation_count = Command.count(:all, :conditions => { :project_id => p.id, :status => [ Validate::Status::VALIDATED, Validate::Status::VALIDATION_FAILED ]})
+        dbload_count = Command.count(:all, :conditions => { :project_id => p.id, :status => [ Load::Status::LOADED, Load::Status::LOAD_FAILED ]})
+
+        #total_dbloads = Command.find_by_project_id_and_status(p.id, [ Load::Status::LOADED, Load::Status::LOAD_FAILED ], :order => "queue_position")
         color = active_project ? '#ffffbb' : colors[i%2]
         i += 1
       %>
@@ -195,8 +196,8 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if has_commands && !total_uploads.nil? then %>
-	    <%= total_uploads.to_s  %>
+          <% if has_commands && upload_count > 0 then %>
+	    <%= upload_count  %>
           <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
@@ -214,8 +215,8 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if has_commands && !total_validations.nil? then %>
-	    <%= total_validations.to_s  %>
+          <% if has_commands && validation_count > 0 then %>
+	    <%= validation_count %>
           <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
@@ -233,8 +234,8 @@ Select page:
           <% end %>
         </td>
         <td>
-          <% if has_commands && !total_dbloads.nil? then %>
-	    <%= total_dbloads.to_s %>
+          <% if has_commands && dbload_count > 0 then %>
+	    <%= dbload_count %>
           <% elsif has_commands then %>
             <span style="color:grey">0</span>
           <% else %>
