@@ -56,28 +56,31 @@ class Project < ActiveRecord::Base
   end
 
   def has_readme?
-    return (self.readme_project_file.nil?) ? false : true
+    return (self.readme_project_file == false) ? false : true
   end
   def readme_project_file
+    return @pf unless @pf.nil?
     #the readme file must have the name README
     files = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten
-    return nil unless files.size > 0
+    return false unless files.size > 0
 
     # Is everything contained in a subdirectory?
     if files.find { |f| f.file_name !~ /\// } then
       # No, there are files in the root
-      return files.find { |f| f.file_name =~ /^README(.txt)?$/ }
+      @pf = files.find { |f| f.file_name =~ /^README(.txt)?$/ }
     else
       # No files in the root, what's the base dir?
       root_dir = files.first.file_name
       while ((root_dir = File.dirname(root_dir)) =~ /\//); 1; end
-      return files.find { |f| f.file_name =~ Regexp.new("^#{Regexp.escape(File.join(root_dir, "README"))}(.txt)?$") }
+      @pf = files.find { |f| f.file_name =~ Regexp.new("^#{Regexp.escape(File.join(root_dir, "README"))}(.txt)?$") }
     end
+    @pf = false if @pf.nil?
+    return @pf
   end
 
   def readme
     pf = self.readme_project_file
-    return nil if pf.nil?
+    return nil if pf == false
     path = File.join(PipelineController.new.path_to_project_dir(pf.project_archive.project), "extracted", pf.file_name)
     if File.exists?(path) then
       return File.read(path)
@@ -113,18 +116,17 @@ class Project < ActiveRecord::Base
 
   def has_metadata?
     #assuming metadata is labeled with "idf" and "sdrf" in filename
-    has_idf = false
-    has_sdrf = false
-    file_names = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| pf.file_name.downcase }
-    has_idf = true if file_names.find { |fn| fn =~ /idf/i }
-    has_sdrf = true if file_names.find { |fn| fn =~ /sdrf/i }
-    return has_idf && has_sdrf
+    if (@has_metadata.nil?) then
+      file_names = ProjectFile.find_by_sql("SELECT pf1.* FROM project_files pf1 INNER JOIN project_archives pa ON pf1.project_archive_id = pa.id INNER JOIN project_files pf2 ON pf2.project_archive_id = pa.id WHERE pa.project_id = #{self.id} AND pa.is_active = true AND position('sdrf' in lower(pf1.file_name)) > 0 AND position('idf' in lower(pf2.file_name)) > 0 LIMIT 1")
+      @has_metadata = (file_names.size > 0)
+    end
+    return @has_metadata
   end
 
   def has_feature_data?
     #assuming feature data has gff or gff3 extension
     file_types = [".gff"]
-    file_extensions = self.project_archives.find_all_by_is_active(true).map { |pa| pa.project_files }.flatten.map { |pf| File.extname(pf.file_name).downcase }.uniq.reject { |ext| ext == "" }
+    file_extensions = ProjectArchive.find_all_by_project_id_and_is_active(self.id, true).map { |pa| pa.project_files }.flatten.map { |pf| File.extname(pf.file_name).downcase }.uniq.reject { |ext| ext == "" }
     # If there's any intersection (&), then there must be one of file_types in file_extensions
     return (file_extensions & file_types).size > 0 ? true : false
   end

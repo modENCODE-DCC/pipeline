@@ -30,9 +30,17 @@ class PublicController < ApplicationController
 
   def list
     @projects = Project.all
-    @projects.delete_if { |p| p.deprecated? } unless session[:show_deprecated]
-    @projects.delete_if { |p| !p.released? && !p.has_metadata? && !p.has_readme? } unless session[:show_noreadme]
+    unless session[:show_noreadme] then
+      projects_with_metadata = Project.find_by_sql("SELECT DISTINCT p.* FROM projects p INNER JOIN project_archives pa ON pa.project_id = p.id INNER JOIN project_files pf1 ON pf1.project_archive_id = pa.id INNER JOIN project_files pf2 ON pf2.project_archive_id = pa.id WHERE pa.is_active = true AND position('sdrf' in lower(pf1.file_name)) > 0 AND position('idf' in lower(pf2.file_name)) > 0")
+      projects_without_metadata = @projects - projects_with_metadata
+      projects_without_metadata.delete_if { |p| !p.released? && !p.has_readme? && !p.has_metadata? }
 
+      projects_with_metadata.each { |p| p.instance_variable_set(:@has_metadata, true) }
+      projects_without_metadata.each { |p| p.instance_variable_set(:@has_metadata, false) }
+
+      @projects = projects_with_metadata + projects_without_metadata
+      @projects.delete_if { |p| p.deprecated? } unless session[:show_deprecated]
+    end
 
     @modmine_ids = loaded_modmine_ids
     @modmine_link_template = modmine_link_template
