@@ -17,9 +17,14 @@ class CurationController < ApplicationController
       return
     end
     @sra_ids = TrackTag.find_all_by_project_id_and_cvterm(@project.id, "ShortReadArchive_project_ID (SRA)").map { |tt| tt.value }
+    @sra_ids += TrackTag.find_all_by_project_id_and_cvterm(@project.id, "data_url").find_all { |tt| tt.name =~ /^SRA|^SRR/ }.map { |tt| tt.name }
     @geo_ids = TrackTag.find_all_by_project_id_and_cvterm(@project.id, "GEO_record").map { |tt| tt.value }
     @geo_ids += TrackTag.find_all_by_project_id_and_cvterm(@project.id, "data_url").find_all { |tt| tt.name =~ /^GSE|^GSM/ }.map { |tt| tt.name }
+    @sra_ids.compact!
+    @sra_ids.delete_if { |t| t == "" }
+    @sra_ids.uniq!
     @geo_ids.compact!
+    @geo_ids.delete_if { |t| t == "" }
     @geo_ids.uniq!
   end
   def experiment_description
