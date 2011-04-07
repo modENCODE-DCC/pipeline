@@ -125,9 +125,15 @@ class CurationController < ApplicationController
       redirect_to :controller => "pipeline", :action => "release", :id => params[:id]
       return
     end
-    @antibodies = TrackTag.find_all_by_project_id_and_cvterm(@project.id, 'antibody').map { |ab|
+    @antibodies = TrackTag.find_all_by_project_id_and_cvterm(@project.id, 'antibody').reject { |ab| ab.value.nil? }.map { |ab|
       { "name" => ab["value"].sub(/\&oldid.*/, ''), "url" => ab["value"] }
     }.uniq
+    if (@antibodies.size == 0) then
+      @antibodies = TrackTag.find_all_by_project_id_and_cvterm(@project.id, 'target name').reject { |ab| ab.value.nil? }.map { |ab|
+        { "name" => ab["name"].sub(/\&oldid.*/, ''), "url" => ab["name"] }
+      }.uniq
+    end
+
   end
   def validator_results
     begin
