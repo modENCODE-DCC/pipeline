@@ -3,7 +3,7 @@ require 'escape'
 class LiftoverController < CommandController
   
   # An array of allowable genome builds to lift from or to
-  GENOME_BUILDS = %w{170 180 190 200 210};
+  GENOME_BUILDS = %w{170 180 190 200 210 220};
   
   # A wrapper for sending things to command_object's stdout
   def debug(input)
