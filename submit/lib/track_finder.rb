@@ -1270,7 +1270,8 @@ class TrackFinder
                 data_ids_with_features.push row["data_id"].to_i
               elsif row['number_of_wiggles'].to_i > 0 then
                 data_ids_with_wiggles.push row["data_id"].to_i
-              elsif row['type'] == "Sequence_Alignment/Map (SAM)" then
+              elsif ( row['type'] == "Sequence_Alignment/Map (SAM)" ||
+                      row['type'] == "Binary Sequence_Alignment/Map (BAM)" ) then
                 data_ids_with_sam_files.push row["data_id"]
               end
             end
