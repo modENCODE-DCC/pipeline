@@ -501,18 +501,20 @@ class TrackFinder
     wiggle_params = { :format => false }
 
     # If there's no span, it won't need to be reformatted
+    # However, still parse out the chrom for determining the organism
     if !( line =~ /span/i) then
       wiggle_params[:format] = "noSpan"
+      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
     # Otherwise, it must be either fixed or variableStep
     elsif line =~ /^fixedStep/ then
       wiggle_params[:format] = "fixedStep"
-      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1]
+      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
       wiggle_params[:start] = /start=\d+/.match(line).to_s[6..-1].to_i
       wiggle_params[:step] = /step=\S+/.match(line).to_s[5..-1].to_i
       wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
     elsif line =~ /^variableStep/ then
       wiggle_params[:format] = "variableStep"
-      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1]
+      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
       wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
     else
       # It has a span, but it's neither fixed nor variableStep
