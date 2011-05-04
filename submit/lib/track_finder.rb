@@ -35,6 +35,10 @@ class TrackFinder
               :dmelanogaster => [ '2L', '2LHet', '2R', '2RHet', '3L', '3LHet', '3R', '3RHet', '4', 'X', 'XHet', 'YHet', 'U', 'Uextra', 'M' ],
               :celegans => ['I', 'II', 'III', 'IV', 'V', 'X', 'MtDNA' ]
   }
+  # Path to chromosome files for bigwig conversion
+  CHROMFILE_DMEL_R5 = File.join(RAILS_ROOT, "config", "FlyBase_r5.chrom")
+  CHROMFILE_CELEGANS_190 = File.join(RAILS_ROOT, "config", "WormBase_WS190.chrom") # OLD
+  CHROMFILE_CELEGANS_220 = File.join(RAILS_ROOT, "config", "WormBase_WS220.chrom")
 
   # GBrowse configuration
   def self.gbrowse_root
@@ -550,9 +554,9 @@ class TrackFinder
   def organism_to_chromfile(wig_organism)
     case wig_organism
       when :dmelanogaster
-        File.join(RAILS_ROOT, "config", "FlyBase_r5.chrom")
+        CHROMFILE_DMEL_R5
       when :celegans
-        File.join(RAILS_ROOT, "config", "WormBase_WS190.chrom")
+        CHROMFILE_CELEGANS_220
       else
         cmd_puts "    Error: cannot find chromosome file for organism \"#{wig_organism}\"!"
         false
