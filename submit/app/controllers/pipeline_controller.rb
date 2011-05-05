@@ -526,6 +526,12 @@ class PipelineController < ApplicationController
           "dper"
         when "Drosophila mojavensis"
           "dmoj"
+        when "Drosophila ananassae"
+          "dana"
+        when "Drosophila virilis"
+          "dvir"
+        when "Drosophila yakuba"
+          "dyak"
         else
           "flybase"
         end
@@ -1430,6 +1436,9 @@ class PipelineController < ApplicationController
       when "Drosophila sechellia"
       when "Drosophila persimilis"
       when "Drosophila mojavensis"
+      when "Drosophila ananassae"
+      when "Drosophila virilis"
+      when "Drosophila yakuba"
       else
         params[:organism] = "Drosophila melanogaster"
       end
