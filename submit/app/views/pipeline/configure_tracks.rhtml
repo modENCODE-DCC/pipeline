@@ -50,6 +50,24 @@
       default_chr = "scaffold_6680"
       default_fmin = 80000
       default_fmax = 100000
+    when "Drosophila ananassae" 
+      gbrowse_source = "modencode_flybase_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_flybase"
+      default_chr = "scaffold_0"
+      default_fmin = 1
+      default_fmax = 1069
+    when "Drosophila virilis" 
+      gbrowse_source = "modencode_flybase_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_flybase"
+      default_chr = "scaffold_0"
+      default_fmin = 2000
+      default_fmax = 4000
+    when "Drosophila yakuba" 
+      gbrowse_source = "modencode_flybase_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_flybase"
+      default_chr = "2L"
+      default_fmin = 80000
+      default_fmax = 100000
     else
       gbrowse_source = "modencode_flybase_quick_#{@project.id}"
       gbrowse_full_source = "modencode_flybase"
@@ -370,7 +388,10 @@
             'Drosophila simulans',
             'Drosophila sechellia',
             'Drosophila persimilis',
-            'Drosophila mojavensis'
+            'Drosophila mojavensis',
+            'Drosophila ananassae',
+            'Drosophila virilis',
+            'Drosophila yakuba'
         ], @organism %>
       </select>
       <script type="text/javascript">
