@@ -568,17 +568,32 @@ class PublicController < ApplicationController
       redirect_to :action => :download
       return
     end
+
+    publicname = file
     unless File.file?(file) then
-      # Try to see if there's a base directory from the archive
-      # (e.g. extracted/MySubmission/...)
-      subdirs = Dir.entries(@root_directory).reject { |entry|
-        entry =~ /^\./  || entry =~ /ws\d\d\d/i
-      }.find_all { |entry| File.directory?(File.join(@root_directory, entry)) }
-      file = File.join(@root_directory, subdirs[0], params[:path]) if subdirs.size == 1
-      unless File.file?(file) then
-        flash[:error] = "File does not exist #{file}"
-        redirect_to :action => :download, :id => params[:id], :root => params[:root] 
-        return
+      logger.info "Couldn't find file #{file}... checking for WSxxx in filename"
+      # See if there's a matching file with WSxxx in the filename
+      wsfile = wsxxx_file(file)
+      if (wsfile) then  
+        file = wsfile
+      else
+        # Try to see if there's a base directory from the archive
+        # (e.g. extracted/MySubmission/...)
+        subdirs = Dir.entries(@root_directory).reject { |entry|
+          entry =~ /^\./  || entry =~ /ws\d\d\d/i
+        }.find_all { |entry| File.directory?(File.join(@root_directory, entry)) }
+        file = File.join(@root_directory, subdirs[0], params[:path]) if subdirs.size == 1
+        unless File.file?(file) then
+          # Check for WSxxx in the subdir, too
+          wsfile = wsxxx_file(file)
+          if (wsfile) then
+            file = wsfile
+          else
+            flash[:error] = "File does not exist #{file}"
+            redirect_to :action => :download, :id => params[:id], :root => params[:root] 
+            return
+          end
+        end
       end
     end
 
@@ -606,13 +621,33 @@ class PublicController < ApplicationController
            when "chadoxml"
              type = "text/xml"
            else
-             type = "application/octect-stream"
+             type = "application/octet-stream"
            end
 
-    send_file file, { :disposition => 'attachment', :type => type, :filename => File.basename(file), :stream => true, :x_sendfile => true }
+    send_file file, { :disposition => 'attachment', :type => type, :filename => File.basename(publicname), :stream => true, :x_sendfile => true }
   end
 
   private
+
+  def wsxxx_file(file)
+    #logger.info "Looking for matches to #{file} with a Wormbase build included..."
+    # Returns the path to a file that matches 'file's name except also has WSXXX in the name. Returns false if no or multiple files found.
+    return false unless File.exists? File.dirname(file)
+    all_files = Dir.entries(File.dirname(file))
+    # Try the filename minus WSxxx, and also minus .wsXXX or _wsxxx in case there was a separator character that got removed
+    ws1 = all_files.map{|f| f.sub(/ws\d{3}/i, "")}
+    ws2 = all_files.map{|f| f.sub(/.ws\d{3}/i, "")}
+    inws1 = ws1.index( File.basename(file) ) 
+    inws2 = ws2.index( File.basename(file) ) 
+    # Only mark as found if exactly one of them matched
+    # TODO : if you have, say, file_ws123.txt and file.ws123.txt, and your search text is file.txt, it will not fail but only find one. Arguably a bug.
+    unless ( inws1.nil? ^ inws2.nil? ) then
+      return false
+    end
+    # There's exactly one result -- find and return it!
+    idx = inws1.nil? ? inws2 : inws1
+    File.join(File.dirname(file), all_files[idx])
+  end
 
   def loaded_modmine_ids
       ids = Array.new
