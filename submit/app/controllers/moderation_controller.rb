@@ -14,9 +14,9 @@ class ModerationController < ApplicationController
 
     @all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-    @all_waiting_commands = (@all_queued_commands + @all_paused_commands).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @all_waiting_commands = Command.queue_sort(@all_queued_commands + @all_paused_commands) # .sort { |c1, c2| c1.queue_position <=> c2.queue_position }
 
-    @active_commands = @commands.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = Command.queue_sort( @commands.find_all { |c| Project::Status::is_active_state(c.status) } ) #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @show_all = params[:show_all].nil? ? false : true
 
     ## Get a list of all workers in workers.yml

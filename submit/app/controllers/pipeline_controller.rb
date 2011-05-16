@@ -212,7 +212,7 @@ class PipelineController < ApplicationController
 
   def view_my_queue
     user_to_view = (params[:user_id] && User.find(params[:user_id]) && current_user.is_a?(Moderator)) ? User.find(params[:user_id]) : current_user
-    @my_queued_commands = Project.find_all_by_user_id(user_to_view).map { |p| p.commands.find_all { |c| c.queued? } }.flatten.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @my_queued_commands = Command.queue_sort( Project.find_all_by_user_id(user_to_view).map { |p| p.commands.find_all { |c| c.queued? } }.flatten ) 
     render :action => "view_my_queue", :layout => "popup"
   end
 
@@ -246,7 +246,7 @@ class PipelineController < ApplicationController
       return
     end
     @last_command_run = @project.commands.find_all { |cmd| ! cmd.queued? }.last
-    @active_commands = @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = Command.queue_sort( @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) } ) 
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
  
     render :partial => "command_panel"
@@ -489,7 +489,7 @@ class PipelineController < ApplicationController
     @num_active_archives = @project.project_archives.find_all { |pa| pa.is_active }.size
     @num_archives = @project.project_archives.size
 
-    @active_commands = @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) }.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @active_commands = Command.queue_sort( @project.commands.all.find_all { |c| Project::Status::is_active_state(c.status) } )  
     @active_command = @active_commands.find { |c| c.project_id = @project.id }
 
     @user_can_write = check_user_can_write @project, :skip_redirect => true
@@ -1243,7 +1243,7 @@ class PipelineController < ApplicationController
         Project::Status.is_failed_state(@project.status) ||
         Project::Status.state_position(@project.status) < Project::Status.state_position(Project::Status::EXPANDED)
       ) then
-         flash[:error] = "Can't run liftover&mdash;the project must first be re-expanded." 
+         flash[:error] = "Can't run liftover when the project is in a failed state&mdash;please re-expand first." 
          redirect_to :action => :show, :id => @project
       end 
     rescue

@@ -118,7 +118,7 @@ Select page:
     %>
 
     <% 
-      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position")
     %>
     <% @projects.each do |p| %>
       <%

@@ -118,4 +118,24 @@ class Command < ActiveRecord::Base
   def queued?
     self.status == Command::Status::QUEUED
   end
+
+  # Sort commands in the queue
+  # This is to deal with the "comparison of Expand with Expand failed" error.
+  def self.queue_sort(command_queue)
+    command_queue.sort{|c1, c2|
+      if c1.queue_position.nil? then
+        logger.info "Error: Expand with Expand! queue_position nil fixed on command #{c1.id}"
+        c1.queue_position = 1
+        c1.save
+      end
+      if c2.queue_position.nil? then
+        logger.info "Error: Expand with Expand! queue_position nil fixed on command #{c2.id}"
+        c2.queue_position = 1
+        c2.save
+      end
+    c1.queue_position <=> c2.queue_position
+  }
+  end
+
 end
+

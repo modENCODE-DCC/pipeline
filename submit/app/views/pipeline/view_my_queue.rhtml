@@ -4,7 +4,7 @@
       <th colspan="3" style="background-color:#0000AA; color: white; text-align:center">Queued Commands</th>
     </tr>
     <% 
-      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+      all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position")
     %>
     <% @my_queued_commands.each do |command| %>
       <tr>

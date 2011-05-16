@@ -130,7 +130,7 @@ class CommandController < ApplicationController
     disallowed_users = Workers.get_workers.find { |worker| worker.name == me }.disallowed_users
     ## Check the ordered queued commands against the "active"
     ## hash. Try to return one not included.
-    all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED).sort { |a, b| a.queue_position <=> b.queue_position }
+    all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position")
     for possible_command in  all_queued_commands
 
       logger.info "next_available_command: \tlooking at: #{possible_command} is gid #{possible_command.project_id}"

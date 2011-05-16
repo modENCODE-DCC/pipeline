@@ -14,7 +14,7 @@ class AdministrationController < ApplicationController
 
     @all_queued_commands = Command.find_all_by_status(Command::Status::QUEUED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
     @all_paused_commands = Command.find_all_by_status(Command::Status::PAUSED, :order => "queue_position") #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
-    @all_waiting_commands = (@all_queued_commands + @all_paused_commands).sort { |c1, c2| c1.queue_position <=> c2.queue_position }
+    @all_waiting_commands = Command.queue_sort(@all_queued_commands + @all_paused_commands) #.sort { |c1, c2| c1.queue_position <=> c2.queue_position }
 
     @active_commands = Command.find_all_by_status(Project::Status::active_states)
     @commands = (@commands - @active_commands) + @active_commands
