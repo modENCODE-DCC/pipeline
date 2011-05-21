@@ -396,6 +396,7 @@ class PublicController < ApplicationController
   end
   def download
     begin
+      params[:id].sub!("modENCODE_", "")
       @project = Project.find(params[:id])
     rescue
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
