@@ -2,7 +2,7 @@ require 'find'
 require 'escape'
 class LiftoverController < CommandController
   
-  # An array of allowable genome builds to lift from or to
+  # An array of allowable genome builds to lift to or from
   GENOME_BUILDS = %w{170 180 190 200 210 220};
   
   # A wrapper for sending things to command_object's stdout
@@ -379,7 +379,7 @@ class LiftoverController < CommandController
         archive.is_active = ! archive_only
         archive.comment = archive_only ? 
           "Archive of files lifted to WS#{destWS} from WS#{sourceWS}." :
-          "Lifts this project from WS#{destWS} to WS#{sourceWS}."
+          "Lifts this project from WS#{sourceWS} to WS#{destWS}."
         archive.save
         
       else
