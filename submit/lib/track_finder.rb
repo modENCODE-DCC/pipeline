@@ -500,44 +500,6 @@ class TrackFinder
 
   # Helper methods: converting wiggle to bed as a preface for converting to bigWig
 
-  # Given a track declaration line, parses it, making a hash of the result.
-  def parse_wiggle_params_line(line)
-    wiggle_params = { :format => false }
-
-    # If there's no span, it won't need to be reformatted
-    # However, still parse out the chrom for determining the organism
-    if !( line =~ /span/i) then
-      wiggle_params[:format] = "noSpan"
-      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
-    # Otherwise, it must be either fixed or variableStep
-    elsif line =~ /^fixedStep/ then
-      wiggle_params[:format] = "fixedStep"
-      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
-      wiggle_params[:start] = /start=\d+/.match(line).to_s[6..-1].to_i
-      wiggle_params[:step] = /step=\S+/.match(line).to_s[5..-1].to_i
-      wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
-    elsif line =~ /^variableStep/ then
-      wiggle_params[:format] = "variableStep"
-      wiggle_params[:chrom] = /chrom=\S+/.match(line).to_s[6..-1].sub("chr", "")
-      wiggle_params[:span] = /span=\d+/.match(line).to_s[5..-1].to_i
-    else
-      # It has a span, but it's neither fixed nor variableStep
-      wiggle_params[:format] = "unknown"
-    end
-    wiggle_params
-  end
-
-  # Takes: a variable_step line as a hash of
-  #   :chrom, :score, :start0, :end0, :needs_printing
-  #   where :start0, :end0 are 0 based half-open
-  #   and the following line's 0-based start coordinate
-  # Returns: the string of that line in .bed format.
-  def finish_varstep_line(line, next_start=nil)
-    # If the next line starts before this would finish, move this one's end up.
-    line[:end0] = next_start if next_start && ( next_start < line[:end0] )
-    "#{line[:chrom]}\t#{line[:start0]}\t#{line[:end0]}\t#{line[:score]}"
-  end
-
   # Takes an array of possible organisms and a chrom string
   # Returns the array of organisms who have chrom as a chromosome
   # If there is but one, returns it in organism
@@ -546,7 +508,7 @@ class TrackFinder
       CHROMOSOMES[org].include? chrom
     }
     organism = possible_organisms.length == 1 ? possible_organisms[0] : false
-    cmd_puts "Unrecognized chromosome #{chrom}--unable to determine organism!" if possible_organisms.empty?
+    cmd_puts "        ERROR: unrecognized chromosome #{chrom}--unable to determine organism!" if possible_organisms.empty?
     [possible_organisms, organism] 
   end
 
@@ -558,7 +520,7 @@ class TrackFinder
       when :celegans
         CHROMFILE_CELEGANS_220
       else
-        cmd_puts "    Error: cannot find chromosome file for organism \"#{wig_organism}\"!"
+        cmd_puts "      ERROR: cannot find chromosome file for organism \"#{wig_organism}\"!"
         false
     end
   end
@@ -580,165 +542,188 @@ class TrackFinder
     File.exist?(bigwig_path)
   end
 
-
-  # Takes: a read-filehandle source & write-filehandle output
-  # converts a wiggle (fixed or variable step) file into bed format
-  # Sourcename is for converting tmp wiggle files where the path may not be helpful in debugging
-  # Returns an array [failed, original_ok, organism]
-  # Failed -- the bed conversion failed but source is not necessarily appropriate to cvt to bigwig
-  # Original_ok -- if true, no conversion done because original acceptable to cvt to bigwig
-  # Organism -- organism determined based on correlation with the CHROMOSOMES hash
-  def convert_wiggle_to_bed(source, output, sourcename)
-    failed = false # did the wiggle fail to process?
-    found_span = false # Have we seen a section with span yet?
-    effective_span = false # We will use the step value if span > step in a fixedStep file
-    original_ok = false # Can we just use the original wig
-    params = {} # The parameters (1-based)
-    # params are :format, :chrom, :start (for fixedStep), :step (for fixedStep), :span
-    to_print = { :needs_printing => false }
-
-    possible_organisms = CHROMOSOMES.keys # We wish to narrow down the organisms that it could be. 
-    organism = false
-    determining_organism = false # Whether to figure out the organism & then quit
+  # wiggle_to_bedgraph : converts files for converting to bigwig & determines organism.
+  # based on convert_wiggle_to_bed
+  # Input : path to input wiggle file, original name for debugging purposes
+  # Output : [organism, bedgraphpath] -- string name of organism,
+  # bedgraphpath path to temporary bedGraph outputfile
+  # NOTE: All of these wiggles have passed through the validator. They're either coming from
+  # embedded in the chadoxml or, if sufficiently large, a "cleaned wiggle file" in the directory itself.
+  # FORMATTING NOTE:
+  # fixedStep and variableStep wiggles are 1-based: the first base of an N-base chromosome is 1 and the last is N.
+  # Span, when present, indicates the number of bases a feature covers.
+  # bedGraph is 0-based half-open (ie, the end coordinate is "the first base no longer covered by this feature")
+  # so, a fixedStep with start of 11 and span of 5 (so last base is 15) translates to bedGraph as [10 15).
+  def wiggle_to_bedgraph(sourcepath, basename)
     
-    source.each{|line|
-      # Skip track definitions, comments, and blank lines
-      next if line =~ /^#|^track|^\s*$/
-      
-      # If all we are doing is finding the organism
-      if determining_organism then
-        # Find the chrom more quickly - and bed-able.
-        if params[:format]== "bed_file" then
-          # If this is a chrom we've not encountered yet, check it
-          curr_chrom = /^\S+\s/.match(line).to_s.strip
-          unless params[:chrom] == curr_chrom then
-            possible_organisms, organism = eliminate_organisms(possible_organisms, curr_chrom) 
-            params[:chrom] = curr_chrom
-          end
+    possible_organisms = CHROMOSOMES.keys # List of organisms not yet eliminated
+    organism = false # the organism we've determined this to have
+
+    params = Hash.new # The wiggle parameters for this section of the file
+    delayed_line_to_print = false # Whether there is an unprinted line that needs to be finished --
+    # used in variableStep and bedGraph which may have erroneous overlapping lines.
+    
+    ofstream = nil # stream to current output bed 
+
+    # Try to open the file
+   begin
+      ifstream = File.open(sourcepath, "r")
+    rescue Exception => e
+      cmd_puts "      Error opening source wiggle file #{basename} at location #{sourcepath}:\n#{e}."
+      return [false, nil]
+    end
+   
+    # Make the output file
+    begin
+      ofstream = Tempfile.new(basename, TrackFinder::gbrowse_tmp)
+    rescue Exception => e
+      cmd_puts "        Error creating temporary bedGraph file in #{TrackFinder::gbrowse_tmp}: #{e}."
+      return [false, nil]
+    end
+
+    format =  chrom = start = step = span = nil # Information about the lines that needs to be retained between loops.
+    warncount = 0 # How many overlaps have we warned for? To prevent spamming the output too much.
+    linenum = 0 # Line # of the file, for error-output purposes
+    
+    prev_start0 = -1 # Start of the previous line--for ensuring that lines are in numerical order
+    
+    # Read the file and convert it
+    ifstream.each{|line|
+      line.chomp!
+      linenum += 1
+      # Skip comments, blank lines, track definitions.
+      next if line =~ /^#|^\s$|^$/
+      if line =~ /^track/ then
+        # Clear the delayed line but otherwise skip... for now
+        warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
+        delayed_line_to_print = false
+        next # SKIP IT!
+       end
+  
+      # Get info from header lines
+      if line=~ /chrom/ then
+        # Finish processing possible previous line and clear it
+        warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
+        delayed_line_to_print = false
+
+        format  = (regmatch = /^(variableStep|fixedStep)/.match line ; regmatch.nil? ? nil : regmatch[1] )
+        chrom     = (regmatch = /chrom=(\S+)/.match line ; regmatch.nil? ? nil : regmatch[1] )
+        start     = (regmatch = /start=(\d+)/.match line ; regmatch.nil? ? nil : regmatch[1].to_i )
+        step      = (regmatch = /step=(\d+)/.match line ; regmatch.nil? ? nil : regmatch[1].to_i )
+        span      = (regmatch = /span=(\d+)/.match line ; regmatch.nil? ? 1 : regmatch[1].to_i ) # Default span is 1
+
+        # Complain of missing fields
+        if chrom.nil? || (format == "fixedStep" && step.nil? ) then
+          cmd_puts "      ERROR: Declaration line \"#{line}\" at #{basename}:#{linenum} is missing fields or invalid! Cannot continue!"
+          ofstream.close
+          return [false, nil]
         end
-        if line =~ /chrom/ then
-          params = parse_wiggle_params_line(line)
-          possible_organisms, organism = eliminate_organisms(possible_organisms, params[:chrom])
+  
+        possible_organisms, organism = eliminate_organisms(possible_organisms, chrom) unless organism
+        if possible_organisms.empty? then
+          ofstream.close
+          return [false, nil]
         end
         
-        break if organism # We've found it
-
-        if possible_organisms.empty? then
-          failed = true # No idea what the organism is--abort
-          break
+        # trim span to step if necessary
+        if step && span > step then
+            cmd_puts "      WARNING: wiggle file #{basename} has span #{span} > step #{step} starting at line #{linenum}.  Reducing span to step & continuing."
+            span = step
         end
-        next
-      end
-
-      # This part wants refactoring imo--see /gbrowse/lib/Bio/Graphics/Wiggle/Loader.pm for
-      # a possible way to go about it
-      # If there's a new declaration line, get new params 
-      if line =~ /chrom/ then
-        # First check to see if there's a previous line to finish off
-        if to_print[:needs_printing] then
-          output.puts finish_varstep_line(to_print)
-          to_print[:needs_printing] = false
+      else 
+        # Process data line. nil format implies bedGraph. See formatting notes in method header for coordinate substitution info.
+        case format
+          when "fixedStep" # 1-based
+            start0 = start - 1
+            end1 = start0 + span
+            score = line.to_f
+            ofstream.puts "#{chrom} #{start0} #{end1} #{score}"
+            start += step # Update params for next line
+          when "variableStep" # 1-based
+            # Delay printing the line until we confirm the start location of the next line.
+            contents = line.split
+            start0 = contents[0].to_i - 1
+            score = contents[1].to_f
+            return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
+            # Finish processing the previous delayed line if it exists
+            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0, ofstream, linenum, warncount)
+            # Then, set up printing of this line.
+              delayed_line_to_print = { :chrom => chrom,
+                                        :score => score,
+                                        :start0 => start0,
+                                        :end1 => start0 + span,
+                                        :needs_printing => true}
+            prev_start0 = start0
+          when nil
+            # Assume it's a bedGraph. Delay printing until next start location is confirmed.
+            # Check for organism
+            contents = line.split
+            chrom = contents[0]
+            start0 = contents[1].to_i
+            end1 = contents[2].to_i
+            return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
+            possible_organisms, organism = eliminate_organisms(possible_organisms, chrom) unless organism
+            if possible_organisms.empty? then
+              ofstream.close
+              return [false, nil]
+            end
+            # Print previous line if necessary
+            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0, ofstream, linenum, warncount)
+            # And set up current line for printing in a bit
+            delayed_line_to_print = { :chrom => chrom,
+                                      :score => contents[3],
+                                      :start0 => start0,
+                                      :end1 => end1,
+                                      :needs_printing => true }
+            prev_start0 = start0
+          else # This should never happen
+            cmd_puts "Error: format \"#{format}\" is neither fixedStep, variableStep, or blank! This seems impossible!"
         end
-        params = parse_wiggle_params_line(line)
-
-        # Retain organisms which still match the chromosomes
-        possible_organisms, organism = eliminate_organisms(possible_organisms, params[:chrom]) unless organism
-
-        # reset the effective span (used in fixedStep if step > span)
-        effective_span = false
-
-        # Process inconsistent span
-        if found_span && ( params[:format] == "noSpan" || params[:span] != found_span ) then
-          cmd_puts "      Wigfile #{sourcename} at #{source.path} has an inconsistent span declaration--span must be the same for all sections."
-          failed = true
-          break
-        end
-        # If there's no span on the first pass, don't worry about inconsistency & use the file as is
-        if params[:format] == "noSpan" then
-          failed = false
-          original_ok = true
-          determining_organism = true
-          break if organism # Escape if we already know the organism
-        else 
-          unless params[:format] =~ /Step/ then
-            # Wasn't fixedStep or variableStep - we don't recognize the format!
-            cmd_puts "      Error: Wigfile #{sourcename} at #{source.path} has a span,"
-            cmd_puts "      but format #{params[:format]} is unrecognized--should be fixedStep or variableStep!"
-            failed = true
-            break
-          end
-        end
-        found_span = params[:span] # If we got this far, a span exists in the file
-        next
-      end
-      
-      # Process a data line
-      case params[:format]
-        when "fixedStep"
-          # fixedStep -- line is just score.
-          # Convert from 1 based to 0-based half-open
-          
-          # Set the span -- if it's more than step, complain & set to step anyhow.
-          effective_span = params[:span] unless effective_span
-          if effective_span > params[:step] then
-            cmd_puts "      Wigfile #{sourcename} has a span greater than the step--reducing it to step & proceeding anyway."
-            effective_span = params[:step]
-          end
-         
-          start0 = params[:start] - 1
-          end0 = start0 + params[:span]
-          score = line.to_f
-          
-          output.puts "#{params[:chrom]}\t#{start0}\t#{end0}\t#{score}"
-          # and update the params for when we get the next line
-          params[:start] += params[:step]
-        when "variableStep"
-          contents = line.split # this is 1-based
-          start0 = contents[0].to_i - 1
-          
-          # First, if there's a previous line to process, do that now
-          if to_print[:needs_printing] then
-            output.puts finish_varstep_line(to_print, start0)
-            to_print[:needs_printing] = false
-          end
-          # Then continue with the current line
-          score = contents[1].to_f
-          # Set up the line to be printed once the end coordinate is confirmed
-          to_print = {:chrom => params[:chrom], 
-                      :score => score, 
-                      :start0 => start0, 
-                      :end0 => start0 + params[:span],
-                      :needs_printing => true}
-        when nil
-          # Didn't see a formatting line -- it might be a bed!
-          if line =~ /^\S+\s+\d+\s+\d+\s+-?[\dEe.]+/ then
-            # It matches bed's /chr start end score/ formatting
-            params[:format] = "bed_file"
-            original_ok = true
-            determining_organism = true 
-          else
-            cmd_puts "      Error: can't determine format for wigfile #{sourcename} at #{source.path} from line:"
-            cmd_puts "        #{line}"
-            failed = true
-            break
-          end
-        else
-          cmd_puts "      Error: wigfile #{sourcename} at #{source.path} has unrecognized format #{params[:format]}!"
-          failed = true
-          break
       end
     }
 
-    # Then print one last line if necessary
-    if to_print[:needs_printing] then
-      output.puts finish_varstep_line(to_print)
-      to_print[:needs_printing] = false
-    end
-    
-    # If it failed, we don't have an appropriate output 
-    return failed, original_ok, organism
-  end 
+    warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
 
+    ofstream.close unless ofstream.nil?
+
+    # Complain if we never determined organism
+    unless organism then
+      cmd_puts "      ERROR: Unable to uniquely determine organism of #{basename} from chromosomes encountered!"
+    end
+
+    [organism, ofstream.path]
+  end
+ 
+  # Complains if the features are not in numerical order
+  def validate_wiggle_line_order(prevstart, start, linenum, fname)
+    return true if prevstart < start
+    cmd_puts "      ERROR: line #{linenum} of #{fname}: data lines are not in numerical order!\n" +
+             "       this line starts at #{start} but previous line started at #{prevstart}! Cannot continue processing file!"
+    return false
+  end
+  def wiggle_print_delayed_line(line_hash, next_start, ofstream, linenum, warncount)
+    max_num_warnings = 100
+    toreturn = 0
+    return toreturn unless line_hash # if it's false / nil, don't need to do anything
+    # If there's an overlap, return 1 for the warning count and move the end coordinate
+    if next_start && (next_start < line_hash[:end1] ) then
+      toreturn = 1
+      # And warn in the log unless we've reached the limit
+      case warncount <=> max_num_warnings
+        when -1
+          cmd_puts "        WARNING: Found overlapping features at lines #{linenum - 1} and #{linenum}:\n" + 
+                   "         Pushing back earlier feature's end coordinate (originally #{line_hash[:end1]}) to #{next_start}!"
+        when 0
+          cmd_puts "\n      ***\n      Overlap warning limit of #{max_num_warnings} reached--further overlaps will be corrected silently.\n      ***"
+      end
+      line_hash[:end1] = next_start
+    end
+    # Print the line
+    ofstream.puts "#{line_hash[:chrom]} #{line_hash[:start0]} #{line_hash[:end1]} #{line_hash[:score]}"
+    return toreturn
+  end
+
+  
   # Track finding and output
   def find_usable_tracks(experiment_id, project_id)
     # Find the datum objects that have attached features (via data_feature) 
@@ -1554,6 +1539,7 @@ class TrackFinder
                 # Attempt to infer organism
                 unless (got_organism || ( seen_chroms.include? row['srcfeature'] )) then 
                   poss_organisms, got_organism = eliminate_organisms(poss_organisms, row['srcfeature']) 
+                  # TODO: abort if ran out of organisms
                   seen_chroms.push row['srcfeature']
                 end
                 # Add the row to the bed array
@@ -1660,7 +1646,7 @@ class TrackFinder
               # it to be moved to a subdir instead) this path should be changed too.
               bigwig_file_path = File.join(output_dir, "#{tracknum}.bw")
               bigwig_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
-              cmd_puts "    Writing bigwig file to: #{bigwig_tmp_file_path}"
+              cmd_puts "      Writing bigwig file to: #{bigwig_tmp_file_path}"
               
               # Put the wiggle in a temp file for parsing
               # BigWig can't handle wiggles with span > distance between values, so
@@ -1670,44 +1656,32 @@ class TrackFinder
               unless row["cleaned_wiggle_file"] then
                 
                 wiggle_tempfile = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
-                # TEMP FIXME : save the file so i can look at it later. real line above.
-                #tmp_tmpdir = "/users/ekephart/tmp"
-                #wiggle_tempfile = File.new(File.join(tmp_tmpdir, 'wiggle_file'), "w")
                 wiggle_tempfile.puts row['wiggle_file']
                 wiggle_tempfile.close
-                source_wiggle_file = File.open(wiggle_tempfile.path, "r") # Open it as a regular file for reading
+                source_wiggle_path = wiggle_tempfile.path
               else
-                source_wiggle_file_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
-                source_wiggle_file = File.open(source_wiggle_file_path, "r")
+                source_wiggle_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
               end
                  
               # And get the name for more-informative error messages
               source_wiggle_name = row['name']
-              # Then, convert source_wiggle_file to bed if necessary
-              # Create temp file to put the bed in
-              bed_file = Tempfile.new('bed_file', TrackFinder::gbrowse_tmp)
               # Then, run the convert tool to convert the wiggle into a bed if necessary
               # Also get the organism via chromosome names
-              bed_cvt_failed, original_wig_ok, wig_organism = convert_wiggle_to_bed(source_wiggle_file,
-                                                                                    bed_file, 
-                                                                                    source_wiggle_name  )
+              cmd_puts "      Converting wiggle #{source_wiggle_name} to bedGraph for bigWig conversion process."
+              wig_organism, output_bedgraph_path = wiggle_to_bedgraph( source_wiggle_path, source_wiggle_name)
 
-              bed_file.close 
-              source_wiggle_file.close
-              # Get chromosome file for bigwig conversion unless we've already failed anyways
-              chrom_file_path = bed_cvt_failed ? false : organism_to_chromfile(wig_organism)              
-              # Conversion failed or no organism found - die
-              if bed_cvt_failed || ! chrom_file_path then
-                bed_file.unlink
+              # Get chromosome file for bigwig conversion
+              chrom_file_path = organism_to_chromfile(wig_organism)              
+              # Die if no organism found
+              unless chrom_file_path && output_bedgraph_path then
                 wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
-
-                cmd_puts "    Failed to convert #{source_wiggle_name} at #{source_wiggle_file.path} to bedGraph--cannot proceed with bigWig conversion for this track!" if bed_cvt_failed
-                # Not having a chromfile complained already in organism_to_chromfile
+                cmd_puts "    Failed to convert #{source_wiggle_name} at #{source_wiggle_path} to bedGraph--cannot proceed with bigWig conversion for this track!"
                 return # TrackFinding will fail
               end
-              
-              source_for_bigwig = original_wig_ok ? source_wiggle_file : bed_file
-              bigwig_written = convert_to_bigwig(source_for_bigwig.path, chrom_file_path, bigwig_tmp_file_path)
+             
+              # Then, write the bigwig!
+
+              bigwig_written = convert_to_bigwig(output_bedgraph_path , chrom_file_path, bigwig_tmp_file_path)
               unless bigwig_written then
                 cmd_puts "    Failed to create bigwig file at #{bigwig_tmp_file_path}."
                 return
@@ -1717,7 +1691,6 @@ class TrackFinder
               unless row["cleaned_wiggle_file"] then
                 wiggle_tempfile.unlink # unless debugging?
               end
-              bed_file.unlink # unless debugging?
 
               # Move the output file to the output_dir
               wildcard_tmp = sprintf(bigwig_tmp_file_path, "*")

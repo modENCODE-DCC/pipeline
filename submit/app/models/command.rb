@@ -27,6 +27,11 @@ class Command < ActiveRecord::Base
     @package_dir = options[:package_dir]
   end
 
+
+  def to_s
+    "#<#{self.class.name}:#{self.id}>"
+  end
+
   def status=(newstatus)
     write_attribute :status, newstatus
     unless self.project.nil? then
