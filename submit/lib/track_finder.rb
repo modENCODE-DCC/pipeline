@@ -576,6 +576,8 @@ class TrackFinder
     # Make the output file
     begin
       ofstream = Tempfile.new(basename, TrackFinder::gbrowse_tmp)
+      # Testing 
+      #ofstream = File.open("/users/ekephart/tmp/#{basename}.temp", "w" )
     rescue Exception => e
       cmd_puts "        Error creating temporary bedGraph file in #{TrackFinder::gbrowse_tmp}: #{e}."
       return [false, nil]
@@ -586,6 +588,7 @@ class TrackFinder
     linenum = 0 # Line # of the file, for error-output purposes
     
     prev_start0 = -1 # Start of the previous line--for ensuring that lines are in numerical order
+    prev_chrom = "" # Used for tracking chrom changes for numerical order validation in bedGraphs.
     
     # Read the file and convert it
     ifstream.each{|line|
@@ -594,9 +597,10 @@ class TrackFinder
       # Skip comments, blank lines, track definitions.
       next if line =~ /^#|^\s$|^$/
       if line =~ /^track/ then
-        # Clear the delayed line but otherwise skip... for now
+        # Clear the delayed line and reset numerical order but otherwise skip... for now
         warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
         delayed_line_to_print = false
+        prev_start0 = -1
         next # SKIP IT!
        end
   
@@ -605,6 +609,7 @@ class TrackFinder
         # Finish processing possible previous line and clear it
         warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
         delayed_line_to_print = false
+        prev_start0 = -1 # Also reset order
 
         format  = (regmatch = /^(variableStep|fixedStep)/.match line ; regmatch.nil? ? nil : regmatch[1] )
         chrom     = (regmatch = /chrom=(\S+)/.match line ; regmatch.nil? ? nil : regmatch[1] )
@@ -659,6 +664,11 @@ class TrackFinder
             # Check for organism
             contents = line.split
             chrom = contents[0]
+            # If we got a new chrom, reset lines-numerical-order
+            if chrom != prev_chrom then
+              prev_start0 = -1
+              prev_chrom = chrom
+            end
             start0 = contents[1].to_i
             end1 = contents[2].to_i
             return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
