@@ -664,13 +664,13 @@ class TrackFinder
             # Check for organism
             contents = line.split
             chrom = contents[0]
+            start0 = contents[1].to_i
+            end1 = contents[2].to_i
             # If we got a new chrom, reset lines-numerical-order
             if chrom != prev_chrom then
               prev_start0 = -1
               prev_chrom = chrom
             end
-            start0 = contents[1].to_i
-            end1 = contents[2].to_i
             return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
             possible_organisms, organism = eliminate_organisms(possible_organisms, chrom) unless organism
             if possible_organisms.empty? then
@@ -678,7 +678,9 @@ class TrackFinder
               return [false, nil]
             end
             # Print previous line if necessary
-            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0, ofstream, linenum, warncount)
+            # If previous line was on a different chromosome than this one, don't worry about clipping the end!
+            start0_or_nil = (  prev_start0 == -1 ? nil : start0 )
+            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0_or_nil, ofstream, linenum, warncount)
             # And set up current line for printing in a bit
             delayed_line_to_print = { :chrom => chrom,
                                       :score => contents[3],
