@@ -120,6 +120,19 @@ class PipelineController < ApplicationController
           :get_gbrowse_config
         ]
 
+
+  IN_READONLY = true
+  def warn_readonlymode(project = nil)
+    flash[:error] = "The pipeline is currently in read-only mode for maintenance&mdash;your action cannot be performed."
+    if project.nil? then
+      redirect_to :action => "list" 
+    else
+      redirect_to :action => "show", :id => project
+    end
+  end
+
+
+
   def citation
     action_not_found
   end
@@ -132,6 +145,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     if params[:commit] then
       old_project_type_id = @project.project_type_id
@@ -154,6 +172,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     pis = Hash.new
     if File.exists? "#{RAILS_ROOT}/config/PIs.yml" then
@@ -266,6 +289,11 @@ class PipelineController < ApplicationController
     unless (@project.nil? && current_user.is_a?(Administrator)) then
       return false unless check_user_can_view @project
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     base_command.destroy
     CommandController.running_flag = false
@@ -301,6 +329,12 @@ class PipelineController < ApplicationController
   end
 
   def new
+
+     if IN_READONLY then
+      warn_readonlymode
+      return false
+     end
+
     if params[:commit] == "Cancel"
       redirect_to :action => 'show_user'
       return
@@ -359,6 +393,11 @@ class PipelineController < ApplicationController
       flash[:error] = "Couldn't find project with ID #{params[:id]}"
       redirect_to :action => "list"
     end
+
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
     loading_ok = Project::Status::ok_next_states(@project).include?(Project::Status::LOADING)
     is_released =  (@project.status == Project::Status::RELEASED)
@@ -432,6 +471,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
     # Run the chaining -- if it returns false, don't give the 
     # "queued successfully" message
     err = do_chain_commands(@project)
@@ -738,6 +782,12 @@ class PipelineController < ApplicationController
       return
     end
 
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     # ---------EXPAND ALL--------------
     if (@project.status != Expand::Status::EXPANDED)
       # Don't bother re-expanding if the last status was a successful expand
@@ -758,6 +808,13 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
+
 
     if @project.status == Expand::Status::EXPANDING then
       flash[:error] = "Already expanding an archive, please wait until that process is complete."
@@ -802,6 +859,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     if project_archive.project.status == Expand::Status::EXPANDING then
       flash[:error] = "Already expanding an archive, please wait until that process is complete."
@@ -847,6 +909,13 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
+
     # Handle inserting a README when none existed before
     if params[:replace] == "README" then
       # Make a new archive
@@ -993,6 +1062,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     @user = current_user
 
     extensions = ["zip", "ZIP", "tar.gz", "TAR.GZ", "tar.bz2", "TAR.BZ2", "tgz", "TGZ"]
@@ -1116,6 +1191,12 @@ class PipelineController < ApplicationController
   end
 
   def deactivate_archive
+     if IN_READONLY then
+      warn_readonlymode
+      return false
+     end
+
+
     project_archive = ProjectArchive.find(params[:id])
     @project = project_archive.project
     return false unless check_user_can_write @project
@@ -1134,6 +1215,12 @@ class PipelineController < ApplicationController
     @project = project_archive.project
     return false unless check_user_can_write @project
 
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     do_activate_archive(project_archive)
 
     # Rexpand all active archives for this project
@@ -1151,6 +1238,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
       @project.project_archives.each do |project_archive|
         do_activate_archive(project_archive)
@@ -1171,6 +1263,10 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
       @project.project_archives.each do |project_archive|
         do_deactivate_archive(project_archive)
@@ -1191,6 +1287,10 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
     unless @project.project_archives.find_all { |pa| pa.is_active }.size > 0 then
       flash[:error] = "At least one archive must be active."
@@ -1220,6 +1320,10 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
     unless Project::Status::ok_next_states(@project).include?(Project::Status::REPORTING) then
       redirect_to :action => :show, :id => @project
@@ -1238,7 +1342,14 @@ class PipelineController < ApplicationController
         redirect_to :action => :show, :id => @project
         return false
       end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
       # Make sure the project is expanded at all
+
       if (
         Project::Status.is_failed_state(@project.status) ||
         Project::Status.state_position(@project.status) < Project::Status.state_position(Project::Status::EXPANDED)
@@ -1281,6 +1392,10 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
     unless Project::Status::ok_next_states(@project).include?(Project::Status::UNLOADING) then
       redirect_to :action => :show, :id => @project
@@ -1300,6 +1415,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     # TODO: Stop all running tasks
 
@@ -1327,6 +1447,10 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
 
     unless @project.project_archives.find_all { |pa| pa.is_active }.size > 0 then
       flash[:error] = "At least one archive must be active."
@@ -1356,6 +1480,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+  
+
     unless Project::Status::ok_next_states(@project).include?(Project::Status::FINDING) then
       redirect_to :action => :show, :id => @project
       return false
@@ -1373,6 +1503,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     unless Project::Status::ok_next_states(@project).include?(Project::Status::FINDING) then
       redirect_to :action => :show, :id => @project
       return false
@@ -1391,6 +1527,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     unless Project::Status::ok_next_states(@project).include?(Project::Status::GENERATING_PREVIEW) then
       redirect_to :action => :show, :id => @project
       return false
@@ -1409,6 +1551,11 @@ class PipelineController < ApplicationController
       render :text => "Couldn't find project with ID #{params[:id]}", :layout => false
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     render :text => TrackFinder.new.generate_gbrowse_conf(@project.id), :layout => false
   end
@@ -1421,6 +1568,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     unless Project::Status::ok_next_states(@project).include?(Project::Status::CONFIGURING) then
       # Redirect here so that hitting refresh in the browser doesn't prompt annoyingly
       unless params[:override] && current_user.is_a?(Moderator) then
@@ -1581,6 +1734,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
     unless @project.report_generated? then
       redirect_to :action => :show, :id => @project
       return false
@@ -1649,6 +1808,13 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
+
     unless @project.report_generated? then
       redirect_to :action => :show, :id => @project
       return false
@@ -1684,6 +1850,10 @@ class PipelineController < ApplicationController
   end
 
   def async_update_track_location
+     if IN_READONLY then
+      warn_readonlymode
+      return false
+     end
 
     begin
       @project = Project.find(params[:id])
@@ -1924,6 +2094,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
 
     # Uploaded data?
     last_upload = (@project.commands.find_all_by_type('Upload::File')+@project.commands.find_all_by_type('Upload::Url')).sort { |a, b| a.id <=> b.id }.last
@@ -2102,6 +2278,12 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
+
 
     unless current_user.is_a?(Moderator) then
       flash[:error] = "Only moderators can update publication dates."
@@ -2711,6 +2893,11 @@ class PipelineController < ApplicationController
       redirect_to :action => "list"
       return
     end
+     if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+     end
+
 
     @project.commands.find_all_by_status(Upload::Status::UPLOADING).each { |cmd|
       cmd.status = Upload::Status::UPLOAD_FAILED
