@@ -4,7 +4,14 @@ class ValidateIdf2chadoxml < Validate
     if self.stderr then
       self.stderr.each do |line|
         if line !~ /^[A-Z]+:/ then
-          line = '<tr><th>&nbsp;</th><td style="vertical-align:top">' + line + '</td></tr>'
+          if line =~ /add method for creat(ed_by|ion_date) at \/usr\/share\/perl5\/GO\/Handlers\/obj.pm/ then
+           # Suppress annoying 'add method' output
+            line = ""
+          else
+          # If it doesn't start with a warning / notice / error, just display it indented
+            line = '<tr><th>&nbsp;</th><td style="vertical-align:top">' + line + '</td></tr>'
+            line << "\n"
+          end
         else
           (level, message) = line.split(":", 2)
           indent = message.match(/^ */)[0].length
@@ -29,9 +36,10 @@ class ValidateIdf2chadoxml < Validate
           else
             line = "<tr><th style=\"vertical-align: top; padding-top: 3px; color: black; font-weight: normal\">#{level.upcase}</th><td style=\"vertical-align: top; padding-top: 3px; padding-left: #{indent*3}px;\">#{message}</td></tr>"
           end
+          line << "\n"
         end
 
-        formatted_string << line << "\n"
+        formatted_string << line # << "\n"
       end
     end
     formatted_string + "</table>"
