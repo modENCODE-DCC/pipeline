@@ -1,0 +1,45 @@
+# List of organisms that the track finder is aware of
+# link goes to list of chromosomes for that organism
+# where each line has the format: "NAME\tLENGTH" eg "I  1507243"
+  elegans :
+    type: model
+    chromfile: chromfiles/WormBase_WS220.chrom
+  mel :
+    type: model
+    chromfile: chromfiles/FlyBase_r5.chrom
+  brenneri :
+    type : worm 
+    chromfile: chromfiles/brenneri_225.chrom
+  briggsae :
+    type : worm 
+    chromfile: chromfiles/briggsai_225.chrom
+  japonica :
+    type : worm 
+    chromfile: chromfiles/japonica_225.chrom
+  remanei :
+    type : worm 
+    chromfile: chromfiles/remanei_225.chrom
+  sechellia :
+    type : fly
+    chromfile: chromfiles/sechellia.chrom
+  persimilis :
+    type : fly
+    chromfile: chromfiles/persimilis.chrom
+  ananassae :
+    type : fly
+    chromfile: chromfiles/ananassae.chrom
+  mojavensis :
+    type : fly
+    chromfile: chromfiles/mojavensis.chrom
+  pseudoobscura :
+    type : fly
+    chromfile: chromfiles/pseudoobscura.chrom
+  simulans :
+    type : fly
+    chromfile: chromfiles/simulans.chrom
+  virilis :
+    type : fly
+    chromfile: chromfiles/virilis.chrom
+  yakuba :
+    type : fly
+    chromfile: chromfiles/yakuba.chrom
