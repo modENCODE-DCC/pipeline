@@ -120,6 +120,7 @@ class TrackFinder
   WIGGLE_TO_BIGWIG_PERL = <<-EOP
   use strict;
   use lib '/modencode/raw/tools/Bio-BigFile-1.04/lib';
+  use lib '/usr/local/lib/perl/5.10.0'; # SMAUG ONLY -- don't commit this line!
   use Bio::DB::BigFile;
 
   open STDERR, '>&STDOUT'; # Redirect STDERR to STDOUT
@@ -505,7 +506,74 @@ class TrackFinder
     return s.value
   end
 
+
+
+
   # Helper methods: converting wiggle to bed as a preface for converting to bigWig
+
+  # Determine if a wiggle file contains multiple tracks and split it into one file per track if it does
+  # Returns an array of closed file handles!!!
+  # NOPE! now, it ...
+  # Returns an array of hashes. Hashes contain :handle -> closed file handle to wiggle file, :name -> string, :desc -> string
+  def split_wiggle_file_into_tracks(sourcepath)
+    current_track = false
+    result_tracks = []
+    has_tracks = false
+    trackname = trackdesc = nil
+    # Attempt to open the file
+    begin     
+      ifstream = File.open(sourcepath, "r")
+    rescue Exception => e
+      cmd_puts "      Error opening source wiggle file  at location #{sourcepath}:\n       #{e}."
+      return []
+    end       
+    # read the file until we encounter a non-{comment/whitespace/empty} line
+    ifstream.each{|line|
+      next if line =~/^\s*#|^\s*$|^$/ ;
+      if ( line =~ /^\s*track/ ) then
+        cmd_puts "got trackline:[#{line}]" if debugging?
+        # Assumption: if there are any track lines in the file,
+        # there will be a track line before any data lines.
+        cmd_puts "          Detected track line in #{File.basename sourcepath} at line #{ifstream.lineno}" +
+          "#{has_tracks ? "." : "; splitting file into multiple tracks." }" 
+        has_tracks = true
+        
+        # If we have a track going, finish it off, & make a new track tmpfile.
+        if current_track then 
+          current_track.close 
+          result_tracks << {:handle => current_track, :name => trackname, :desc => trackdesc}
+        end
+        
+        # Get new track info:
+        # Match is (whitespace delimited) or (surrounded by quotes), and then beginning & ending quotes are removed.
+        trackname = line.match(/name=("([^"]*)"|\S*)/)
+        trackdesc = line.match(/description=("([^"]*)"|\S*)/)
+        trackname = trackname[1] unless trackname.nil?
+        trackdesc = trackdesc[1] unless trackdesc.nil?
+        trackname.gsub!(/(^"|"$)/, "") unless trackname.nil?
+        trackdesc.gsub!(/(^"|"$)/, "") unless trackdesc.nil?
+
+        current_track = Tempfile.new((trackname.nil? ? "wiggle_track" : trackname.gsub(/\s/, "_")), TrackFinder::gbrowse_tmp)
+        current_track.puts line
+      elsif has_tracks then
+        # We're accumulating data lines
+        current_track.puts line
+      else    
+        cmd_puts "we believe #{File.basename sourcepath} to be only a single track" if debugging? 
+        # we got a data line with no track line: we assume there is one track.
+        ifstream.close
+        result_tracks << {:handle => ifstream, :name => trackname, :desc => trackdesc}
+        break
+      end     
+    }           
+    # Close and list the last tempfile
+    if current_track then
+      current_track.close
+      result_tracks << {:handle => current_track, :name => trackname, :desc => trackdesc }
+    end
+    cmd_puts "Track list:[#{result_tracks.inspect}]" if debugging?
+    return result_tracks 
+  end
 
   # Try to figure out what the organism is based on metadata in the chado DB, and get the path
   # to its chromosome list file
@@ -546,12 +614,12 @@ class TrackFinder
         cmd_puts "       Couldn't determine organism--name(s) provided were #{org_array.join(", ")}"
         return false
       when 1 # Great, exactly 1 organism
-        cmd_puts "        Determined organism to be #{orgs[0]}."
+        cmd_puts "            Determined organism to be #{orgs[0]}."
         return orgs[0]
       else # Too many! Remove any elegans / dmel that was there and see if that cuts it down
         orgs.reject!{|org| canonical_orgs[org]["type"] == "model"}
         if orgs.length == 1 then
-          cmd_puts "        Determined organism to be #{orgs[0]}."
+          cmd_puts "            Determined organism to be #{orgs[0]}."
           return orgs[0]
         else # Either none left or still too many. give up.
           cmd_puts "       Couldn't determine organism--name(s) provided were #{org_array.join(", ")}"
@@ -1377,7 +1445,7 @@ class TrackFinder
           cmd_puts "        Finding metadata for features."
           tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
           cmd_puts "          Using tracknum #{tracknum}"
-          cmd_puts "        Done."
+          #cmd_puts "        Done."
 
           if (standalone_track && data_ids_with_features.size == 1) then
             # Record this filename in a tracktag so we can differentiate files when configging tracks
@@ -1742,6 +1810,161 @@ class TrackFinder
               wiggle_filename = row["data_value"]
               seen_wiggles.push row["wiggle_data_id"]
               cmd_puts "        Finding metadata for wiggle files."
+              source_wiggle_name = row['name']
+              
+              # MULTI-TRACK STARTS HERE =========
+              # Sometimes, these data files will contain more than one track. This needs to be accounted for.
+              # So, before creating the tracks, split the file into as many tracks as it will need.
+              # 
+              # Get the path to the source file
+              unless row["cleaned_wiggle_file"] then
+                
+                wiggle_tempfile = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
+                wiggle_tempfile.puts row['wiggle_file']
+                wiggle_tempfile.close
+                orig_wiggle_path = wiggle_tempfile.path
+              else
+                orig_wiggle_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
+              end
+
+              # Check whether there are multiple tracks 
+              # we now have an array of hashes w/ elements :handle, :desc, :name
+              all_wiggle_files = split_wiggle_file_into_tracks(orig_wiggle_path)
+              
+              if all_wiggle_files.empty? then # Couldn't open the source file!
+                cmd_puts "      Cannot continue with track-finding ."
+                return
+              end
+
+              # temp debugging 
+              cmd_puts "got paths tp tempfiles #{all_wiggle_files.inspect}" if debugging?
+
+              all_wiggle_files.each{|wiggle_hash|
+                wiggle_handle = wiggle_hash[:handle]
+                wiggle_track_name = wiggle_hash[:name]
+                wiggle_track_description = wiggle_hash[:desc]
+
+                # For each file, create a track
+                tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
+                cmd_puts "          Using tracknum #{tracknum}"
+                cmd_puts "        Done."
+                
+                # bigwig_file_path gets used for writing the TrackTag, but really the bigwig gets written
+                # into a tempdir and then *moved* to output_dir -- so if that code is changed (eg to allow
+                # it to be moved to a subdir instead) this path should be changed too.
+                bigwig_file_path = File.join(output_dir, "#{tracknum}.bw")
+                bigwig_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
+                cmd_puts "            Bigwig file will be written to to: #{bigwig_tmp_file_path}"
+             
+                # Put the wiggle in a temp file for parsing
+                # BigWig can't handle wiggles with span > distance between values, so
+                # make a temporary .bed for all wiggles with spans.
+                
+                # Get the chromfile for bigwig based on the organism data in chado
+                bigwig_chromfile = get_bigwig_chromfile
+
+                # Then, convert the wiggle into a bed. Also attempt to get the organism in case we couldn't find it earlier.
+                cmd_puts "            Converting wiggle #{source_wiggle_name} to bedGraph for bigWig conversion process."
+                wig_organism, output_bedgraph_path = wiggle_to_bedgraph( wiggle_handle.path, source_wiggle_name)
+
+                # If wig_organism is false, it crashed. if it's "NO_ORGANISM" (hacky fix FIXME TODO) it made it to end but couldnt' find organism.
+                unless wig_organism then
+                  cmd_puts "    Failed to convert #{source_wiggle_name} at #{wiggle_handle.path} to bedGraph--cannot proceed with bigWig conversion for this track!"
+                  wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
+                  return # track finding will fail
+                end
+                if !bigwig_chromfile && ( wig_organism == NO_ORGANISM) then
+                  cmd_puts "    Succesfully converted #{source_wiggle_name} to bedGraph, but can't figure out what organism it is! Cannot proceed with bigWig conversion!"
+                  wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
+                  return # track finding will fail
+                end
+
+                # Use the chrom file found by database-search if it exists ; otherwise back up to inspected chromosomes
+                chrom_file_path = bigwig_chromfile ? bigwig_chromfile : organism_to_chromfile(wig_organism)
+                
+                # Then, write the bigwig!
+                bigwig_written = convert_to_bigwig(output_bedgraph_path , chrom_file_path, bigwig_tmp_file_path)
+                unless bigwig_written then
+                  cmd_puts "    Failed to create bigwig file at #{bigwig_tmp_file_path}."
+                  return
+                end
+        
+                cmd_puts "        Successfullly wrote bigwig to #{bigwig_tmp_file_path}."
+                # And move it to its proper location:
+
+                cmd_puts "        Moving #{bigwig_tmp_file_path} to #{output_dir}."
+                FileUtils.mv(bigwig_tmp_file_path, output_dir)
+                cmd_puts "        Done."
+                # We now have the bigwig. Make some additional track-tags.
+                # Label this as a wiggle track
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Wiggle File',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => wiggle_filename,
+                  :cvterm => 'wiggle_file',
+                  :history_depth => 0
+                ).save
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Track Type',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => 'bigwig',
+                  :cvterm => 'track_type',
+                  :history_depth => 0
+                ).save
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'BigWig File',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => File.basename(bigwig_file_path),
+                  :cvterm => 'bigwig_file',
+                  :history_depth => 0
+                ).save 
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Feature Type',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => row['term'],
+                  :cvterm => "feature_type",
+                  :history_depth => 0
+                ).save
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Wiggle Track Name',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => wiggle_track_name,
+                  :cvterm => "wiggle_track_name",
+                  :history_depth => 0
+                ).save
+                TrackTag.new(
+                  :experiment_id => experiment_id,
+                  :name => 'Wiggle Track Description',
+                  :project_id => project_id,
+                  :track => tracknum,
+                  :value => wiggle_track_description,
+                  :cvterm => "wiggle_track_description",
+                  :history_depth => 0
+                ).save
+
+              }
+
+              # Remove the temporary source file
+              unless row["cleaned_wiggle_file"] then
+                wiggle_tempfile.unlink # unless debugging?
+              end
+
+
+
+
+              # ORIGINAL CODE BELOW HERE ========
+=begin 
+              
               tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
               cmd_puts "          Using tracknum #{tracknum}"
               cmd_puts "        Done."
@@ -1853,6 +2076,7 @@ class TrackFinder
                 :cvterm => "feature_type",
                 :history_depth => 0
               ).save
+=end
             }
           }
           cmd_puts "      Done getting wiggle files."
@@ -2163,7 +2387,7 @@ class TrackFinder
 
     default_organism = "Drosophila melanogaster"
     types.each do |type|
-      puts "Testing type #{type}" if @debug
+      cmd_puts "Testing type #{type}" if @debug
 
       track_type = track_source = tracknum = nil;
       if (type !~ /^read_pair/) && (type !~ /^bigwig/ )  then
@@ -2220,12 +2444,22 @@ class TrackFinder
       database = "modencode_preview_#{project.id}"
       zoomlevels = [ nil ]
       feature = type
+      wiggle_track_name = nil
+      wiggle_track_description = nil
       # Get keywords from file and set them all to nil for the moment
       keywords = Hash.new
       if File.exists? "#{RAILS_ROOT}/config/keywords.yml" then
        keywords =  open("#{RAILS_ROOT}/config/keywords.yml"){ |f| YAML.load(f.read) }
       end
-            
+        
+
+      # if we have a wiggle_track_name or wiggle_track_description for a track with this id,
+      # set them here.
+      wiggle_name_tag = TrackTag.find_by_track_and_cvterm(track_id, "wiggle_track_name")
+      wiggle_description_tag = TrackTag.find_by_track_and_cvterm(track_id, "wiggle_track_description")
+      wiggle_track_name = wiggle_name_tag.value if wiggle_name_tag
+      wiggle_track_description = wiggle_description_tag.value if wiggle_description_tag
+
       case track_type
       when "match" then
         glyph = "box"
@@ -2283,10 +2517,10 @@ class TrackFinder
         height = 10
         bgcolor = "blue"
         database = "modencode_bigwig_#{project.id}_#{tracknum}_#{bigwig_type}"
-        puts "FEATURE TYPE SPOSED TO BE #{feature_type}, BIGWIG TYPE IS #{bigwig_type}"
+        #puts "FEATURE TYPE SPOSED TO BE #{feature_type}, BIGWIG TYPE IS #{bigwig_type}"
         if bigwig_type == "feature" then
           bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File #{feature_type}", "bigwig_file", tracknum).value
-          puts "GOT BIGWIG A: #{bigwig_file}"
+         # puts "GOT BIGWIG A: #{bigwig_file}"
         else
           bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File", "bigwig_file", tracknum).value
           puts "GOT BIGWIG B: #{bigwig_file}"
@@ -2389,6 +2623,10 @@ class TrackFinder
           track_defs[stanzaname]['bicolor_pivot'] = bicolor_pivot unless bicolor_pivot.nil?
           track_defs[stanzaname]['glyph select'] = glyph_select  unless glyph_select .nil?
           track_defs[stanzaname]['sort_order'] = sort_order unless sort_order.nil?
+          
+          # Bigwig / wiggle multitrack info
+          track_defs[stanzaname]['wiggle_track_name'] = wiggle_track_name unless wiggle_track_name.nil?
+          track_defs[stanzaname]['wiggle_track_description'] = wiggle_track_description unless wiggle_track_description.nil?
 
           # Bigwig stuff
           track_defs[stanzaname][:bigwig_file] = bigwig_file unless bigwig_file.nil? 
