@@ -121,7 +121,7 @@ class PipelineController < ApplicationController
         ]
 
 
-  IN_READONLY = true
+  IN_READONLY = false
   def warn_readonlymode(project = nil)
     flash[:error] = "The pipeline is currently in read-only mode for maintenance&mdash;your action cannot be performed."
     if project.nil? then
@@ -1592,6 +1592,10 @@ class PipelineController < ApplicationController
       when "Drosophila ananassae"
       when "Drosophila virilis"
       when "Drosophila yakuba"
+      when "Caenorhabditis brenneri"
+      when "Caenorhabditis briggsae"
+      when "Caenorhabditis japonica"
+      when "Caenorhabditis brenneri"
       else
         params[:organism] = "Drosophila melanogaster"
       end

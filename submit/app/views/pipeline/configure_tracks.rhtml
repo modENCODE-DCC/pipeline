@@ -68,6 +68,30 @@
       default_chr = "2L"
       default_fmin = 80000
       default_fmax = 100000
+    when "Caenorhabditis brenneri"
+      gbrowse_source = "modencode_brenneri_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_brenneri"
+      default_chr = "Cbre_Contig0"
+      default_fmin = 4000000
+      default_fmax = 4100000
+    when "Caenorhabditis briggsae"
+      gbrowse_source = "modencode_briggsae_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_briggsae"
+      default_chr = "III"
+      default_fmin = 4200000
+      default_fmax = 4300000
+    when "Caenorhabditis japonica"
+      gbrowse_source = "modencode_japonica_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_japonica"
+      default_chr = "Cjap_Contig0"
+      default_fmin = 500000
+      default_fmax = 600000
+    when "Caenorhabditis remanei"
+      gbrowse_source = "modencode_remanei_quick_#{@project.id}"
+      gbrowse_full_source = "modencode_remanei"
+      default_chr = "Crem_Contig0"
+      default_fmin = 4200000
+      default_fmax = 4300000
     else
       gbrowse_source = "modencode_flybase_quick_#{@project.id}"
       gbrowse_full_source = "modencode_flybase"
@@ -382,16 +406,20 @@
       </span>
       <select style="display:none" name="organism" id="organism">
         <%= options_for_select [ 
-            'Drosophila melanogaster',
-            'Caenorhabditis elegans',
-            [ 'Drosophila pseudoobscura', 'Drosophila pseudoobscura pseudoobscura' ],
-            'Drosophila simulans',
-            'Drosophila sechellia',
-            'Drosophila persimilis',
-            'Drosophila mojavensis',
+            [ 'Drosophila melanogaster (fly)', 'Drosophila melanogaster'],
+            ['Caenorhabditis elegans (worm)', 'Caenorhabditis elegans'],
             'Drosophila ananassae',
+            'Drosophila mojavensis',
+            'Drosophila persimilis',
+            [ 'Drosophila pseudoobscura', 'Drosophila pseudoobscura pseudoobscura' ],
+            'Drosophila sechellia',
+            'Drosophila simulans',
             'Drosophila virilis',
-            'Drosophila yakuba'
+            'Drosophila yakuba',
+            'Caenorhabditis brenneri',
+            'Caenorhabditis briggsae',
+            'Caenorhabditis japonica',
+            'Caenorhabditis remanei'
         ], @organism %>
       </select>
       <script type="text/javascript">
