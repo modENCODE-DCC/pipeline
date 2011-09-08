@@ -22,6 +22,8 @@
   <label for="selected_freeze" class="templates">Show data from:</label>
   <%= select_tag("selected_freeze", options_for_select([
                                                        ["Worm/Fly - Newest data", ""],
+                                                       [ "Fly - Aug 01, 2011", "dmelanogaster_2011-09-06" ],
+                                                       [ "Worm - Aug 01, 2011", "celegans_2011-09-06" ],
                                                        [ "Fly - Apr 01, 2011", "dmelanogaster_2011-04-02" ],
                                                        [ "Fly - Oct 19, 2009", "dmelanogaster_2009-10-19" ],
   ], @selected_freeze_id), :onchange => "this.form.onsubmit()", :id => nil) %>
