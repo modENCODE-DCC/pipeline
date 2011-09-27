@@ -79,13 +79,13 @@ class ReportsController < ApplicationController
       elsif params[:commit] == "Download" then
         freeze_file = selected_freeze_files.first
         filename = nil
-        if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
-          filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
-        elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
-          filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+        if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt") then
+          filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt"
+        elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt") then
+          filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt"
         end
         if File.exists?(filename) then
-          send_file filename, :x_sendfile => true, :type => "text/csv"
+          send_file filename, :x_sendfile => true, :type => "text/plain"
         else
           flash[:error] = "File not found"
         end
@@ -437,8 +437,8 @@ class ReportsController < ApplicationController
   
   # Returns full path to most recently generated version of NIH spreadsheet
   def self.nih_spreadsheet_table
-    all_nih_spreadsheet = Dir.glob(File.join(nightlies_dir, "output_nih_*.csv"))
-    basename = /output_nih_(.*)\.csv/
+    all_nih_spreadsheet = Dir.glob(File.join(nightlies_dir, "output_nih_*.txt"))
+    basename = /output_nih_(.*)\.txt/
     all_nih_spreadsheet.sort!{|s1, s2|
       Date.parse(basename.match(s1).to_s) <=> Date.parse(basename.match(s2).to_s)
       }
@@ -750,7 +750,7 @@ class ReportsController < ApplicationController
     freeze_files[""] = [ nil ]
     freeze_dir = "#{RAILS_ROOT}/config/freeze_data/"
     if File.directory? freeze_dir then
-      Dir.glob(File.join(freeze_dir, "output_nih_*.csv")).each { |f| 
+      Dir.glob(File.join(freeze_dir, "output_nih_*.txt")).each { |f| 
         fname = File.basename(f)[0..-5]
         (organism, date) = fname.split(/_/)
         organism = organism[0..0].upcase + ". " + organism[1..-1]
@@ -761,7 +761,7 @@ class ReportsController < ApplicationController
     # Nightlies
     freeze_dir = "#{RAILS_ROOT}/config/freeze_data/nightly/"
     if File.directory? freeze_dir then
-      Dir.glob(File.join(freeze_dir, "output_nih_*.csv")).each { |f| 
+      Dir.glob(File.join(freeze_dir, "output_nih_*.txt")).each { |f| 
         fname = File.basename(f)[0..-5]
         (organism, date) = fname.split(/nih_/)
         organism = organism[0..0].upcase + ". " + organism[1..-1]
@@ -779,10 +779,10 @@ class ReportsController < ApplicationController
     headers = []
     freeze_files.each { |freeze_file|
       filename = nil
-      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
-        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
-      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
-        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt"
+      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt"
       end
 
       if filename then

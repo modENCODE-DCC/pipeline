@@ -289,7 +289,7 @@ class BulkDownloadController < ApplicationController
     freeze_files[""] = [ nil ]
     freeze_dir = "#{RAILS_ROOT}/config/freeze_data/"
     if File.directory? freeze_dir then
-      Dir.glob(File.join(freeze_dir, "*.csv")).each { |f| 
+      Dir.glob(File.join(freeze_dir, "*.txt")).each { |f| 
         fname = File.basename(f)[0..-5]
         (organism, date) = fname.split(/_/)
         organism = organism[0..0].upcase + ". " + organism[1..-1]
@@ -300,13 +300,13 @@ class BulkDownloadController < ApplicationController
     # Nightlies
     freeze_dir = "#{RAILS_ROOT}/config/freeze_data/nightly/"
     if File.directory? freeze_dir then
-      Dir.glob(File.join(freeze_dir, "celegans_*.csv")).each { |f| 
+      Dir.glob(File.join(freeze_dir, "celegans_*.txt")).each { |f| 
         fname = File.basename(f)[0..-5]
         (organism, date) = fname.split(/_/)
         organism = organism[0..0].upcase + ". " + organism[1..-1]
         freeze_files[organism + " nightlies"].push [ date, fname ]
       }
-      Dir.glob(File.join(freeze_dir, "dmelanogaster_*.csv")).each { |f| 
+      Dir.glob(File.join(freeze_dir, "dmelanogaster_*.txt")).each { |f| 
         fname = File.basename(f)[0..-5]
         (organism, date) = fname.split(/_/)
         organism = organism[0..0].upcase + ". " + organism[1..-1]
@@ -333,10 +333,10 @@ class BulkDownloadController < ApplicationController
     data = Array.new
     freeze_files.each { |freeze_file|
       filename = nil
-      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv") then
-        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.csv"
-      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv") then
-        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.csv"
+      if File.exists?("#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/#{freeze_file}.txt"
+      elsif File.exists?("#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt") then
+        filename = "#{RAILS_ROOT}/config/freeze_data/nightly/#{freeze_file}.txt"
       end
 
       if filename then
