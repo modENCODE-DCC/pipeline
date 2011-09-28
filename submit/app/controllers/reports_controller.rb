@@ -95,11 +95,11 @@ class ReportsController < ApplicationController
     @freeze_files.each { |ff| ff[0].sub!(/\s+\S+/, '') }
   end
   def vetting_stats
-    index
+    graphs
   end
 
   def weekly_summary
-    index
+    graphs
   end
 
   def publish
@@ -228,7 +228,7 @@ class ReportsController < ApplicationController
   end
 
   def levels
-    index
+    graphs
     pis = ["Celniker","Henikoff","Karpen","Lai","Lieb","MacAlpine","Oliver","Piano","Snyder","Waterston","White"]
     levels = [0,1,2,3]
     level_names = levels.map{|l| "Level "+l.to_s}
@@ -244,11 +244,11 @@ class ReportsController < ApplicationController
   end
 
   def index_table
-    index
+    graphs
   end
 
 
-  def index
+  def graphs
 
    quarters = {"Y1Q3" => {"year" => "Y1", "quarter"=> "Q3", "start" => Date.civil(2007,11,1), "end" => Date.civil(2008,1,31)},
                "Y1Q4" => {"year" => "Y1", "quarter"=> "Q4", "start" => Date.civil(2008,2,1), "end" => Date.civil(2008,4,30)},
