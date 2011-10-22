@@ -1,3 +1,5 @@
 #!/usr/bin/env ruby
 require File.dirname(__FILE__) + '/../config/boot'
+ENV['USER_SPECIFIC_HOME'] = ENV['HOME']
+ENV['HOME'] = "/var/www/submit/config"
 require 'commands/console'
