@@ -3098,7 +3098,7 @@ private
       "Y4Q3" => {"year" => "Y4", "quarter"=> "Q3", "start" => Date.civil(2010,11,1), "end" => Date.civil(2011,1,31)},
       "Y4Q4" => {"year" => "Y4", "quarter"=> "Q4", "start" => Date.civil(2011,2,1), "end" => Date.civil(2011,4,30)},
       "Y5Q1" => {"year" => "Y5", "quarter"=> "Q1", "start" => Date.civil(2011,5,1), "end" => Date.civil(2011,7,30)},
-      "Y5Q2" => {"year" => "Y5", "quarter"=> "Q2", "start" => Date.civil(2011,8,1), "end" => Date.civil(2011,10,30)},
+      "Y5Q2" => {"year" => "Y5", "quarter"=> "Q2", "start" => Date.civil(2011,8,1), "end" => Date.civil(2011,10,31)},
       "Y5Q3" => {"year" => "Y5", "quarter"=> "Q3", "start" => Date.civil(2011,11,1), "end" => Date.civil(2012,1,30)},
       "Y5Q4" => {"year" => "Y5", "quarter"=> "Q4", "start" => Date.civil(2012,2,1), "end" => Date.civil(2012,4,30)}
     }
