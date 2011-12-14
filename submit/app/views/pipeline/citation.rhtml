@@ -7,9 +7,12 @@
    v = TrackTag.find_all_by_project_id_and_name(@project_id, "Lab").find { |tt| tt.value.length > 0 }; v ? ", #{v.value} subgroup" : "" 
   %>)
 </h1>
+<h2>Details</h2>
+<p>Place a submission-specific statement in here.</p>
 <h2>General Description</h2>
+<p>
 <%= tag = TrackTag.find_by_project_id_and_name(@project_id, "Experiment Description"); tag ? tag.value.gsub("\n", "<br/>\n") : "[Please Fill In]" %> 
-<br/><br/>
+</p>
 <h2>Protocols</h2>
 <ol>
   <%
@@ -17,8 +20,8 @@
     url_tags = TrackTag.find_all_by_project_id_and_cvterm(@project_id, 'protocol_url')
 
     growth = ["grow", "harvest", "culture", "nucleic_acid_extraction", "RNA extraction", "DNA extraction", "purify", "dissect", "organism_purification_protocol", "biosample_preparation_protocol"]
-    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR", "sequencing"]
-    analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment", "peak_finding_data_analysis_protocol"]
+    preparation = ["PCR", "PCR_amplification","chromatin_immunoprecipitation","labeling","hybridization","microarray_scanning_protocol", "reverse_transcription", "sequencing_protocol", "bridge PCR", "sequencing", "sequencing assay"]
+    analysis = ["data_analysis_protocol", "quantile_normalization", "quantile_normalization_protocol_type", "base_calling_protocol", "pairwise_sequence_alignment", "peak_finding_data_analysis_protocol", "TopHat_sequence_alignment", "Bowtie_sequence_alignment"]
 
     growth_protocols = type_tags.find_all { |tag| growth.include?(tag.value) }
     preparation_protocols = type_tags.find_all { |tag| preparation.include?(tag.value) }
@@ -91,7 +94,7 @@
     #sex = ["sex"]
     antibodies = ["antibody", "target name"]
     arrays = ["ADF", "array_data_file", "array", "BPMAP"]
-    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA" ]
+    samples = [ "mRNA", "polyA_RNA", "RNA", "polyadenylated_mRNA", "total_RNA", "RNA ID" ]
     conditions = ["GrowthCondition", "temperature"]
     external_ids = ["GEO_record", "dbEST_record", "TraceArchive_record", "ShortReadArchive_project_ID (SRA)"]
     #modencode_ids = ["modENCODE Reference"]
@@ -204,11 +207,12 @@
     <li>
       <b>Samples:</b>
       <%= sample_reagents.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
-        name = tag.value 
+        name = tag.name 
         url_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'data_url')
         name_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'official name')
-	related_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'modENCODE Reference')
-	related_projects += TrackTag.find_all_by_name(name).map{|t| t.project_id}
+        related_tag = TrackTag.find_by_project_id_and_name_and_cvterm(@project_id, name, 'modENCODE Reference')
+        related_tag = TrackTag.find_all_by_project_id_and_name(@project_id, name).find{|t| t.cvterm =~ /modENCODE Reference/}
+        related_projects += TrackTag.find_all_by_name(name).map{|t| t.project_id}
         short_name = name_tag ? name_tag.value : name.split('&oldid')[0]
 	v = ""
         if url_tag then
@@ -221,7 +225,7 @@
           v = h(short_name)
         end
 	if related_tag then
-          v += " (DCC-#{h(related_tag.value)})"
+          v += " (modENCODE_#{h(related_tag.value)})"
 	end
 	v
       }.uniq.join(", ") %>
@@ -261,9 +265,9 @@
      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
         submission_num = tag.value.to_i 
         begin
-          "<li><b>DCC-#{submission_num}</b>: #{link_to h(Project.find(submission_num).name), "/submit/public/citation/" + submission_num.to_s}</li>"
+          "<li><b>modENCODE_#{submission_num}</b>: #{link_to h(Project.find(submission_num).name), "/submit/public/citation/" + submission_num.to_s}</li>"
         rescue
-          "<li><b>DCC-#{submission_num}</b></li>"
+          "<li><b>modENCODE_#{submission_num}</b></li>"
         end
       }.uniq.join("\n") %>
       <%= ", and #{modencode_records.size - @max_entries} more." if modencode_records.size > @max_entries %>
@@ -273,7 +277,7 @@
 	p = Project.find(id)
         
         url = "/submit/public/citation/#{p.id}"
-        "<li><b>DCC-#{p.id.to_s}</b>: #{link_to(h(p.name), url) }</li>"
+        "<li><b>modENCODE_#{p.id.to_s}</b>: #{link_to(h(p.name), url) }</li>"
 	}.uniq.join("\n") 
   %>
 </ul>
