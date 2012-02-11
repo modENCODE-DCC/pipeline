@@ -1,0 +1,38 @@
+<% if @project.deprecated? then %>
+  <br/>
+  <% dep_id = @project.deprecated_project_id
+      dep_name = ( if Project.exists? dep_id then Project.find(dep_id).name else "Error: no project with this ID!"  end)
+  %>
+  <div style="width: 700px; margin-left: 15px; border: thin dashed black; padding: 5px;">
+    This project has been <%= @project.retracted? ?  "retracted with no replacement" : "deprecated by Project #{dep_id} (#{dep_name})" %>
+  <% if @project.deprecation_reason then %>
+:<br/><br/>
+  <%= @project.deprecation_reason.gsub("\n", "<br/>") %>
+  <% else %>
+, but no reason was given.
+  <% end %>
+  </div>
+<% end %>
+
+
+<% if @project.superseded? then %>
+  <br/>
+  <% sup_id = @project.superseded_project_id
+      sup_name = ( if Project.exists? sup_id then Project.find(sup_id).name else "Error: no project with this ID!"  end)
+  %>
+  <div style="width: 700px; margin-left: 15px; border: thin dashed black; padding: 5px;">
+    This project has been superseded by Project <%= "#{sup_id} (#{sup_name})" %>
+  <% if @project.supercession_reason then %>
+:<br/><br/>
+  <%= @project.supercession_reason.gsub("\n", "<br/>") %>
+  <% else %>
+, but no reason was given.
+  <% end %>
+  </div>
+<% end %>
+
+<% if @project.deprecated? || @project.superseded? then %>
+<br/>
+ <hr style="width:800px; height: 5px; background-color: grey" align="left"/>
+<br/>
+<% end %>

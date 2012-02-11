@@ -508,6 +508,30 @@ class PipelineController < ApplicationController
     end
     return nil
   end
+  
+  # when a project is superseded or deprecated or retracted, this will be the string it shows
+  # pulled out so it's not ugly.
+  # returns nil if project isn't superseded or anything, or if project doesn't exist.
+  def deprecated_project_flash_string(project)
+    if project.deprecated? then
+      if !project.retracted? then # deprecated by another project
+        "This project has been deprecated by <a href='#{url_for(
+          {:action => 'show', :id => project.deprecated_project_id, :controller => 'pipeline'})}'>Project #{project.deprecated_project_id}</a>! "
+      else
+        "This project has been retracted with no replacement!"
+      end
+    else
+      nil
+    end
+  end
+  def superseded_project_flash_string(project)
+    if project.superseded? then
+        "This project has been superseded by <a href='#{url_for(
+          {:action => 'show', :id => project.superseded_project_id, :controller => 'pipeline'})}'>Project #{project.superseded_project_id}</a>! "
+    else
+      nil
+    end
+  end
 
   def show
     @autoRefresh = true
@@ -594,21 +618,18 @@ class PipelineController < ApplicationController
     if Project::Status::ok_next_states(@project).include?(Project::Status::AWAITING_RELEASE) then
       flash[:warning] = "This project is awaiting release and approval!"
     end
-    if @project.deprecated? then
+    if deprecated_string = deprecated_project_flash_string(@project) then # Yes, single =. Returns nil if nil has been passed to it.
       flash[:error] = "" if flash[:error].nil?
       flash[:error] += "<br/>" unless flash[:error] == ""
-      if !@project.retracted? then
-        flash[:error] += "This project has been deprecated by project #{@project.deprecated_project_id}!"
-      else
-        flash[:error] += "This project has been retracted with no replacement!"
-      end
-    end
-    if @project.superseded? then
-      flash[:notice] = "" if flash[:notice].nil?
-      flash[:notice] += "<br/>" unless flash[:notice] == ""
-      flash[:notice] += "This project has been superseded by project #{@project.superseded_project_id}."
+      flash[:error] += deprecated_string unless flash[:error].include? (deprecated_string)
     end
     
+    if superseded_string = superseded_project_flash_string(@project) then # Yes, single =. Returns nil if nil has been passed to it.
+      flash[:notice] = "" if flash[:notice].nil?
+      flash[:notice] += "<br/>" unless flash[:notice] == ""
+      flash[:notice] += superseded_string unless flash[:notice].include? superseded_string
+    end
+       
     # Check for duplicates
     @signatures = get_matching_files( @project )
 

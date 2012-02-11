@@ -24,6 +24,8 @@
   DIV.hidden { display: none; }
 </style>
 
+<%= render :partial => "public/replaced_reason"%>
+
 <div id="right_panels">
 <div id="command_panel">
 <%= render :partial => "command_panel" %>
@@ -103,10 +105,9 @@
   <% if @user_can_write then %>
     <div style="font-style: italic; padding-left: 5px">
       <%= @user_is_owner ? "You can " : "As a moderater, you can " %>
-      <%= link_to("rename", { :action => :edit, :id => @project }) %>,
-      <%= link_to("delete", { :action => :delete, :id => @project }, :confirm => "Are you sure you want to permanently delete this submission?" ) %>, or
-      change the associated <br/><%= link_to("lab / project", { :action => :edit_lab_project, :id => @project }) %> for
-      this submission.
+      <%= link_to("rename", { :action => :edit, :id => @project }) %> or
+      <%= link_to("delete", { :action => :delete, :id => @project }, :confirm => "Are you sure you want to permanently delete this submission?" ) %> this submission, or
+      change the <br/><%= link_to("lab or project", { :action => :edit_lab_project, :id => @project }) %> associated with it.
     </div>
   <% end %>
   <% pronoun = (current_user.is_a?(Moderator) && @project.user != current_user) ? "that've been" : "you've" %>
@@ -137,6 +138,11 @@
   <% elsif Project::Status::ok_next_states(@project).include?(Project::Status::VALIDATING) then %>
     <div style="font-style: italic; padding-left: 5px; width: 70%">
       You can <%= link_to "browse and download", { :controller => :public, :action => :download, :id => @project } %> the files <%= pronoun %> uploaded.
+    </div>
+  <% end %>
+  <% if @project.released? then %>
+    <div style="font-style: italic; padding-left: 5px; width: 70%">
+      You can view the <%= link_to "citation for this submission", { :controller => :public, :action => :citation, :id => @project } %>.
     </div>
   <% end %>
   <br/>
@@ -328,7 +334,9 @@
       </ol>
     </div>
   <% end %>
+  </div>
   <br style="clear:both"/><br/>
+  <div style="float:left">
    <h2 align="left"><a name="uploaded_data" style="color:black">Uploaded Data:</a><hr align="left"/></h2>
    <table border="0" style="margin-top: 10px;" class="status">
       <tr>

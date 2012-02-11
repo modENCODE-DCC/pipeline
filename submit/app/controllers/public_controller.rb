@@ -298,6 +298,38 @@ class PublicController < ApplicationController
       return false
     end
 
+  # Show superseded or deprecated
+  # this is substantially similar to code in pipeline controller but links to citation instead of show
+    deprecate_msg = if @project.deprecated? then
+      if @project.retracted? then
+        "This project has been retracted with no replacement!"
+      else
+        "This project has been deprecated by <a href='#{url_for(
+          {:action => 'citation', :id => @project.deprecated_project_id, :controller => 'public'})}'>Project #{@project.deprecated_project_id}</a>! "
+      end
+    end
+    supersede_msg = if @project.superseded? then
+      "This project has been superseded by <a href='#{url_for(
+      {:action => 'citation', :id => @project.superseded_project_id, :controller => 'public'})}'>Project #{@project.superseded_project_id}</a>! "
+    end
+  
+    if deprecate_msg then
+      case flash[:error]
+        when nil, "", deprecate_msg
+          flash[:error] = deprecate_msg
+        else
+          flash[:error] += "<br/>" + deprecate_msg
+       end
+     end
+    if supersede_msg then
+      case flash[:notice]
+        when nil, "", supersede_msg
+          flash[:notice] = supersede_msg
+        else
+          flash[:notice] += "<br/>" + supersede_msg
+       end
+     end
+
     all_track_defs = Array.new
     released_configs = TrackStanza.find_all_by_project_id_and_released(params[:id], true)
     unless current_user == :false || released_configs.size > 0 then
