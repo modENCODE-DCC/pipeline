@@ -52,7 +52,7 @@ end
 
 
 class ReportsController < ApplicationController
-  before_filter :login_required
+  before_filter :login_required, :except => [ :nih_spreadsheet ]
 
   def unescape(str)
     str.gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
