@@ -481,8 +481,11 @@ class ReportsController < ApplicationController
   # Finds all submissions that are loaded but not yet published
   def self.get_processing_submissions
     processing_subs = Project.all.select{|p|
-     ( Project::Status.status_number(p.status) >= Project::Status.status_number(Project::Status::LOADED) ) &&
-     ( Project::Status.status_number(p.status) < Project::Status.status_number(Project::Status::RELEASED) )
+      # If the status is 'bad' just assume it's not processing
+      statnum = Project::Status.status_number(p.status)
+      statnum = 0 if statnum.nil?
+     ( statnum >= Project::Status.status_number(Project::Status::LOADED) ) &&
+     ( statnum < Project::Status.status_number(Project::Status::RELEASED) )
     }
     processing_subs
   end
