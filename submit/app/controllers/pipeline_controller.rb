@@ -600,11 +600,19 @@ class PipelineController < ApplicationController
           "dvir"
         when "Drosophila yakuba"
           "dyak"
+        when "Caenorhabditis brenneri"
+          "brenneri"
+        when "Caenorhabditis briggsae"
+          "briggsae"
+        when "Caenorhabditis japonica"
+          "japonica"
+        when "Caenorhabditis remanei"
+          "remanei"
         else
           "flybase"
         end
 
-      @gbrowse_url = "/gbrowse/cgi-bin/gbrowse/modencode_#{organism_gbrowse}_quick_#{@project.id}"
+      @gbrowse_url = "http://gb1.modencode.org/gb2/gbrowse/modencode_#{organism_gbrowse}_quick_#{@project.id}"
 
       # This originally linked to non-fast gbrowse preview
       #if organism == "Caenorhabditis elegans" then
@@ -3014,6 +3022,7 @@ private
     return newts.save
   end
   def status
+    @current_user = current_user
     user_to_view = session[:show_filter_user].nil? ? current_user : User.find(session[:show_filter_user])
     @current_pis = current_user.nil? ? [] : current_user.pis
     pis_to_view = (session[:show_filter_pis].nil? || session[:show_filter_pis] == "") ? @current_pis : session[:show_filter_pis]
@@ -3079,6 +3088,23 @@ private
       session[:sort_list].each_pair { |col, srtby| @new_sort_direction[col] = 'backward' if srtby[0] == 'forward' && sorts[0] == col }
     else
       @projects = @projects.sort { |p1, p2| p1.updated_at <=> p2.updated_at }.reverse
+    end
+
+    # Check to see if we're sorting out the broken projects separately
+    if params[:sort_broken] then
+      broken_sort = ( params[:sort_broken] == "false" ? false : true )
+      @sorting_by_broken = ! broken_sort
+    else
+      @sorting_by_broken = true if @sorting_by_broken.nil?;
+    end
+    # If we *are* sorting by broken projects , pull them out here
+    # remove them from projlist and stick them at the front
+    if @sorting_by_broken then
+      brokens = @projects.select{|p| p.is_broken}
+      @projects.reject!{|p| p.is_broken}
+      unless brokens.nil? then
+        @projects = brokens + @projects
+      end
     end
 
     if params[:page_size] then

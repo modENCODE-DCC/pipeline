@@ -25,6 +25,15 @@
           <%= radio_button_tag :show_status, 'all', 'all' == @show_status, :onclick => "$('status_form_submit').click()" %> All
           <%= radio_button_tag :show_status, 'active', 'active' == @show_status, :onclick => "$('status_form_submit').click()" %> Active
           <%= radio_button_tag :show_status, 'released', 'released' == @show_status, :onclick => "$('status_form_submit').click()" %> Released
+          
+            <br/>
+            <% # Sorting by broken needs to refresh the page. This 'refresh action' copied from _status_table.
+              refresh_action_name = :list
+              refresh_action_name = :show_user if session[:show_filter] == :user 
+              refresh_action_name = :show_group if session[:show_filter] == :group 
+              sort_link_string = @sorting_by_broken ? "Show broken projects with others" : "Show broken projects first"
+            %>
+            <%= link_to sort_link_string, :action => refresh_action_name, :sort_broken => @sorting_by_broken.to_s  %>
         </td>
       </tr>
       <tr id="tr_date_option" style="display:<%= @display_type == 'compact' ? 'none' : '' %>">
