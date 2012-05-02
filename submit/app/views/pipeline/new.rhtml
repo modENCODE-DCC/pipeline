@@ -6,10 +6,10 @@
 <% form_tag(:action => 'new') do %>
   <table border="0">
     <% if current_user && current_user.is_a?(Moderator) %>
-      <tr><td><label for="project_name">ID</label>: </td><td><%= text_field_tag 'moderator_assigned_id' %></td></tr>
+      <tr><td><label for="project_name">ID</label>: </td><td><%= text_field_tag 'moderator_assigned_id', "", { :disabled => true } %></td></tr>
       <tr><td style="font-size:80%">&nbsp;</td><td style="font-size:70%; vertical-align: top">(leave blank to generate a new one)</td></tr>
     <% end %>
-    <tr><td><label for="project_name">Name</label>: </td><td><%= text_field 'project', 'name'  %></td></tr>
+    <tr><td><label for="project_name">Name</label>: </td><td><%= text_field 'project', 'name', { :disabled => true }  %></td></tr>
     <tr><td><label for="project_type_id">Type</label>: </td><td>
         <%= select_tag "project_type_id", options_from_collection_for_select(@projectTypes, "id", "short_label") %>
     </td></tr>
@@ -30,9 +30,21 @@
     @project.project_type_id = @projectTypes[0].id %>
   <%= hidden_field :project, :project_type_id %>
 <% end %>
-  
+
 <table><tr>
-<td > <%= submit_tag 'Create' -%></td>
-<td > <%= submit_tag 'Cancel' -%></td>
+<td>
+<br/>
+No new projects may be added to the pipeline at this time.<br/>
+Data may be submitted to existing projects until June 1, 2012 at 11:59 PM PDT.
+<br/>
+<% if current_user && current_user.is_a?(Moderator) then %>
+  <b>
+  <br/>
+  Hi, wranglers! You can still create new projects via the rails console, 
+  but this functionality may be removed without notice!
+  <br/>Do it while you still can!
+  </b><br/>
+<% end %>
+</td>
 <% end %>
 </tr></table>
