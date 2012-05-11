@@ -7,6 +7,7 @@ require 'cgi'
 require 'find'
 require 'pp'
 require 'yaml'
+require 'genome_builds'
 #require 'pg_database_patch'
 
 class Citation < ActionView::Base
@@ -32,14 +33,6 @@ class TrackFinder
   @debugging = false
   TRACKS_PER_COLUMN = 5
   MAX_FEATURES_PER_CHR = 10000
-  CHROMOSOMES = {
-              :dmelanogaster => [ '2L', '2LHet', '2R', '2RHet', '3L', '3LHet', '3R', '3RHet', '4', 'X', 'XHet', 'YHet', 'U', 'Uextra', 'M' ],
-              :celegans => ['I', 'II', 'III', 'IV', 'V', 'X', 'MtDNA' ]
-  }
-
-  # Initialization file for finding organisms for bigwig conversion
-  ORGANISM_LIST = File.join(RAILS_ROOT, "config", "organism_chromfiles.yml")
-  NO_ORGANISM = "NO ORGANISM"
 
   # GBrowse configuration
   def self.gbrowse_root
@@ -506,173 +499,41 @@ class TrackFinder
     return s.value
   end
 
-
-
-
-  # Helper methods: converting wiggle to bed as a preface for converting to bigWig
-
-  # Determine if a wiggle file contains multiple tracks and split it into one file per track if it does
-  # Returns an array of closed file handles!!!
-  # NOPE! now, it ...
-  # Returns an array of hashes. Hashes contain :handle -> closed file handle to wiggle file, :name -> string, :desc -> string
-  def split_wiggle_file_into_tracks(sourcepath)
-    current_track = false
-    result_tracks = []
-    has_tracks = false
-    trackname = trackdesc = nil
-    # Attempt to open the file
-    begin     
-      ifstream = File.open(sourcepath, "r")
-    rescue Exception => e
-      cmd_puts "      Error opening source wiggle file  at location #{sourcepath}:\n       #{e}."
-      return []
-    end       
-    # read the file until we encounter a non-{comment/whitespace/empty} line
-    ifstream.each{|line|
-      next if line =~/^\s*#|^\s*$|^$/ ;
-      if ( line =~ /^\s*track/ ) then
-        cmd_puts "got trackline:[#{line}]" if debugging?
-        # Assumption: if there are any track lines in the file,
-        # there will be a track line before any data lines.
-        cmd_puts "          Detected track line in #{File.basename sourcepath} at line #{ifstream.lineno}" +
-          "#{has_tracks ? "." : "; splitting file into multiple tracks." }" 
-        has_tracks = true
-        
-        # If we have a track going, finish it off, & make a new track tmpfile.
-        if current_track then 
-          current_track.close 
-          result_tracks << {:handle => current_track, :name => trackname, :desc => trackdesc}
-        end
-        
-        # Get new track info:
-        # Match is (whitespace delimited) or (surrounded by quotes), and then beginning & ending quotes are removed.
-        trackname = line.match(/name=("([^"]*)"|\S*)/)
-        trackdesc = line.match(/description=("([^"]*)"|\S*)/)
-        trackname = trackname[1] unless trackname.nil?
-        trackdesc = trackdesc[1] unless trackdesc.nil?
-        trackname.gsub!(/(^"|"$)/, "") unless trackname.nil?
-        trackdesc.gsub!(/(^"|"$)/, "") unless trackdesc.nil?
-
-        current_track = Tempfile.new((trackname.nil? ? "wiggle_track" : trackname.gsub(/\s/, "_")), TrackFinder::gbrowse_tmp)
-        current_track.puts line
-      elsif has_tracks then
-        # We're accumulating data lines
-        current_track.puts line
-      else    
-        cmd_puts "we believe #{File.basename sourcepath} to be only a single track" if debugging? 
-        # we got a data line with no track line: we assume there is one track.
-        ifstream.close
-        result_tracks << {:handle => ifstream, :name => trackname, :desc => trackdesc}
-        break
-      end     
-    }           
-    # Close and list the last tempfile
-    if current_track then
-      current_track.close
-      result_tracks << {:handle => current_track, :name => trackname, :desc => trackdesc }
-    end
-    cmd_puts "Track list:[#{result_tracks.inspect}]" if debugging?
-    return result_tracks 
-  end
-
-  # Try to figure out what the organism is based on metadata in the chado DB, and get the path
-  # to its chromosome list file
-  def get_bigwig_chromfile
+  # Use the chado database to try to fix the organism of a GenomeBuilds
+  def fetch_chado_organism(gb)
       # Get organism info from DB
     orgs = Array.new
     @sth_get_organism.execute
     @sth_get_organism.fetch_hash{|org| orgs << org["organism"] }
 
-    # Figure out which organism we mean by it
-    found_org = parse_potential_organisms(orgs)
-    return false unless found_org # Couldn't find organism - die
-    # Get the chromfile
-    organism_to_chromfile(found_org)
-  end
+    gb.guess_by_name! orgs
 
-  # Helper for get_bigwig_chromfile
-  def parse_potential_organisms(org_array)
-    # Try to open the organism list, and fail gracefully
-    begin
-    # Get the list of organisms
-      canonical_orgs = YAML::load(File.open(ORGANISM_LIST))
-    rescue Exception => e
-      cmd_puts "       Error trying to open #{File.basename ORGANISM_LIST}: #{e}!"
-      return false
-    end
-    # Construct the regex
-    org_search = Regexp.new( "(" + canonical_orgs.keys.join("|") + ")", Regexp::IGNORECASE)
-    
-    # For each item in org_array, replace it with what it matches (no match = nil)
-    orgs = org_array.map{|item| res = org_search.match(item) ; res.nil? ? nil : res[0].downcase}
-    orgs.uniq!
-    orgs.reject!{|item| item.nil?}
+    # if we didn't find an organism, try eliminating melanogaster & elegans 
+    # and see if that uniques it
+    # TODO something other than hardcoding elegans & melanogaster FIXME
+    remaining_orgs = gb.possible_organisms.reject{|o| ( o == "elegans" ) || (o == "melanogaster") } unless gb.organism?
 
-    # Then, figure out if we have an organism!
-    case orgs.length
-      when 0 # nothing matched!
-        cmd_puts "       Couldn't determine organism--name(s) provided were #{org_array.join(", ")}"
+    case remaining_orgs.length
+      when 0
+        # Whoops, we've eliminated all the organisms
+        cmd_puts "       Couldn't find a valid organism from chado database--options were  were #{orgs.join(", ")}"
         return false
-      when 1 # Great, exactly 1 organism
-        cmd_puts "            Determined organism to be #{orgs[0]}."
-        return orgs[0]
-      else # Too many! Remove any elegans / dmel that was there and see if that cuts it down
-        orgs.reject!{|org| canonical_orgs[org]["type"] == "model"}
-        if orgs.length == 1 then
-          cmd_puts "            Determined organism to be #{orgs[0]}."
-          return orgs[0]
-        else # Either none left or still too many. give up.
-          cmd_puts "       Couldn't determine organism--name(s) provided were #{org_array.join(", ")}"
-          return false
-        end
+      when 1
+        # Great, there was either exactly one, or  elegans / d mel and one other
+        gb.guess_by_name! remaining_orgs[0]
+        cmd_puts "       Found organism #{gb.organism} in the chado database."
+        return gb
+      else
+        # Whoops, there are still too many
+        cmd_puts "       The chado database has too many organisms; can't determine which is correct among#{orgs.join(", ")}"
+        return false
     end
   end
 
-  # Given an organism shortname, return the path to the proper chromosome file 
-  def organism_to_chromfile(org)
-    unless org then
-      cmd_puts "      No organism was found--cannot determine the proper chromosome file!"
-      return false
-    end
-    # Support original version -- transform older input to organism TODO : refactor so unncessary
-    case org
-      when :dmelanogaster
-        org = "mel"
-      when :celegans
-        org = "elegans"
-    end
-    
-    # Get list of organisms + chrom filenames from YML
-    orgs = YAML::load(File.open(ORGANISM_LIST))
-    # Make sure the chromfile exists
-    unless orgs[org] then
-      cmd_puts "Error: Couldn't locate chromosome file for #{org} in #{File.basename ORGANISM_LIST}!"
-      return false
-    end
-    File.join(RAILS_ROOT, "config", orgs[org]["chromfile"])
-  end
-
-  # Takes an array of possible organisms and a chrom string
-  # Returns the array of organisms who have chrom as a chromosome
-  # If there is but one, returns it in organism
-  def eliminate_organisms(possible_organisms, chrom)
-    # Remove 'chr' header
-    chrom = chrom.sub("chr", "")  # don't use chrom.sub! instead or it will replace the original too
-    possible_organisms = possible_organisms.select{|org| # Don't use select! - returns nil if no changes made
-      CHROMOSOMES[org].include? chrom
-    }
-    organism = possible_organisms.length == 1 ? possible_organisms[0] : false
-    cmd_puts "        ERROR: unrecognized chromosome \"#{chrom}\"--unable to determine organism!" if possible_organisms.empty?
-    [possible_organisms, organism] 
-  end
-
-  
   # Runs the bigwig writer
   # wig_path = source , bigwig_path = dest, chrom_path = chromosome file
   # Returns true if the bigwig file is created successfully ; false otherwise.
   def convert_to_bigwig(wig_path, chrom_path, bigwig_path)
-    # TODO: Write the wiggle file locally, then move it to tracks dir
-    # Do the bigwig conversion
     begin
       wiggle_writer = IO.popen("perl", "w+")
       wiggle_writer.puts WIGGLE_TO_BIGWIG_PERL + "\n\004\n"
@@ -688,205 +549,6 @@ class TrackFinder
     File.exist?(bigwig_path)
   end
 
-  # wiggle to bedgraph : converts files for converting to bigwig & determines organism.
-  # based on convert_wiggle_to_bed
-  # Input : path to input wiggle file, original name for debugging purposes
-  # Output : [organism, bedgraphpath] -- string name of organism,
-  # bedgraphpath path to temporary bedGraph outputfile
-  # NOTE: All of these wiggles have passed through the validator. They're either coming from
-  # embedded in the chadoxml or, if sufficiently large, a "cleaned wiggle file" in the directory itself.
-  # FORMATTING NOTE:
-  # fixedStep and variableStep wiggles are 1-based: the first base of an N-base chromosome is 1 and the last is N.
-  # Span, when present, indicates the number of bases a feature covers.
-  # bedGraph is 0-based half-open (ie, the end coordinate is "the first base no longer covered by this feature")
-  # so, a fixedStep with start of 11 and span of 5 (so last base is 15) translates to bedGraph as [10 15).
-  def wiggle_to_bedgraph(sourcepath, basename)
-    
-    possible_organisms = CHROMOSOMES.keys # List of organisms not yet eliminated
-    organism = false # the organism we've determined this to have
-
-    params = Hash.new # The wiggle parameters for this section of the file
-    delayed_line_to_print = false # Whether there is an unprinted line that needs to be finished --
-    # used in variableStep and bedGraph which may have erroneous overlapping lines.
-    
-    ofstream = nil # stream to current output bed 
-
-    # Try to open the file
-   begin
-      ifstream = File.open(sourcepath, "r")
-    rescue Exception => e
-      cmd_puts "      Error opening source wiggle file #{basename} at location #{sourcepath}:\n#{e}."
-      return [false, nil]
-    end
-   
-    # Make the output file
-    begin
-      ofstream = Tempfile.new(basename, TrackFinder::gbrowse_tmp)
-      # Testing 
-      #ofstream = File.open("/users/ekephart/tmp/#{basename}.temp", "w" )
-    rescue Exception => e
-      cmd_puts "        Error creating temporary bedGraph file in #{TrackFinder::gbrowse_tmp}: #{e}."
-      return [false, nil]
-    end
-
-    format =  chrom = start = step = span = nil # Information about the lines that needs to be retained between loops.
-    warncount = 0 # How many overlaps have we warned for? To prevent spamming the output too much.
-    
-    prev_start0 = -1 # Start of the previous line--for ensuring that lines are in numerical order
-    prev_chrom = "" # Used for tracking chrom changes for numerical order validation in bedGraphs.
-    
-    linenum = 0 # declaration for scoping
-
-    # Read the file and convert it
-    ifstream.each{|line|
-      line.chomp!
-      linenum = ifstream.lineno
-      # Skip comments, blank lines, track definitions.
-      next if line =~ /^#|^\s$|^$/
-      if line =~ /^track/ then
-        # Clear the delayed line and reset numerical order but otherwise skip... for now
-        warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
-        delayed_line_to_print = false
-        prev_start0 = -1
-        next # SKIP IT!
-       end
-  
-      # Get info from header lines
-      if line=~ /chrom/ then
-        # Finish processing possible previous line and clear it
-        warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
-        delayed_line_to_print = false
-        prev_start0 = -1 # Also reset order
-
-        format  = (regmatch = /^(variableStep|fixedStep)/.match line ; regmatch.nil? ? nil : regmatch[1] )
-        chrom     = (regmatch = /chrom=(\S+)/.match line ; regmatch.nil? ? nil : regmatch[1] )
-        start     = (regmatch = /start=(\d+)/.match line ; regmatch.nil? ? nil : regmatch[1].to_i )
-        step      = (regmatch = /step=(\d+)/.match line ; regmatch.nil? ? nil : regmatch[1].to_i )
-        span      = (regmatch = /span=(\d+)/.match line ; regmatch.nil? ? 1 : regmatch[1].to_i ) # Default span is 1
-
-        # Complain of missing fields
-        if chrom.nil? || (format == "fixedStep" && step.nil? ) then
-          cmd_puts "      ERROR: Declaration line \"#{line}\" at #{basename}:#{linenum} is missing fields or invalid! Cannot continue!"
-          ofstream.close
-          return [false, nil]
-        end
-  
-        possible_organisms, organism = eliminate_organisms(possible_organisms, chrom) unless organism
-        if possible_organisms.empty? then
-          ofstream.close
-          return [NO_ORGANISM, nil] # HACKY FIX TODO FIXME -- ran out of organisms instead of some other failure
-        end
-        
-        # trim span to step if necessary
-        if step && span > step then
-            cmd_puts "      WARNING: wiggle file #{basename} has span #{span} > step #{step} starting at line #{linenum}.  Reducing span to step & continuing."
-            span = step
-        end
-        # Remove 'chr' from chrom if presnt
-        chrom.sub!("chr", "")  
-      else 
-        # Process data line. nil format implies bedGraph. See formatting notes in method header for coordinate substitution info.
-        case format
-          when "fixedStep" # 1-based
-            start0 = start - 1
-            end1 = start0 + span
-            score = line.to_f
-            ofstream.puts "#{chrom} #{start0} #{end1} #{score}"
-            start += step # Update params for next line
-          when "variableStep" # 1-based
-            # Delay printing the line until we confirm the start location of the next line.
-            contents = line.split
-            start0 = contents[0].to_i - 1
-            score = contents[1].to_f
-            return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
-            # Finish processing the previous delayed line if it exists
-            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0, ofstream, linenum, warncount)
-            # Then, set up printing of this line.
-              delayed_line_to_print = { :chrom => chrom,
-                                        :score => score,
-                                        :start0 => start0,
-                                        :end1 => start0 + span,
-                                        :needs_printing => true}
-            prev_start0 = start0
-          when nil
-            # Assume it's a bedGraph. Delay printing until next start location is confirmed.
-            # Check for organism
-            contents = line.split
-            chrom = contents[0]
-            start0 = contents[1].to_i
-            end1 = contents[2].to_i
-            # If we got a new chrom, reset lines-numerical-order
-            if chrom != prev_chrom then
-              prev_start0 = -1
-              prev_chrom = chrom
-            end
-            return [false, nil] unless validate_wiggle_line_order(prev_start0, start0, linenum, basename)
-            possible_organisms, organism = eliminate_organisms(possible_organisms, chrom) unless organism
-            if possible_organisms.empty? then
-              ofstream.close
-              return [false, nil]
-            end
-            # Print previous line if necessary
-            # If previous line was on a different chromosome than this one, don't worry about clipping the end!
-            start0_or_nil = (  prev_start0 == -1 ? nil : start0 )
-            warncount += wiggle_print_delayed_line(delayed_line_to_print, start0_or_nil, ofstream, linenum, warncount)
-            # And set up current line for printing in a bit
-            delayed_line_to_print = { :chrom => chrom,
-                                      :score => contents[3],
-                                      :start0 => start0,
-                                      :end1 => end1,
-                                      :needs_printing => true }
-            prev_start0 = start0
-          else # This should never happen
-            cmd_puts "Error: format \"#{format}\" is neither fixedStep, variableStep, or blank! This seems impossible!"
-        end
-      end
-    }
-
-    warncount += wiggle_print_delayed_line(delayed_line_to_print, nil, ofstream, linenum, warncount)
-
-    ofstream.close unless ofstream.nil?
-
-    # Complain if we never determined organism
-    unless organism then
-      cmd_puts "       ERROR: Unable to uniquely determine organism of #{basename} from chromosomes encountered!"
-      # hacky hack TODO FIXME : if we *actually* couldn't find the organism (instead of crashing for other reasons) change organism to "NO_ORGANISM"
-      organism = NO_ORGANISM
-    end
-
-    [organism, ofstream.path]
-  end
- 
-  # Complains if the features are not in numerical order
-  def validate_wiggle_line_order(prevstart, start, linenum, fname)
-    return true if prevstart < start
-    cmd_puts "       ERROR: line #{linenum} of #{fname}: data lines are not in numerical order!\n" +
-             "       this line starts at #{start} but previous line started at #{prevstart}! Cannot continue processing file!"
-    return false
-  end
-  def wiggle_print_delayed_line(line_hash, next_start, ofstream, linenum, warncount)
-    max_num_warnings = 100
-    toreturn = 0
-    return toreturn unless line_hash # if it's false / nil, don't need to do anything
-    # If there's an overlap, return 1 for the warning count and move the end coordinate
-    if next_start && (next_start < line_hash[:end1] ) then
-      toreturn = 1
-      # And warn in the log unless we've reached the limit
-      case warncount <=> max_num_warnings
-        when -1
-          cmd_puts "        WARNING: Found overlapping features at lines #{linenum - 1} and #{linenum}:\n" + 
-                   "         Pushing back earlier feature's end coordinate (originally #{line_hash[:end1]}) to #{next_start}!"
-        when 0
-          cmd_puts "\n      ***\n      Overlap warning limit of #{max_num_warnings} reached--further overlaps will be corrected silently.\n      ***"
-      end
-      line_hash[:end1] = next_start
-    end
-    # Print the line
-    ofstream.puts "#{line_hash[:chrom]} #{line_hash[:start0]} #{line_hash[:end1]} #{line_hash[:score]}"
-    return toreturn
-  end
-
-  
   # Track finding and output
   def find_usable_tracks(experiment_id, project_id)
     # Find the datum objects that have attached features (via data_feature) 
@@ -1695,21 +1357,23 @@ class TrackFinder
               }
             }
 
-            # Attempt to guess the organism from chado database
-            chado_organism_chromfile = get_bigwig_chromfile
 
-            poss_organisms = CHROMOSOMES.keys
-            got_organism = false
-            seen_chroms = []
+            # Set up some GenomeBuilds for determining the organism
+            organism_chado = GenomeBuilds.new(:file => WiggleToBedgraph::GENOME_BUILD_FILE)
+            organism_file = organism_chado.clone # Make a copy with all the possibilities now, to save processing 
+
+            # Try to fetch the organism from chado
+            organism_chado = fetch_chado_organism(organism_chado)
             
-            
+            seen_srcfeatures = Array.new
+
+            # Populate the wiggle_writers with the data
             sth_get_all_gff.fetch_hash { |row|
-              if row['fmin'] && row['fmax'] && CHROMOSOMES.values.flatten.include?(row['srcfeature']) then
-                # Attempt to infer organism
-                unless (got_organism || ( seen_chroms.include? row['srcfeature'] )) then 
-                  poss_organisms, got_organism = eliminate_organisms(poss_organisms, row['srcfeature']) 
-                  # keep going even if you run out of organisms; we might already have it from the chado
-                  seen_chroms.push row['srcfeature']
+              # If the row seems to be chromosomally-located (on any organism), write it & attempt to infer organism
+              if row['fmin'] && row['fmax'] && organism_file.has_chromosome?( row['srcfeature'] )then
+                unless ( organism_file.eliminated? || ( seen_srcfeatures.include? row['srcfeature'] )) then 
+                  organism_file.guess_by_chrom! row['srcfeature']
+                  seen_srcfeatures.push row['srcfeature']
                 end
                 # Add the row to the bed array
                 # Note that when writing for wigdb, the start and end coords were fmin+1 and fmax;
@@ -1717,14 +1381,13 @@ class TrackFinder
                 # half open and one-based ; fmax will be the same either way. Therefore, we can 
                 # use plain fmin and fmax when writing the bedGraph.
                 current_bed = wiggle_writers[row['type']][row['srcfeature']]
-                #current_bed.push "#{row['srcfeature']}\t#{(row['fmin'].to_i).to_s}\t#{row['fmax']}\t255"
                 srcfeature_cleaned = row['srcfeature'].sub("chr", "")
                 current_bed.push [ srcfeature_cleaned, row['fmin'].to_i, row['fmax'].to_i, 255 ]
               end
             }
 
+            # For each type, make a bedgraph file, sorted by chromosome, in order by fmin
             wiggle_writers.each { |type, chrs|
-              # For each type, make a bedfile of the chrs in order
               collected_bed = Tempfile.new("#{tracknum}_#{type}.bed", TrackFinder::gbrowse_tmp)
               chrs.each { |chrom, bed_array|
                 # Sort the array of BED lines by fmin
@@ -1742,51 +1405,60 @@ class TrackFinder
                 # Write lines
                 bed_array.each { |line| collected_bed.puts line.join("\t") }
               }
-
-              # Then write the bigwig. 
               collected_bed.close
   
-              # Complain if we couldn't figure out the organism, and don't make the file
-              if (! got_organism) && (! chado_organism_chromfile) then
-                cmd_puts "          Couldn't determine organism for wiggle track #{File.basename bigwig_path}: Cannot create bigwig file or TrackTags!"
-                return
-              else
-                chrom_file = chado_organism_chromfile ? chado_organism_chromfile : organism_to_chromfile(got_organism)
+              # Write the bigwig from the collected bedGraph file.
+              # We need to know the organism for this and have a chromosome file for it.
 
-                # Store the bigwig in the output dir specified in the gen tf and tags function call
-                bigwig_path = File.join(output_dir, "#{tracknum}_#{type}.bw")
-
-                # When we're making the TrackTag, just use the basename instead of full path (?)
-                wrote_bigwig = convert_to_bigwig(collected_bed.path, chrom_file, bigwig_path)
-                unless wrote_bigwig then
-                  cmd_puts "          Failed to create bigwig file #{bigwig_path}."
-                  next
-                end
-                cmd_puts "          Wrote BigWig file #{bigwig_path}." if debugging?
-
-                # Then add a track tag so we can find the type again
-                TrackTag.new(
-                  :experiment_id => experiment_id,
-                  :name => "BigWig File #{type}",
-                  :project_id => project_id,
-                  :track => tracknum,
-                  :value => File.basename(bigwig_path),
-                  :cvterm => 'bigwig_file',
-                  :history_depth => 0
-                ).save 
-                TrackTag.new(
-                  :experiment_id => experiment_id,
-                  :name => 'Feature Type',
-                  :project_id => project_id,
-                  :track => tracknum,
-                  :value => type,
-                  :cvterm => "feature_type",
-                  :history_depth => 0
-                ).save
+              # If neither chado nor file provided an organism, complain & die.
+              unless organism_chado.organism? || organism_file.organism? then
+                cmd_puts "          ERROR: Cannot create zoomed-out bigwig #{File.basename bigwig_path} because we can't figure out what organism to use."
+                next
               end
-              collected_bed.unlink     
-            }
 
+              chromosomes_filepath = nil
+              # if they have provided conflicting organisms, complain but make the bigwig according to the file.
+              if organism_chado.organism? && organism_file.organism? && (organism_chado.organism != organism_file.organism) then
+                cmd_puts "           Note: the organism is#{organism_chado.organism} according to the chado database, but "
+                cmd_puts "           #{organism_file.organism} according to the file. Using the organism found in the file."
+                chromfile_handle = organism_file.generate_chromfile(TrackFinder::gbrowse_tmp)
+              elsif ! organism_file.organism?
+                # The file organism isn't there -- use the chado one
+                cmd_puts "           Note: couldn't determine organism from gff chromsomes so using #{organism_chado.organism} listed in the chado database."
+                chromfile_handle = organism_chado.generate_chromfile(TrackFinder::gbrowse_tmp)
+              else # They're either consistent or the chado is missing, so use the file organism
+                cmd_puts "          Found organism #{organism_file.organism}."
+                chromfile_handle = organism_file.generate_chromfile(TrackFinder::gbrowse_tmp)
+              end
+
+              bigwig_path = File.join(output_dir, "#{tracknum}_#{type}.bw")
+              # Write the bigwig!
+              next unless convert_to_bigwig(collected_bed.path, chromfile_handle.path, bigwig_path)
+              cmd_puts "          Wrote BigWig file #{bigwig_path}." if debugging?
+
+              # Then add a track tag so we can find the type again
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => "BigWig File #{type}",
+                :project_id => project_id,
+                :track => tracknum,
+                :value => File.basename(bigwig_path),
+                :cvterm => 'bigwig_file',
+                :history_depth => 0
+              ).save 
+              TrackTag.new(
+                :experiment_id => experiment_id,
+                :name => 'Feature Type',
+                :project_id => project_id,
+                :track => tracknum,
+                :value => type,
+                :cvterm => "feature_type",
+                :history_depth => 0
+              ).save
+
+              collected_bed.unlink    
+            }
+    
             cmd_puts "        Done."
             cmd_puts "      Done."
           end
@@ -1812,10 +1484,9 @@ class TrackFinder
               cmd_puts "        Finding metadata for wiggle files."
               source_wiggle_name = row['name']
               
-              # MULTI-TRACK STARTS HERE =========
               # Sometimes, these data files will contain more than one track. This needs to be accounted for.
               # So, before creating the tracks, split the file into as many tracks as it will need.
-              # 
+              
               # Get the path to the source file
               unless row["cleaned_wiggle_file"] then
                 
@@ -1827,75 +1498,77 @@ class TrackFinder
                 orig_wiggle_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
               end
 
+              # Make a WiggleToBedgraph to handle the conversion
+              wig_to_bed = WiggleToBedgraph.new(TrackFinder::gbrowse_tmp, self, :cmd_puts)
+              wig_to_bed.debugging = debugging?
+              # See of we can determine an organism from the chado 
+              organism_chado = GenomeBuilds.new(:file => WiggleToBedgraph::GENOME_BUILD_FILE)
+              organism_chado = fetch_chado_organism(organism_chado)
+              cmd_puts "Found organism #{organism_chado.organism} from chado for wiggle cvsn." if debugging?
+
+              wig_to_bed.set_organism(organism_chado.organism) if organism_chado.organism?
+
               # Check whether there are multiple tracks 
+              source_wiggles = wig_to_bed.split_by_track(orig_wiggle_path)
               # we now have an array of hashes w/ elements :handle, :desc, :name
-              all_wiggle_files = split_wiggle_file_into_tracks(orig_wiggle_path)
+              #all_wiggle_files = split_wiggle_file_into_tracks(orig_wiggle_path)
               
-              if all_wiggle_files.empty? then # Couldn't open the source file!
+              
+              if source_wiggles.empty? then # Couldn't open the source file!
                 cmd_puts "      Cannot continue with track-finding ."
                 return
               end
 
-              # temp debugging 
-              cmd_puts "got paths tp tempfiles #{all_wiggle_files.inspect}" if debugging?
+              cmd_puts "got paths to tempfiles #{source_wiggles.inspect}" if debugging?
 
-              all_wiggle_files.each{|wiggle_hash|
+              # For each new wiggle file, create a track
+              source_wiggles.each{|wiggle_hash|
                 wiggle_handle = wiggle_hash[:handle]
                 wiggle_track_name = wiggle_hash[:name]
                 wiggle_track_description = wiggle_hash[:desc]
 
-                # For each file, create a track
                 tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
                 cmd_puts "          Using tracknum #{tracknum}"
                 cmd_puts "        Done."
                 
-                # bigwig_file_path gets used for writing the TrackTag, but really the bigwig gets written
+                # final_bigwig_path gets used for writing the TrackTag, but really the bigwig gets written
                 # into a tempdir and then *moved* to output_dir -- so if that code is changed (eg to allow
                 # it to be moved to a subdir instead) this path should be changed too.
-                bigwig_file_path = File.join(output_dir, "#{tracknum}.bw")
-                bigwig_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
-                cmd_puts "            Bigwig file will be written to to: #{bigwig_tmp_file_path}"
+                final_bigwig_path = File.join(output_dir, "#{tracknum}.bw")
+                tmp_bigwig_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
+                cmd_puts "            Bigwig file will be written temporarily to to: #{tmp_bigwig_path}"
              
                 # Put the wiggle in a temp file for parsing
-                # BigWig can't handle wiggles with span > distance between values, so
-                # make a temporary .bed for all wiggles with spans.
-                
-                # Get the chromfile for bigwig based on the organism data in chado
-                bigwig_chromfile = get_bigwig_chromfile
-
-                # Then, convert the wiggle into a bed. Also attempt to get the organism in case we couldn't find it earlier.
-                cmd_puts "            Converting wiggle #{source_wiggle_name} to bedGraph for bigWig conversion process."
-                wig_organism, output_bedgraph_path = wiggle_to_bedgraph( wiggle_handle.path, source_wiggle_name)
-
-                # If wig_organism is false, it crashed. if it's "NO_ORGANISM" (hacky fix FIXME TODO) it made it to end but couldnt' find organism.
-                unless wig_organism then
-                  cmd_puts "    Failed to convert #{source_wiggle_name} at #{wiggle_handle.path} to bedGraph--cannot proceed with bigWig conversion for this track!"
+                # BigWig can't handle wiggles with span > distance between values, so a temporary bedgraph
+                # file must be made for all wiggles with spans.
+      
+                cmd_puts "            Converting wiggle #{source_wiggle_name} to bedGraph for bigWig conversions."
+                  
+                begin
+                  wiggle_organism, bedgraph_path = wig_to_bed.convert(wiggle_handle.path, source_wiggle_name) 
+                rescue WiggleOutOfOrderError, MissingOrganismError, WiggleIOError => e
+                  # Oops! Couldn't convert to bedGraph
+                  cmd_puts "    Couldn't convert #{source_wiggle_name} at #{wiggle_handle.path} to bedGraph:"
+                  cmd_puts "    Error: #{e}"
+                  cmd_puts "    A BigWig track cannot be created! FindTracks will now exit."
                   wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
-                  return # track finding will fail
-                end
-                if !bigwig_chromfile && ( wig_organism == NO_ORGANISM) then
-                  cmd_puts "    Succesfully converted #{source_wiggle_name} to bedGraph, but can't figure out what organism it is! Cannot proceed with bigWig conversion!"
-                  wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
-                  return # track finding will fail
-                end
-
-                # Use the chrom file found by database-search if it exists ; otherwise back up to inspected chromosomes
-                chrom_file_path = bigwig_chromfile ? bigwig_chromfile : organism_to_chromfile(wig_organism)
-                
-                # Then, write the bigwig!
-                bigwig_written = convert_to_bigwig(output_bedgraph_path , chrom_file_path, bigwig_tmp_file_path)
-                unless bigwig_written then
-                  cmd_puts "    Failed to create bigwig file at #{bigwig_tmp_file_path}."
                   return
                 end
-        
-                cmd_puts "        Successfullly wrote bigwig to #{bigwig_tmp_file_path}."
-                # And move it to its proper location:
 
-                cmd_puts "        Moving #{bigwig_tmp_file_path} to #{output_dir}."
-                FileUtils.mv(bigwig_tmp_file_path, output_dir)
+                # Then, generate the chromsome file based on the found organism
+                cmd_puts "          Found organism #{wiggle_organism.organism}."
+                chromfile_handle = wiggle_organism.generate_chromfile(TrackFinder::gbrowse_tmp)
+
+                # And write the bigwig
+                return unless convert_to_bigwig(bedgraph_path, chromfile_handle.path, tmp_bigwig_path)
+                cmd_puts "        Successfully wrote bigwig at#{tmp_bigwig_path}."
+                # And move it to its proper location:
+                cmd_puts "        Moving #{tmp_bigwig_path} to #{output_dir}."
+                FileUtils.mv(tmp_bigwig_path, output_dir)
                 cmd_puts "        Done."
-                # We now have the bigwig. Make some additional track-tags.
+
+                cmd_puts "        Done."
+                
                 # Label this as a wiggle track
                 TrackTag.new(
                   :experiment_id => experiment_id,
@@ -1920,7 +1593,7 @@ class TrackFinder
                   :name => 'BigWig File',
                   :project_id => project_id,
                   :track => tracknum,
-                  :value => File.basename(bigwig_file_path),
+                  :value => File.basename(final_bigwig_path),
                   :cvterm => 'bigwig_file',
                   :history_depth => 0
                 ).save 
@@ -1958,125 +1631,6 @@ class TrackFinder
               unless row["cleaned_wiggle_file"] then
                 wiggle_tempfile.unlink # unless debugging?
               end
-
-
-
-
-              # ORIGINAL CODE BELOW HERE ========
-=begin 
-              
-              tracknum = attach_generic_metadata(ap_ids, experiment_id, project_id, protocol_ids_by_column)
-              cmd_puts "          Using tracknum #{tracknum}"
-              cmd_puts "        Done."
-              # Write out the current wiggle
-              # bigwig_file_path gets used for writing the TrackTag, but really the bigwig gets written
-              # into a tempdir and then *moved* to output_dir -- so if that code is changed (eg to allow
-              # it to be moved to a subdir instead) this path should be changed too.
-              bigwig_file_path = File.join(output_dir, "#{tracknum}.bw")
-              bigwig_tmp_file_path = File.join(TrackFinder::gbrowse_tmp, "#{tracknum}.bw")
-              cmd_puts "      Writing bigwig file to: #{bigwig_tmp_file_path}"
-              
-              # Put the wiggle in a temp file for parsing
-              # BigWig can't handle wiggles with span > distance between values, so
-              # make a temporary .bed for all wiggles with spans.
- 
-              # Get the source wiggle file
-              unless row["cleaned_wiggle_file"] then
-                
-                wiggle_tempfile = Tempfile.new('wiggle_file', TrackFinder::gbrowse_tmp)
-                wiggle_tempfile.puts row['wiggle_file']
-                wiggle_tempfile.close
-                source_wiggle_path = wiggle_tempfile.path
-              else
-                source_wiggle_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
-              end
-              
-              # Get the chromfile for bigwig based on the organism data in chado
-              bigwig_chromfile = get_bigwig_chromfile
-
-              # And get the name for more-informative error messages
-              source_wiggle_name = row['name']
-              # Then, run the convert tool to convert the wiggle into a bed if necessary
-              # Also get the organism via chromosome names
-              # TODO fix this now we are getting organism differently
-              cmd_puts "      Converting wiggle #{source_wiggle_name} to bedGraph for bigWig conversion process."
-              wig_organism, output_bedgraph_path = wiggle_to_bedgraph( source_wiggle_path, source_wiggle_name)
-
-              # If wig_organism is false, it crashed. if it's "NO_ORGANISM" (hacky fix FIXME TODO) it made it to end but couldnt' find organism.
-              unless wig_organism then
-                cmd_puts "    Failed to convert #{source_wiggle_name} at #{source_wiggle_path} to bedGraph--cannot proceed with bigWig conversion for this track!"
-                wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
-                return # track finding will fail
-              end
-              if !bigwig_chromfile && ( wig_organism == NO_ORGANISM) then
-                cmd_puts "    Succesfully converted #{source_wiggle_name} to bedGraph, but can't figure out what organism it is! Cannot proceed with bigWig conversion!"
-                wiggle_tempfile.unlink unless row["cleaned_wiggle_file"]
-                return # track finding will fail
-              end
-
-              # Use the chrom file found by database-search if it exists ; otherwise back up to inspected chromosomes
-              chrom_file_path = bigwig_chromfile ? bigwig_chromfile : organism_to_chromfile(wig_organism)
-              
-              # Then, write the bigwig!
-              bigwig_written = convert_to_bigwig(output_bedgraph_path , chrom_file_path, bigwig_tmp_file_path)
-              unless bigwig_written then
-                cmd_puts "    Failed to create bigwig file at #{bigwig_tmp_file_path}."
-                return
-              end
-
-              # Remove the temporary source files
-              unless row["cleaned_wiggle_file"] then
-                wiggle_tempfile.unlink # unless debugging?
-              end
-
-              # Move the output file to the output_dir
-              wildcard_tmp = sprintf(bigwig_tmp_file_path, "*")
-              cmd_puts "        Moving #{wildcard_tmp} to #{output_dir}."
-              Dir.glob(wildcard_tmp).each { |filename|
-                File.dirname(wildcard_tmp)
-                # Output here is misleading & unncessary as with bigwigs this should only loop once anyhow
-                # cmd_puts "          Moving file #{filename} to #{File.join(output_dir, filename)}"
-                FileUtils.mv(filename, output_dir)
-              }
-              cmd_puts "        Done."
-              # Label this as a wiggle track
-              TrackTag.new(
-                :experiment_id => experiment_id,
-                :name => 'Wiggle File',
-                :project_id => project_id,
-                :track => tracknum,
-                :value => wiggle_filename,
-                :cvterm => 'wiggle_file',
-                :history_depth => 0
-              ).save
-              TrackTag.new(
-                :experiment_id => experiment_id,
-                :name => 'Track Type',
-                :project_id => project_id,
-                :track => tracknum,
-                :value => 'bigwig',
-                :cvterm => 'track_type',
-                :history_depth => 0
-              ).save
-              TrackTag.new(
-                :experiment_id => experiment_id,
-                :name => 'BigWig File',
-                :project_id => project_id,
-                :track => tracknum,
-                :value => File.basename(bigwig_file_path),
-                :cvterm => 'bigwig_file',
-                :history_depth => 0
-              ).save 
-              TrackTag.new(
-                :experiment_id => experiment_id,
-                :name => 'Feature Type',
-                :project_id => project_id,
-                :track => tracknum,
-                :value => row['term'],
-                :cvterm => "feature_type",
-                :history_depth => 0
-              ).save
-=end
             }
           }
           cmd_puts "      Done getting wiggle files."
@@ -2630,7 +2184,7 @@ class TrackFinder
 
           # Bigwig stuff
           track_defs[stanzaname][:bigwig_file] = bigwig_file unless bigwig_file.nil? 
-          track_defs[stanzaname]['bigwig_file_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
+          track_defs[stanzaname]['final_bigwig_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
 
           # SAM-only stuff
           track_defs[stanzaname]['draw_target'] = draw_target unless draw_target.nil?
@@ -2657,7 +2211,7 @@ class TrackFinder
           
           # Bigwig stuff
           track_defs[stanzaname][:semantic_zoom][zoomlevel][:bigwig_file] =  bigwig_file.nil? ? "semantic zoom nil bigwig" : bigwig_file
-          track_defs[stanzaname][:semantic_zoom][zoomlevel]['bigwig_file_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
+          track_defs[stanzaname][:semantic_zoom][zoomlevel]['final_bigwig_path'] = File.basename(bigwig_file) unless bigwig_file.nil?
 
           if type =~ /read_pair:/ then
             # Special case for zoomed-out SAM
