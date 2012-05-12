@@ -28,7 +28,7 @@ end
 
 class WiggleToBedgraph
   
-  GENOME_BUILD_FILE = "/var/www/pipeline/submit/script/validators/modencode/genome_builds.ini"
+  GENOME_BUILD_FILE = "/var/www/submit/script/validators/modencode/genome_builds.ini"
 
 
   def initialize(tmpdir, output_class = nil, output_method = nil)
