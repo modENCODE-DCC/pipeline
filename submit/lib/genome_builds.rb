@@ -39,7 +39,7 @@ class GenomeBuilds
 
 
   def initialize( options = {})
-    @source_file = options[:file] || "/var/www/pipeline/submit/script/validators/modencode/genome_builds.ini"
+    @source_file = options[:file] || "/var/www/submit/script/validators/modencode/genome_builds.ini"
     # if we're copying from a genome build
     @organisms = GenomeBuilds.deep_copy(options[:organisms]) || Hash.new
     @found_chroms_ok = false
