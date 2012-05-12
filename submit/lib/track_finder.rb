@@ -461,7 +461,7 @@ class TrackFinder
     }
   end
   def cmd_puts(message)
-    puts message + "\n" if debugging?
+    puts "#{message} \n" if debugging?
     return if @command_object.nil?
     @command_object.stdout = @command_object.stdout + message + "\n";
     @command_object.save
@@ -1935,20 +1935,21 @@ class TrackFinder
       return track_defs
     end
 
-
-    sth_get_num_located_types = dbh_safe { gff_dbh.prepare("SELECT COUNT(*) FROM locationlist l INNER JOIN feature f ON l.id = f.seqid INNER JOIN typelist tl ON f.typeid = tl.id WHERE tl.tag = ? AND l.seqname = ANY(?)") }
-
+    # All locations associated with features associated with the input type
+    sth_get_type_locations = dbh_safe { gff_dbh.prepare("SELECT DISTINCT seqname FROM locationlist l INNER JOIN feature f ON l.id = f.seqid INNER JOIN typelist tl ON f.typeid = tl.id WHERE tl.tag = ?") }
 
     default_organism = "Drosophila melanogaster"
+    # and make a GenomeBuilds to check located-to-chromosomes features
+    all_builds = GenomeBuilds.new(:file => WiggleToBedgraph::GENOME_BUILD_FILE)
     types.each do |type|
       cmd_puts "Testing type #{type}" if @debug
-
       track_type = track_source = tracknum = nil;
       if (type !~ /^read_pair/) && (type !~ /^bigwig/ )  then
         # Make sure this feature type is located to a chromosome
         # If it's from bigwig it won't be in the database so let it pass
-        sth_get_num_located_types.execute(type, TrackFinder::CHROMOSOMES.values.flatten)
-        next unless sth_get_num_located_types.fetch[0] > 0
+        sth_get_type_locations.execute(type)
+        # Skip type unless at least one feature of that type is located to a chrom [which could be any species']
+        next unless sth_get_type_locations.fetch_all.inject(false){|result, loc| result || all_builds.has_chromosome?(loc[0])} 
       end
 
       matchdata = type.match(/(.*):((\d*)(_details)?)(?::([^:]*))?(?::([^:]*))?$/)
