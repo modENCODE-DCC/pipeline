@@ -505,28 +505,32 @@ class TrackFinder
     orgs = Array.new
     @sth_get_organism.execute
     @sth_get_organism.fetch_hash{|org| orgs << org["organism"] }
-
     gb.guess_by_name! orgs
 
-    # if we didn't find an organism, try eliminating melanogaster & elegans 
-    # and see if that uniques it
-    # TODO something other than hardcoding elegans & melanogaster FIXME
-    remaining_orgs = gb.possible_organisms.reject{|o| ( o == "elegans" ) || (o == "melanogaster") } unless gb.organism?
-
-    case remaining_orgs.length
-      when 0
-        # Whoops, we've eliminated all the organisms
-        cmd_puts "       Couldn't find a valid organism from chado database--options were  were #{orgs.join(", ")}"
-        return false
-      when 1
-        # Great, there was either exactly one, or  elegans / d mel and one other
-        gb.guess_by_name! remaining_orgs[0]
+    if gb.organism? then # We found it!
         cmd_puts "       Found organism #{gb.organism} in the chado database."
         return gb
-      else
-        # Whoops, there are still too many
-        cmd_puts "       The chado database has too many organisms; can't determine which is correct among#{orgs.join(", ")}"
-        return false
+    else
+      # if we didn't find an organism, try eliminating melanogaster & elegans 
+      # and see if that uniques it
+      # TODO something other than hardcoding elegans & melanogaster FIXME
+     remaining_orgs = gb.possible_organisms.reject{|o| ( o == "elegans" ) || (o == "melanogaster") }
+          cmd_puts "       NOTICE: Chado database has multiple organisms:#{orgs.join(", ")}! Ignoring elegans and melanogaster..."
+      case remaining_orgs.length
+        when 0
+          # Whoops, we've eliminated all the organisms
+          cmd_puts "       Couldn't find a valid organism from chado database--options were  were #{orgs.join(", ")}"
+          return false
+        when 1
+          # Great, there was either exactly one, or  elegans / d mel and one other
+          gb.guess_by_name! remaining_orgs[0]
+          cmd_puts "       Found organism #{gb.organism} in the chado database."
+          return gb
+        else
+          # Whoops, there are still too many
+          cmd_puts "       The chado database has too many organisms; can't determine which is correct among#{orgs.join(", ")}"
+          return false
+      end
     end
   end
 
