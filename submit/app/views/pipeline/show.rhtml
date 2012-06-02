@@ -207,14 +207,7 @@
     end
     pos = 0
     command_definitions = [
-      [
-        :upload, 
-        Project::Status::UPLOADING,
-        "Upload #{"(more)" if @project.project_archives.size > 0} data",
-        "Add or replace submission data by uploading another package",
-        ""
-      ],
-      [
+       [
         :expand, 
         Project::Status::EXPANDING,
         "<span style=\"color: #AAAAAA\">Expand uploaded data</span>",
@@ -281,6 +274,15 @@
         "(Requires that tracks have been configured.)"
       ]
     ]
+    if current_user.is_a?(Reviewer) then
+      command_definitions = [[
+        :upload, 
+        Project::Status::UPLOADING,
+        "Upload #{"(more)" if @project.project_archives.size > 0} data",
+        "As a wrangler, you may still upload new data.",
+        ""
+      ]] + command_definitions
+    end
     if current_user.is_a?(Moderator) then
       command_definitions.push [
         :publish,
@@ -449,7 +451,7 @@
               </tr>
               <% if archive.is_active then archive.project_files.each { |file| %>
                 <tr>
-                  <td style="font-size:70%; text-align: right"><%= link_to_if(!@project.released?, "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %>
+                  <td style="font-size:70%; text-align: right"><%= link_to_if(((!@project.released?) && current_user.is_a?(Reviewer)), "replace this", :action => :upload_replacement, :id => @project, :replace => file) unless file.is_overwritten %>
                   </th>
                   <td<%= " style=\"text-decoration: line-through\"" if file.is_overwritten %>><%= 
                     if File.basename(file.file_name).size > 25 then

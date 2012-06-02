@@ -16,9 +16,10 @@
 <p>
 <b>Submit data to project '<%= @project.name -%>':</b>
 </p>
+<%  if current_user.is_a?(Reviewer) then  %>
 <div style="float: left">
   <%= form_tag({:action => :upload, :id => @project }, :multipart => true) %>
-  You can upload a submission package:<br/>
+  As a wrangler, you can still upload a submission package:<br/>
   <ul class="uploads">
     <li>
     <label for="upload_url">From a URL:</label><br/>
@@ -95,5 +96,10 @@ The archive file must have one of these extensions: <br/>
     automatically processed (validated, loaded, etc.)  as soon as the archive
     is uploaded. Do NOT check the box if you have more archives to upload or 
     need to make more changes to which files are in use for this project.
-  
 </div>
+
+<% else %>
+<div style="float: left">
+  As the June 1, 2012 deadline has passed, uploading new files is no longer available. Please contact a wrangler if you require assistance.
+</div>
+<% end %>

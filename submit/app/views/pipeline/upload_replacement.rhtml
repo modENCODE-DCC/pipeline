@@ -5,8 +5,12 @@
 <p>
 <b>Replace file in '<%= @project.name -%>':</b>
 </p>
+<%
+if current_user.is_a?(Reviewer) then
+%>
 <div style="float: left">
-  Your are uploading a replacement for the highlighted file:<br/>
+  As a wrangler, you may still 
+  upload a replacement for the highlighted file:<br/>
   <table border="0" class="archive_list">
     <tr><th>&nbsp;</th><th>File</th><th>Size</th><th>Updated</th><th>&nbsp;</th></tr>
     <tr>
@@ -114,3 +118,8 @@ The archive file must have one of these extensions: <br/>
 .zip, .tar.gz, .tgz, .tar.bz2 <br/>
 </p>
 </div>
+<% else %>
+<div style="float: left">
+  As the June 1, 2012 deadline has passed, changing your files is no longer available. Please contact a wrangler if you require assistance.
+</div>
+<% end %>
