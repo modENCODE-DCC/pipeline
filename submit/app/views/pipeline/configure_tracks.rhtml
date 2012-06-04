@@ -100,23 +100,23 @@
       default_fmax = 6266513
     end
   %>
-  <script src="/gbrowse/js/prototype.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/scriptaculous.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/yahoo-dom-event.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/buttons.js" type="text/javascript"></script>
+  <script src="http://gb1.mdencode.org/gbrowse2/js/prototype.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/scriptaculous.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/yahoo-dom-event.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/buttons.js" type="text/javascript"></script>
 
-  <script src="/gbrowse/js/toggle.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/karyotype.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/rubber.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/overviewSelect.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/detailSelect.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/regionSelect.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/track.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/balloon.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/balloon.config.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/toggle.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/karyotype.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/rubber.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/overviewSelect.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/detailSelect.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/regionSelect.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/track.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/balloon.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/balloon.config.js" type="text/javascript"></script>
 
-  <script src="/gbrowse/js/GBox.js" type="text/javascript"></script>
-  <script src="/gbrowse/js/controller.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/GBox.js" type="text/javascript"></script>
+  <script src="http://gb1.modencode.org/gbrowse2/js/controller.js" type="text/javascript"></script>
 
 
   <script type="text/javascript">
@@ -331,12 +331,12 @@
     }
 
     // Set up GBrowse controller and tooltip
-    Controller.set_url('/gbrowse/cgi-bin/gbrowse/<%= gbrowse_source %>/');
+    Controller.set_url('http://gb1.modencode.org/gb2/gbrowse/<%= gbrowse_source %>/');
 
     // Original GBrowse popup balloon style
     var GBubble = new Balloon;
     BalloonConfig(GBubble,'GBubble');
-    GBubble.images = "/gbrowse/images/balloons/GBubble";
+    GBubble.images = "http://gb1.modencode.org/gbrowse2/images/balloons/GBubble";
     GBubble.allowEventHandlers = true;
     GBubble.opacity = 1;
     GBubble.fontFamily = 'sans-serif';
@@ -344,7 +344,7 @@
     // A simpler popup balloon style
     var GPlain = new Balloon;
     BalloonConfig(GPlain,'GPlain');
-    GPlain.images = "/gbrowse/images/balloons/GPlain";
+    GPlain.images = "http://gb1.modencode.org/gbrowse2/images/balloons/GPlain";
     GPlain.allowEventHandlers = true;
     GPlain.opacity = 1;
     GPlain.fontFamily = 'sans-serif';
@@ -352,7 +352,7 @@
     // Like GBubble but fades in
     var GFade = new Balloon;
     BalloonConfig(GFade,'GFade');
-    GFade.images = "/gbrowse/images/balloons/GBubble";
+    GFade.images = "http://gb1.modencode.org/gbrowse2/images/balloons/GBubble";
     GFade.opacity = 1;
     GFade.allowEventHandlers = true;
     GFade.fontFamily = 'sans-serif';
@@ -361,7 +361,7 @@
     // Note: Box is a subclass of Balloon
     var GBox = new Box;
     BalloonConfig(GBox,'GBox');
-    GBox.images = "/gbrowse/images/balloons/GBubble";
+    GBox.images = "http://gb1.modencode.org/gbrowse2/images/balloons/GBubble";
     GBox.allowEventHandlers = true;
     GBox.opacity = 1;
     GBox.fontFamily = 'sans-serif';
@@ -372,8 +372,7 @@
     <h2 style="clear:both; font-style: italic">This configuration has been approved by <%= "#{@ts_user.name} (#{@ts_user.login})" %>.<hr/></h2>
   <% end %>
   <div style="float:right">
-    <%= link_to "View this in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_source}/", :popup => true %><br/>
-    <%= link_to "View all in GBrowse", "/gbrowse/cgi-bin/gbrowse/#{gbrowse_full_source}/", :popup => true %>
+    <%= link_to "View this in GBrowse", "http://gb1.modencode.org/gb2/gbrowse/#{gbrowse_source}/", :popup => true %><br/>
     <br/>
     <%= button_to "Reset All", { :action => :configure_tracks, :reload => true, :id => @project.id, :reset_definitions => true }, :confirm => "Are you sure? You will lose all configuration changes." %>
     <% if current_user.is_a? Moderator then %>
@@ -608,7 +607,10 @@
     <%= button_to "Delete entire stanza #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." %>
     <%= button_to "Remove semantic zoom configuration(s) from #{stanzaname}", { :action => :configure_tracks, :id => @project.id, :delete_semantic_stanza => stanzaname }, :confirm => "Really delete? You can restore with Reset All." if semantic_configs.size > 0 %>
     <% if definition['key'] then %>
-      <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"><%= image_tag "working.gif", :style => "float: left", :alt=> "..." %> Loading image... This may take as long as 30 seconds.</div><img id="<%= stanzaname %>_image"/></div>
+      <div id="track_<%= stanzaname %>"><br/><div style="border: thin grey dashed; width: 800px; height: 25px; line-height: 25px;"> 
+      
+      <%= link_to "View all tracks in GBRowse", "http://gb1.modencode.org/gb2/gbrowse/#{gbrowse_source}?name=#{default_chr}%3A#{default_fmin}..#{default_fmax}", :popup=>true %>
+      </div><img id="<%= stanzaname %>_image"/></div>
     <% end %>
     <script type="text/javascript">
       $('form_<%=stanzaname%>').reset();
