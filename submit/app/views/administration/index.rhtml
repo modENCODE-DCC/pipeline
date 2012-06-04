@@ -19,7 +19,7 @@
   <%# free_space_for_files(@files).each do |volume| %>
     <%#= google_pie_chart([["Used - #{volume[:used_human]}", volume[:used].to_i], ["Free - #{volume[:avail_human]}", volume[:avail].to_i]], :chtt => "#{volume[:mount]}+(#{volume[:fs]})", :cht => "p3", :width => 300, :height => 100 ) %><br/>
   <%# end %>
-  <b>Webserver CPU Usage</b><br/>
+  <b>Meaningless Speedometer</b><br/>
   <%= google_ometer_chart(get_cpu_usage_of_self) %>
 </div>
 <div style="float: left; width: 75%">
@@ -47,7 +47,9 @@
     <tr>
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
       <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
-      <td><%= link_to "#{command.project.id}: #{command.project.name}", url_for(:controller => :pipeline, :action => :show, :id => command.project) %></td> 
+      <td>
+        <%= command.project ? link_to("#{command.project.id}: #{command.project.name}", url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "Orphaned" %>
+      </td>
       <td><%= command.host if command.host %></td>
       <td><%= command.start_time if command.start_time %></td>
       <td><%= command.user.login if command.project && command.user %></td> 
@@ -73,7 +75,10 @@
     <% @all_waiting_commands.each do |command| %>
     <tr>
       <td><%= link_to command.id, "#cmd_#{command.id}" %></td> 
-      <td><%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %></td>
+      <td>
+        <%= command.project ? link_to("#{command.project.id}:", url_for(:controller => :pipeline, :action => :show, :id => command.project)) : "" %>
+        <%= link_to command.class.name, url_for(:controller => :pipeline, :action => :command_status, :id => command) %>
+      </td>
       <td><%= Inflector.ordinalize(@all_waiting_commands.index(command)+1) %></td>
       <td><%= command.project.nil? ? "-no project-" : command.project.user.login %></td> 
       <td>
