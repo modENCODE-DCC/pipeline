@@ -1,17 +1,24 @@
 <h2>Attach GEO ids</h2>
-<h3>Existing GEO and SRA ids:</h3>
-  <h4>GEO IDs</h4>
-    <% unless @geo_ids.nil? then
-        @geo_ids.each do |geo_id| %>
-          <%= link_to geo_id, "http://www.ncbi.nlm.nih.gov/projects/geo/query/acc.cgi?acc=#{geo_id}" %><br/>
-        <% end
-       end %>
-  <h4>SRA IDs</h4>
-    <% unless @sra_ids.nil? then
-        @sra_ids.each do |sra_id| %>
-          <%= link_to sra_id, "http://www.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=viewer&m=data&s=viewer&run=#{sra_id}", :target => "_blank" %><br/>
-        <% end 
-      end %>
+
+<% if @geo_ids.blank? && @sra_ids.blank? then %>
+There are no known GEO or SRA id TrackTags for this project.
+
+<% else %>
+  <h3>Existing GEO and SRA ids:</h3>
+  Some GEO and/or SRA ids are already present as TrackTags:
+      <% unless @geo_ids.blank? then %>
+        <h4>GEO IDs</h4>
+        <%  @geo_ids.each do |geo_id| %>
+            <%= link_to geo_id, "http://www.ncbi.nlm.nih.gov/projects/geo/query/acc.cgi?acc=#{geo_id}" %><br/>
+          <% end
+         end %>
+      <% unless @sra_ids.blank? then %>
+        <h4>SRA IDs</h4>
+       <%   @sra_ids.each do |sra_id| %>
+            <%= link_to sra_id, "http://www.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=viewer&m=data&s=viewer&run=#{sra_id}", :target => "_blank" %><br/>
+          <% end 
+        end %>
+    <% end %>
 <br/>
 
 <h3>SDRF contents:</h3>

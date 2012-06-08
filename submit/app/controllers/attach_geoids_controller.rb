@@ -26,8 +26,9 @@ require 'ftools'
       self.command_object = nil
       return
     end
+    sdrf_dir = File.dirname new_sdrf
 
-    command = "#{options[:project_id]}\t#{options[:gse]}\t#{options[:gsms]}\t#{new_sdrf} to #{extracted}"
+    command = "#{options[:project_id]}\t#{options[:gse]}\t#{options[:gsms]}\t#{new_sdrf} to #{sdrf_dir}"
     # write the command string
     self.command_object.command = command
     # Whether to immediately run the database command or not.
@@ -37,26 +38,34 @@ require 'ftools'
   end
 
   # Returns the path to the SDRF file, given the extracted dir
+  # Based on the find-idf code in validate_idf2chadoxml controller.
+  # But better.
   def find_sdrf(extracted)
-    # find all sdrf files
-    extracted_files = Dir.entries(extracted)
-    sdrf_arr = extracted_files.select{|file| file =~ /sdrf/i }
-    sdrf_arr.reject!{|f| f =~ /^\._/ } # Ignore dot underscore files
-    sdrf_arr.reject!{|f| f.include? AttachGeoidsController::NEW_SDRF_SUFFIX } # also ignore a copied sdrf
-    unless sdrf_arr.length == 1 then
-      logger.error "Found #{sdrf_arr.length} sdrf files in #{extracted}; there can be only one."
+    # If there's nothing but a folder in the extracted dir, assume it's in there.
+    # Otherwise, just check extracted dir.
+    lookup_dir = extracted
+    entry =  Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/ }
+    if (entry.size == 1) && File.directory?(entry.first) then
+      lookup_dir = entry.first
+    end
+
+    possible_sdrfs = Dir.glob(File.join(lookup_dir, "*[sS][dD][rR][fF]*")) # full path
+    # ignore ._ files and an already-copied sdrf
+    possible_sdrfs.reject!{|f| ( f =~ /^\._/ ) || ( f.include? AttachGeoidsController::NEW_SDRF_SUFFIX ) }
+    unless possible_sdrfs.length == 1 then
+      logger.error "Found #{possible_sdrfs.length} sdrf files in #{lookup_dir}; there can be only one."
       return nil
     end
-    sdrf = File.join(extracted, sdrf_arr[0])
-    sdrf
+    possible_sdrfs.first
   end
  
   # Creates an archive containing the new version of the sdrf
+  # takes full path to sdrf
   def make_archive(archivename, archive_comment, sdrf)
     project_dir = ExpandController.path_to_project_dir(command_object.project)
     extracted_dir = File.join(project_dir, "extracted")
     relative_sdrf = sdrf.sub(extracted_dir, "")
-    relative_sdrf.gsub!(/^\/*/, '')
+    relative_sdrf.gsub!(/^\/*/, '') # remove leading /s
     
     # Find existing active archives made for sdrf storage
     old_archives = command_object.project.project_archives.find_all{|pa| 
@@ -177,9 +186,7 @@ require 'ftools'
         command_object.stdout = "#{command_object.stdout}\nFinished creating sdrf and marshal files!"
       
       elsif command_object.attaching then # Attaching GeoIDs from a preexisting marshal file to the database
-        # Get the marshal file
-        project_dir = ExpandController.path_to_project_dir(command_object.project)
-        marshal_file = File.join(project_dir, "extracted", GEOID_MARSHAL)
+        marshal_file = File.join(output_dir, GEOID_MARSHAL)
 
         command_object.stdout = "#{command_object.stdout}\nExtracting GEOids from marshal file & attaching to database..."
         # Heavy lifting - in GeoidHelper. We are committing to DB.

@@ -229,8 +229,16 @@ class CurationController < ApplicationController
       redirect_to :controller => "pipeline", :action => "release", :id => params[:id]
       return
     end
-  
-    geoid_marshal = File.join(ExpandController.path_to_project_dir(@project), "extracted/#{GEOID_MARSHAL}")
+ 
+    # Find the directory for sdrf and marshal files
+    lookup_dir = File.join(ExpandController.path_to_project_dir(@project), "extracted")
+    # If there's nothing there but a subfolder, assume everything is in there; otherwise, stick with the extracted dir
+    entries = Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/ }
+    lookup_dir = entries.first if ( (entries.size == 1) && File.directory?(entries.first) )
+
+
+    # TODO, find marshal file maybe in subdir
+    geoid_marshal = File.join(lookup_dir, GEOID_MARSHAL) 
     
     # Form submission
     if params[:commit] == "Attach GEOids" then
@@ -268,10 +276,8 @@ class CurationController < ApplicationController
         else
          @info = {}
       end
-      # Check for existence of temp sdrf - just look for a file in extracted with
-      # the tempsdrf string in its filename
-      look_in = File.join(PipelineController.new.path_to_project_dir(@project), "extracted", "**")
-      temp_sdrf = Dir.glob(File.join(look_in, "*#{AttachGeoidsController::NEW_SDRF_SUFFIX}*"))
+      # Check if there is a temp sdrf file already
+      temp_sdrf = Dir.glob(File.join(lookup_dir, "*" + AttachGeoidsController::NEW_SDRF_SUFFIX)) 
       @temp_sdrf = ! temp_sdrf.empty? 
 
       # Get existing TrackTags with GeoIDS so we can warn if overwriting
