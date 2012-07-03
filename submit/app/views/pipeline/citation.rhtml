@@ -258,8 +258,8 @@
 </ol>
 <% related_projects.delete(@project_id) %>
 <br />
-
-<%= "<h2>Related modENCODE submissions:</h2>" if (related_projects.size+modencode_records.size) > 0 %>
+<% modencode_records.delete_if{|t|  p = Project.find(t.project_id) ; p.deprecated? || p.superseded?}.uniq! %>
+<%= "<h2>Referenced modENCODE submissions:</h2>" if (modencode_records.size) > 0 %>
 <ul>
   <% if modencode_records.size > 0 then %>
      <%= modencode_records.sort { |t1, t2| t1.value <=> t2.value }[0...@max_entries].map { |tag| 
@@ -272,8 +272,13 @@
       }.uniq.join("\n") %>
       <%= ", and #{modencode_records.size - @max_entries} more." if modencode_records.size > @max_entries %>
    <% end %>
-  <%=
-	related_projects.uniq.map{ |id|
+ </ul>
+
+   <%= "<h2>Related modENCODE submissions:</h2>" if (related_projects.size) > 0 %>
+   <ul>
+   <%=
+       related_projects -= modencode_records.map{|t| t.project_id}
+        related_projects.delete_if{|id| p = Project.find(id); p.deprecated? || p.superseded?}.uniq.map{ |id|
 	p = Project.find(id)
         
         url = "/submit/public/citation/#{p.id}"
