@@ -695,7 +695,7 @@ class PublicController < ApplicationController
         OpenURI.open_uri(loaded_ids_url) { |result|
           File.open(cache_file, "w") { |f| f.puts result.read }
         }
-        rescue
+        rescue StandardError, Timeout::Error 
         end
       end
       File.open(cache_file) { |f| ids = f.read.split.map { |n| n.split(/\t/)[0].to_i } }
