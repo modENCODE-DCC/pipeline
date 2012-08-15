@@ -134,6 +134,32 @@ class ValidateIdf2chadoxmlController < ValidateController
           command_object.save
         end
       end
+      
+      # Automatically create a chadoxml.lite
+      command_object.stderr += "\nCreating chadoxml.lite file with features removed.\n" 
+      chado_stripper_dir = File.dirname validator
+      require "#{chado_stripper_dir}/chadoxml_stripper"
+      chadolite = "#{output_file}.lite"
+      begin
+        stripper = ChadoxmlStripper.new(output_file, chadolite, command_object)
+        if  stripper.ready then
+          wigs = stripper.embedded_wiggle_count(output_file)
+          if wigs > 0 then
+            command_object.stderr += "Couldn't create chadoxml.lite file: your chadoxml " +
+            "file contains embedded wiggle data! Please create file manually if you need it.\n"
+          else
+            stripper.strip_features
+          end
+        else
+          command_object.stderr += "Couldn't create chadoxml.lite file. Please create it " +
+            "manually if you need it.\n"
+        end
+      rescue => e
+        command_object.stderr += "Error stripping chadoxml: #{$!}!\n"
+        command_object.stderr += "Details:\n\t#{e.backtrace.join("\n\t")}"
+        command_object.save
+      end
+
 
       # Validator exited, tack on newlines if they aren't already there
       command_object.stdout = command_object.stdout + "\n" unless command_object.stdout =~ /\n$/

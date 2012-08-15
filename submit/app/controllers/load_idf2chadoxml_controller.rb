@@ -16,13 +16,14 @@ class LoadIdf2chadoxmlController < LoadController
     command_object.command = "#{URI.escape(loader)} #{URI.escape(project_load_params)} #{URI.escape(package_dir)}"
 
     command_object.timeout = 3600/2 # 30 minutes by default
+    command_object.stderr = "-LOADING METADATA ONLY-\n" if options[:metadata]
   end
 
   def run
     super do
       command_object.status = Load::Status::LOADING
       command_object.stdout = ""
-      command_object.stderr = ""
+      command_object.stderr = "" if command_object.stderr.nil?
       command_object.save
 
       (loader, params, package_dir) = command_object.command.split(/ /).map { |i| URI.unescape(i) }

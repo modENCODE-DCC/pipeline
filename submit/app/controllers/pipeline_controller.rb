@@ -1335,11 +1335,76 @@ class PipelineController < ApplicationController
       redirect_to :action => :show, :id => @project
       return false
     end
+    
+    # if a chadoxml.full file exists & is different from current chadoxml (using size),
+    # warn in flash and copy it back over the current chadoxml file as project may have been
+    # metadata-loaded
+    extracted = File.join(path_to_project_dir(@project), "extracted")
+    basechado = File.join(extracted, "#{@project.id}.chadoxml")
+    chadofull = "#{basechado}.full"
+
+    if (File.exists?(chadofull) && File.exists?(basechado)) &&
+    ((File.size basechado) != (File.size chadofull))
+      FileUtils.cp(chadofull, basechado) # Will overrwrite
+      flash[:notice] = "The ChadoXML file was overwritten by the full ChadoXML file with all features."
+    end
 
     do_load(@project)
-
     redirect_to :action => 'show', :id => @project
   end 
+
+  def metadata_load
+    # Contents copied from def _load  
+    begin
+      @project = Project.find(params[:id])
+    rescue
+      flash[:error] = "Couldn't find project with ID #{params[:id]}"
+      redirect_to :action => "list"
+      return
+    end
+    if IN_READONLY then
+      warn_readonlymode(@project.id)
+      return false
+    end
+    unless @project.project_archives.find_all { |pa| pa.is_active }.size > 0 then
+      flash[:error] = "At least one archive must be active."
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+    unless Project::Status::ok_next_states(@project).include?(Project::Status::LOADING) then
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+    if @project.project_archives.find_all { |pa| pa.is_active && pa.status != ProjectArchive::Status::EXPANDED }.size > 0 then
+      flash[:error] = "All active archives must be expanded."
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+
+    # To metadata-validate, a chadoxml.lite file must be present.
+    extracted = File.join(path_to_project_dir(@project), "extracted")
+    basechado = File.join(extracted, "#{@project.id}.chadoxml")
+    chadolite = "#{basechado}.lite"
+    chadofull = "#{basechado}.full"
+
+    unless (File.exists? chadolite) then
+      flash[:error] = "File #{File.basename chadolite} is missing; can't load metadata."
+      redirect_to :action => :show, :id => @project
+      return false
+    end
+    
+    # If there's not already a chadoxml.full file, move the current chadoxml file to it.
+    unless (File.exists? chadofull) then
+      FileUtils.mv(basechado, chadofull)
+    end
+    FileUtils.cp(chadolite, basechado) # Will overrwrite
+
+    # Run load with the :metadata flag so it adds a note in the stderr
+    do_load(@project, {:metadata => true}) 
+
+    redirect_to :action => 'show', :id => @project
+  end
+
 
   def build_report
     begin
@@ -2527,7 +2592,8 @@ class PipelineController < ApplicationController
       end
     end
 
-    load_controller = load_controller_class.new(:project => project)
+    load_controller = load_controller_class.new(:project => project, 
+                                                :metadata => options[:metadata])
     options[:user] = current_user
     load_controller.queue options
   end
