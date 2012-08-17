@@ -1335,18 +1335,21 @@ class PipelineController < ApplicationController
       redirect_to :action => :show, :id => @project
       return false
     end
-    
-    # if a chadoxml.full file exists & is different from current chadoxml (using size),
-    # warn in flash and copy it back over the current chadoxml file as project may have been
-    # metadata-loaded
+  
+    # Set up the chadoxml file properly
     extracted = File.join(path_to_project_dir(@project), "extracted")
     basechado = File.join(extracted, "#{@project.id}.chadoxml")
     chadofull = "#{basechado}.full"
-
-    if (File.exists?(chadofull) && File.exists?(basechado)) &&
-    ((File.size basechado) != (File.size chadofull))
-      FileUtils.cp(chadofull, basechado) # Will overrwrite
-      flash[:notice] = "The ChadoXML file was overwritten by the full ChadoXML file with all features."
+    if (File.file? basechado) && !(File.symlink? basechado) then
+      # It's a real file -- use it (don't have to do anything here)
+    elsif (File.exists? chadofull) then
+      # We have a chadofull, but no (or symlink) base chado -- symlink base to chadofull  
+      FileUtils.rm basechado if (File.exists? basechado)
+      File.symlink(chadofull, basechado)
+    else # Give up
+      flash[:error] = "Error: Couldn't find chadoxml file or chadoxml.full file!"
+      redirect_to :action => :show, :id => @project
+      return false
     end
 
     do_load(@project)
@@ -1381,7 +1384,7 @@ class PipelineController < ApplicationController
       return false
     end
 
-    # To metadata-validate, a chadoxml.lite file must be present.
+    # To metadata-load, a chadoxml.lite file must be present.
     extracted = File.join(path_to_project_dir(@project), "extracted")
     basechado = File.join(extracted, "#{@project.id}.chadoxml")
     chadolite = "#{basechado}.lite"
@@ -1393,16 +1396,24 @@ class PipelineController < ApplicationController
       return false
     end
     
-    # If there's not already a chadoxml.full file, move the current chadoxml file to it.
-    unless (File.exists? chadofull) then
-      FileUtils.mv(basechado, chadofull)
+    # Handle the case where there's a real chadoxml file for some reason
+    if (File.file? basechado) && !(File.symlink? basechado) then
+      if (File.exists? chadofull)
+        # There's a full chado file separate from the base; give up.
+        flash[:error] = "Can't figure out which chadoxml file to use; please check filesystem manually."
+        redirect_to :action => :show, :id => @project
+        return false
+      else # no full file -- make the orig. chadoxml file the full one
+        FileUtils.mv(basechado, chadofull)
+      end
     end
-    FileUtils.cp(chadolite, basechado) # Will overrwrite
+    FileUtils.rm basechado if (File.exists? basechado)
+    File.symlink(chadolite, basechado) # set basechado as a symlink to chadolite
 
     # Run load with the :metadata flag so it adds a note in the stderr
     do_load(@project, {:metadata => true}) 
 
-    redirect_to :action => 'show', :id => @project
+    redirect_to :action => :show, :id => @project
   end
 
 
