@@ -629,7 +629,7 @@ class PipelineController < ApplicationController
     if deprecated_string = deprecated_project_flash_string(@project) then # Yes, single =. Returns nil if nil has been passed to it.
       flash[:error] = "" if flash[:error].nil?
       flash[:error] += "<br/>" unless flash[:error] == ""
-      flash[:error] += deprecated_string unless flash[:error].include? (deprecated_string)
+      flash[:error] += deprecated_string unless flash[:error].include? deprecated_string
     end
     
     if superseded_string = superseded_project_flash_string(@project) then # Yes, single =. Returns nil if nil has been passed to it.
