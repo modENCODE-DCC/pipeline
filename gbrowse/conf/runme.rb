@@ -152,7 +152,7 @@ track_defs.each do |stanzaname, definition|
     config_text << "db_args       = -adaptor DBI::Pg\n"
     config_text << "                -dsn     dbname=modencode_gffdb;host=localhost;port=5433\n"
     config_text << "                -user    'db_public'\n"
-    config_text << "                -pass    'ir84#4nm'\n"
+    config_text << "                -pass    'pw'\n"
     config_text << "                -schema  modencode_experiment_#{num}_data\n"
     config_text << "\n"
   end

@@ -4,7 +4,7 @@ development:
   adapter: mysql
   socket: /var/run/mysqld/mysqld.sock
   username: db_public
-  password: limecat
+  password: pw
   database: experiment_browser_dev
 
 # Warning: The database defined as 'test' will be erased and
@@ -14,14 +14,14 @@ test:
   adapter: mysql
   socket: /var/run/mysqld/mysqld.sock
   username: db_public
-  password: limecat
+  password: pw
   database: experiment_browser_test
 
 production:
   adapter: mysql
   socket: /var/run/mysqld/mysqld.sock
   username: db_public
-  password: limecat
+  password: pw
   database: experiment_browser_prod
 
 chado:
@@ -29,5 +29,5 @@ chado:
   database: mepipe
   host: localhost
   username: db_public
-  password: ir84#4nm
+  password: pw
 

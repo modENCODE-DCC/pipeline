@@ -1,14 +1,9 @@
+/log4perl.conf/1.4/Fri Dec  9 22:19:09 2005/-kb/THEAD
 D/MobyServices////
 D/languages////
 D/plugins////
 D/templates////
-/GBrowse.conf/1.50/Result of merge/-kb/THEAD
-/detail_select_menu.conf/1.1/Mon Nov 16 22:33:12 2009//THEAD
-/enzymes.txt/1.1/Mon Nov 16 22:33:12 2009/-kb/THEAD
-/log4perl.conf/1.4/Mon Nov 16 22:33:12 2009/-kb/THEAD
-/pop_demo.conf/1.1/Wed Nov 18 23:43:27 2009//THEAD
-/slave_preload.conf/1.2/Mon Nov 16 22:33:12 2009//THEAD
-/submitter_plugin.conf/1.1/Mon Nov 16 22:33:12 2009//THEAD
-/yeast_chr1+2.conf/1.18/Mon Nov 16 22:33:12 2009/-kb/THEAD
-/yeast_renderfarm.conf/1.10/Mon Nov 16 22:33:12 2009//THEAD
-/yeast_simple.conf/1.6/Mon Nov 16 22:33:12 2009//THEAD
+/enzymes.txt/1.1/Tue Oct  7 21:40:43 2008/-kb/THEAD
+/GBrowse.conf/1.29/Result of merge/-kb/THEAD
+/yeast_chr1+2.conf/1.3/Mon Oct 20 23:29:53 2008/-kb/THEAD
+/yeast_chr1.conf/1.30/Mon Oct 20 23:29:53 2008/-kb/THEAD

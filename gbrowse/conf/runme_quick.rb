@@ -180,7 +180,7 @@ all_configs.each do |definition|
     config_text << "                -dsn     dbname=modencode_gffdb;host=modencode-db\n"
     #config_text << "                -dsn     dbname=modencode_gffdb;host=modencode-db1\n"
     config_text << "                -user    'db_public'\n"
-    config_text << "                -pass    'ir84#4nm'\n"
+    config_text << "                -pass    'pw'\n"
     config_text << "                -schema  modencode_experiment_#{num}_data\n"
     config_text << "\n"
   end

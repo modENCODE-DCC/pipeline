@@ -1,4 +1,4 @@
-# $Id: SequenceDumper.pm,v 1.17 2004/01/23 08:24:38 lstein Exp $
+# $Id: SequenceDumper.pm,v 1.16 2003/10/13 12:01:29 stajich Exp $
 #
 # BioPerl module for Bio::Graphics::Browser::Plugin::SequenceDumper
 #
@@ -50,7 +50,7 @@ Internal methods are usually preceded with a _
 
 
 package Bio::Graphics::Browser::Plugin::SequenceDumper;
-# $Id: SequenceDumper.pm,v 1.17 2004/01/23 08:24:38 lstein Exp $
+# $Id: SequenceDumper.pm,v 1.16 2003/10/13 12:01:29 stajich Exp $
 # Sequence Dumper plugin
 
 use strict;
@@ -129,7 +129,7 @@ sub dump {
   $segment->absolute(1);
   my $offset     = $segment->start - 1;
   my $segmentend = $segment->length;
-  $seq->add_SeqFeature( map {
+  $seq->add_SeqFeature( map {       
       my $nf = new Bio::SeqFeature::Generic(-primary_tag => $_->primary_tag,
 					    -source_tag  => $_->source_tag,
 					    -frame       => eval{$_->phase}||eval{$_->frame}||undef,

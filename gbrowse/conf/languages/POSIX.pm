@@ -28,7 +28,7 @@ but fields that contain whitespace must be contained in
 double or single quotes.
 END
 
-   SHOWING_FROM_TO => '%s from %s:%s..%s',
+   SHOWING_FROM_TO => 'Showing %s from %s, positions %s to %s',
 
    INSTRUCTIONS      => 'Instructions',
 
@@ -51,8 +51,6 @@ END
    IMAGE_LINK => 'Link to Image',
 
    SVG_LINK   => 'High-res Image',
-
-   PDF_LINK   => 'Download PDF',
 
    SVG_DESCRIPTION => <<END,
 <p>
@@ -141,10 +139,6 @@ END
 
    TRACKS   => 'Tracks',
 
-   TRACK_SELECT   => 'Search for Specific Tracks',
-
-   TRACK_NAME     => 'Track name',
-
    EXTERNAL_TRACKS => '<i>External tracks italicized</i>',
 
    OVERVIEW_TRACKS => '<sup>*</sup>Overview track',
@@ -168,8 +162,6 @@ END
    CONFIGURE   => 'Configure...',
 
    CONFIGURE_TRACKS   => 'Configure tracks...',
-
-   SELECT_SUBTRACKS   => 'Click to select subtracks...',
 
    EDIT       => 'Edit File...',
 
@@ -199,8 +191,6 @@ END
 
    CLEAR_HIGHLIGHTING => 'Clear highlighting',
 
-   CLEAR       => 'Clear',
-
    UPDATE      => 'Update',
 
    UPDATE_TRACKS => 'Update Tracks',
@@ -211,7 +201,7 @@ END
 
    DATA_SOURCE => 'Data Source',
 
-   UPLOAD_TRACKS=>'Add custom tracks',
+   UPLOAD_TRACKS=>'Add your own tracks',
 
    UPLOAD_TITLE=> 'Upload your own data',
 
@@ -227,9 +217,7 @@ END
 
    REMOTE_TITLE => 'Add remote annotations',
 
-   REMOTE_URL   => 'Enter remote track URL',
-
-   REMOTE_URL_HELP => 'Enter the URL of a remote DAS track, GBrowse track, or internet-accessible track definition file.',
+   REMOTE_URL   => 'Enter Remote Annotation URL',
 
    UPDATE_URLS  => 'Update',
 
@@ -244,8 +232,6 @@ END
    REGIONS_TO_HIGHLIGHT_HINT  => 'Hint: use region@color to select the color, as in \'Chr1:10000..20000@lightblue\'',
 
    NO_TRACKS    => '*none*',
-
-   FEATURES_CLIPPED => 'Showing %s of %s features',
 
    FILE_INFO    => 'Last modified %s.  Annotated landmarks: %s',
 
@@ -320,7 +306,7 @@ END
 
    FORMAT => 'Format',
 
-   LIMIT  => 'Max. features to show',
+   LIMIT  => 'Limit',
 
    ADJUST_ORDER => 'Adjust Order',
 
@@ -374,6 +360,8 @@ END
 
    NO_EXTERNAL        => 'No external features loaded.',
 
+   NO_CITATION        => 'No additional information available.',
+
    #--------------
    # PLUGIN PAGES
    #--------------
@@ -410,7 +398,7 @@ END
 
  NO_SOURCES        => 'There are no readable data sources configured.  Perhaps you do not have permission to view them.',
 
- ADD_YOUR_OWN_TRACKS => 'Add custom tracks',
+ ADD_YOUR_OWN_TRACKS => 'Add Your Own Tracks',
 
  INVALID_SOURCE    => 'The source named %s is invalid.',
 
@@ -428,8 +416,6 @@ END
 
  LINEWIDTH        => 'Line width',
 
- STRANDED         => 'Show strand',
-
  DEFAULT          => '(default)',
 
  DYNAMIC_VALUE    => 'Dynamically calculated',
@@ -446,21 +432,13 @@ END
 
  OPTIONS_UPDATED   => 'A new site configuration is in effect; all page settings have been reset to their defaults',
 
- SEND_TO_GALAXY    => 'Send to Galaxy',
+ SEND_TO_GALAXY    => 'Send this Region to Galaxy',
 
  NO_DAS            => 'Installation error: Bio::Das module must be installed for DAS URLs to work. Please inform this site\'s webmaster.',
 
  SHOW_OR_HIDE_TRACK => '<b>Show or hide this track</b>',
 
- KILL_THIS_TRACK    => '<b>Turn off this track.</b>',
-
- CONFIGURE_THIS_TRACK   => '<b class="error">Configure this track.</b>',
-
- SUBTRACKS_SHOWN    => 'This track contains selectable subtracks:',
-
- SHOW_SUBTRACKS     => '<b>Select subtracks</b>',
-
- SHOWING_SUBTRACKS  => '(<i>Showing %d of %d subtracks</i>)',
+ CONFIGURE_THIS_TRACK   => '<b>Click to change track settings.</b>',
 
  SHARE_THIS_TRACK   => '<b>Share this track</b>',
 
@@ -471,7 +449,7 @@ END
  SHARE_INSTRUCTIONS_ONE_TRACK => <<END,
 To share this track with another GBrowse genome browser,
 first copy the URL below, then go to the other GBrowse and
-paste the URL into the "Enter remote track URL" field at
+paste the URL into the "Enter Remote Annotation" field at
 the bottom of the page. If this track is from an uploaded file,
 then be aware that sharing this URL with another user potentially
 allows <b>all</b> your uploaded data to be viewable by that user.
@@ -480,7 +458,7 @@ END
  SHARE_INSTRUCTIONS_ALL_TRACKS => <<END,
 To share all currently selected tracks with another GBrowse genome
 browser, first copy the URL below, then go to the other GBrowse and
-paste the URL into the "Enter remote track URL" field at
+paste the URL into the "Enter Remote Annotation" field at
 the bottom of the page. If any of the selected tracks are from an uploaded file,
 then be aware that sharing this URL with another user potentially
 allows <b>all</b> your uploaded data to be viewable by that user.
