@@ -68,6 +68,31 @@ class TrackFinder
       raise Exception.new("You need a gbrowse.yml file in your config/ directory with at least a tmp_dir in it.")
     end
   end
+  # Find a directory with an IDF in it, so we can get the relative path to data files.
+  # Fails if no IDF found
+  # based on code from validate_idf2chadoxml controller.
+  def idf_dir(project_id)
+    extracted = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted")
+    lookup_dir = extracted
+    # if extracted has nothing but a single dir, assume the IDF is in there. Otherwise just look in extracted.
+    contents = Dir.glob(File.join(lookup_dir, "*")).reject { |file| file =~ /\.chadoxml.*$|\/ws\d+$/ }
+    if contents.size == 1 then
+      entry = contents.first
+      if File.directory? entry then
+        lookup_dir = entry 
+       end
+     end
+      
+    possible_idfs = Dir.glob(File.join(lookup_dir, "*.idf")) + Dir.glob(File.join(lookup_dir, "*IDF*")) + Dir.glob(File.join(lookup_dir, "*idf*"))
+    if possible_idfs.empty? then
+     cmd_puts "     ERROR: Can't find IDF file in #{lookup_dir}! 
+      Either the IDF should be in 'extracted', OR the only thing in extracted should be the folder the IDF is in." 
+      return nil
+    else
+      return lookup_dir
+    end
+  end
+
 
   # Perl helper scripts
   GFF_TO_WIGDB_PERL = <<-EOP
@@ -1499,7 +1524,10 @@ class TrackFinder
                 wiggle_tempfile.close
                 orig_wiggle_path = wiggle_tempfile.path
               else
-                orig_wiggle_path = File.join(ExpandController.path_to_project_dir(Project.find(project_id)), "extracted", row["cleaned_wiggle_file"])
+                # find where the IDF is, and use row[cleaned wiggle] relative to that.
+                wig_dir = idf_dir(project_id)
+                return if wig_dir.nil?
+                orig_wiggle_path = File.join(wig_dir, row["cleaned_wiggle_file"])
               end
 
               # Make a WiggleToBedgraph to handle the conversion
