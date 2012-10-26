@@ -259,7 +259,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
     # figure out what the geoids ought to be and stick them in a hash
     f.each { |line|
       line.chomp!
-      (pid, gse, gsms, sdrf) = line.split(/\t/)
+      (pid, gse, gsms, target_column, sdrf) = line.split(/\t/)
       gsms = gsms.split(/,/)
       
       info = {} # Hash containing calculated geoid information
@@ -268,75 +268,82 @@ GEOID_MARSHAL = "geoid_updates.marshal"
       header = parse_sdrf(sdrf)
       s = header.reverse
 
-      fr_puts "modencode_#{pid} has #{gsms.size} GSMs" 
+      fr_puts "modencode_#{pid} has #{gsms.size.inspect} GSMs" 
+      fr_puts "and we have #{header[0].rows.inspect} rows"
 
-      enough_replicates_at_colum_idx = s.find_index { |col| col.num_splits == gsms.size }
-      if enough_replicates_at_colum_idx.nil? then
-        raise Exception.new("Couldn't find #{gsms.size} replicates in SDRF for #{pid}")
+      if gsms.size != header[0].rows then
+        raise Exception.new("Must supply as many GSMS as rows! SDRF has #{header[0].rows} rows, but received #{gsms.size} GSMS.")
       end
 
-      enough_replicates_at = s[enough_replicates_at_colum_idx]
-      previous_protocol = s.slice(enough_replicates_at_colum_idx, s.length).find { |col| col.heading =~ /Protocol REF/i }
-      previous_protocol_name = previous_protocol.split_example unless previous_protocol.nil?
-      next_protocol = s.slice(0, enough_replicates_at_colum_idx).reverse.find { |col| col.heading =~ /Protocol REF/i }
-      next_protocol_name = next_protocol.split_example unless next_protocol.nil?
-
-      geo_header_idx = s.find_index { |h| h.name =~ /geo/i }
-
-      if geo_header_idx then
-        previous_protocol = s.slice(geo_header_idx, s.length).find { |col| col.heading =~ /Protocol REF/i }; previous_protocol_name = previous_protocol.split_example unless previous_protocol.nil?
-        next_protocol = s.slice(0, geo_header_idx).reverse.find { |col| col.heading =~ /Protocol REF/i }; next_protocol_name = next_protocol.split_example unless next_protocol.nil?
-        # Attach GEO IDs to existing GEO ID column
-        fr_puts "  Found existing GEO ID column for #{pid} between: '#{previous_protocol_name.to_s}' AND '#{next_protocol_name.to_s}'" 
-        sdrf_rows = s[geo_header_idx].rows
-        geo_header_col = s[geo_header_idx]
-        if sdrf_rows != gsms.size then
-          # Attach GEO IDs, lining up duplicates with the previous row in the SDRF with the appropriate number of unique values
-          fr_puts "    There are more rows in the SDRF than GSM IDs: #{sdrf_rows} != #{gsms.size}." 
-          # Have to line this up carefully
-          uniq_rows = enough_replicates_at.uniq_rows
-          fr_puts "      Unique rows for #{enough_replicates_at.heading} [#{enough_replicates_at.name}]: " + uniq_rows.pretty_inspect 
-          geo_header_col.values.clear
-          uniq_rows.each_index { |is_idx|
-            uniq_rows[is_idx].each { |i|
-              geo_header_col.values[i] = gsms[is_idx]
-            }
-          }
-          fr_puts "      Setting GSMs to: " + geo_header_col.values.join(", ") 
-        else
-          # Attach GEO IDs to the SDRF in order
-          geo_header_col.values.clear
-          gsms.each_index { |i|
-            geo_header_col.values[i] = gsms[i]
-          }
-          fr_puts "      Setting GSMs to: " + geo_header_col.values.join(", ") 
-        end
-        geo_record = geo_header_col
+      column_specified = false
+      target_column = target_column.to_i
+      
+      colname = header[target_column].name
+      if colname =~ /geo/i then
+        fr_puts "Using existing GEOid column #{colname}"
       else
-        # Attach GEO IDs for each unique datum that is enough_replicates_at on the protocol previous_protocol
-        sdrf_rows = header[0].rows
-        geo_record = SDRFHeader.new("Result Value", "geo record")
-        if sdrf_rows != gsms.size then
-          fr_puts "    There more rows in the SDRF than GSM IDs: #{sdrf_rows} != #{gsms.size}." 
-          # Have to line this up carefully
-          uniq_rows = enough_replicates_at.uniq_rows
-          fr_puts "      Unique rows for #{enough_replicates_at.heading} [#{enough_replicates_at.name}]: " + uniq_rows.pretty_inspect 
-          uniq_rows.each_index { |is_idx|
-            uniq_rows[is_idx].each { |i|
-              geo_record.values[i] = gsms[is_idx]
-            }
-          }
-          fr_puts "      Setting GSMs to: " + geo_record.values.join(", ") 
-        else
-          gsms.each_index { |i|
-            geo_record.values[i] = gsms[i]
-          }
-          fr_puts "      Setting GSMs to: " + geo_record.values.join(", ") 
-        end
+        fr_puts "Using protocol #{header[target_column].split_example}."
+        column_specified = true
+      end
 
+      # if it's not geo, use it as protocol:
+      if( column_specified ) then 
+        
+        # get previous_protocol (ie target) and the one after it
+        previous_protocol = header[target_column]
+        previous_protocol_name = previous_protocol.split_example unless previous_protocol.nil?
+        next_protocol = header.slice(target_column +1, header.length).find{|col| col.heading =~ /Protocol REF/i}
+        next_protocol_name = next_protocol.split_example unless next_protocol.nil?
+
+
+        geo_record = SDRFHeader.new("Result Value", "geo record") # make a new column
+        # populate the geo record
+        gsms.each_index{|i|
+          geo_record.values[i] = gsms[i]
+        }
+        fr_puts "      Setting GSMs to: " + geo_record.values.join(", ") 
         i = next_protocol.nil? ? header.size : header.find_index(next_protocol)
         header.insert(i, geo_record)
         fr_puts "  Attach GEO IDs to protocol: '#{previous_protocol.to_s}'" 
+      else # there must be a geo colunn
+
+        # finding a geo header index.
+        geo_header_idx = s.find_index { |h| h.name =~ /geo/i }
+
+        if geo_header_idx then
+          previous_protocol = s.slice(geo_header_idx, s.length).find { |col| col.heading =~ /Protocol REF/i }; previous_protocol_name = previous_protocol.split_example unless previous_protocol.nil?
+          next_protocol = s.slice(0, geo_header_idx).reverse.find { |col| col.heading =~ /Protocol REF/i }; next_protocol_name = next_protocol.split_example unless next_protocol.nil?
+          # Attach GEO IDs to existing GEO ID column
+          fr_puts "  Found existing GEO ID column for #{pid} between: '#{previous_protocol_name.to_s}' AND '#{next_protocol_name.to_s}'" 
+          sdrf_rows = s[geo_header_idx].rows
+          geo_header_col = s[geo_header_idx]
+          if sdrf_rows != gsms.size then
+            raise Exception.new("This should have been checked for earlier--number of GSMs doesn't match SDRF rows!")
+
+            ## Attach GEO IDs, lining up duplicates with the previous row in the SDRF with the appropriate number of unique values
+            #fr_puts "    There are more rows in the SDRF than GSM IDs: #{sdrf_rows} != #{gsms.size}." 
+            # Have to line this up carefully
+            #uniq_rows = enough_replicates_at.uniq_rows
+            #fr_puts "      Unique rows for #{enough_replicates_at.heading} [#{enough_replicates_at.name}]: " + uniq_rows.pretty_inspect 
+            #geo_header_col.values.clear
+            #uniq_rows.each_index { |is_idx|
+            #  uniq_rows[is_idx].each { |i|
+            #    geo_header_col.values[i] = gsms[is_idx]
+            #  }
+            #}
+            #fr_puts "      Setting GSMs to: " + geo_header_col.values.join(", ") 
+          else
+            # Attach GEO IDs to the SDRF in order
+            geo_header_col.values.clear
+            gsms.each_index { |i|
+              geo_header_col.values[i] = gsms[i]
+            }
+            fr_puts "      Setting GSMs to: " + geo_header_col.values.join(", ") 
+          end
+          geo_record = geo_header_col
+        else # No protocol column and no geo header idx. should never happen.
+          raise Exception.new("No protocol column or existing GEO column was specified--should never happen!")
+        end
       end
 
       # If batchmode, make the project's subfolder within out

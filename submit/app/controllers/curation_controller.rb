@@ -172,6 +172,7 @@ class CurationController < ApplicationController
 
     # Submitting the form
     if params[:commit] == "Attach GEOids" then
+      geo_column = params[:geo_column]
       gse = params[:gse].upcase
       # GSMS are separated by commas and/or spaces
       gsms = params[:gsms].upcase.gsub(",", " ").split(/\s+/)
@@ -181,12 +182,12 @@ class CurationController < ApplicationController
         redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
         return
       end
-      # Also check for uniqueness of GSMs
-      unless gsms.uniq == gsms then
-        flash[:error] = "Error: Duplicate GMSs found&mdash;GSMs must be unique.<br/><br/>Input GSE:<br/>#{gse}<br/><br/>Input GSMs:<br/>#{gsms.join("<br/>")}"
+      if geo_column.nil? then
+        flash[:error] = "ERROR: Please select a protocol to attach the GEO id column to!"
         redirect_to :controller => "curation", :action => "attach_geoids", :id => params[:id]
         return
       end
+      # GSMS are not necessarily unique
 
       # Make controller, creating the geoids marshal object but not attaching it to DB
       attach_geoids = AttachGeoidsController.new(
@@ -194,7 +195,8 @@ class CurationController < ApplicationController
                                                  :gsms => gsms.join(","), 
                                                  :project_id => @project.id,
                                                  :creating => true,
-                                                 :attaching => false
+                                                 :attaching => false,
+                                                 :geo_column => geo_column
                                                 )
       # If it failed to initalize, complain; otherwise, go ahead and queue
       if attach_geoids.command_object.nil? then
@@ -237,7 +239,6 @@ class CurationController < ApplicationController
     lookup_dir = entries.first if ( (entries.size == 1) && File.directory?(entries.first) )
 
 
-    # TODO, find marshal file maybe in subdir
     geoid_marshal = File.join(lookup_dir, GEOID_MARSHAL) 
     
     # Form submission

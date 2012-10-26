@@ -1,7 +1,67 @@
 <% if !@sdrf %>
   Couldn't discover SDRF to view it.
-<% else %>
+<% else
+    
+    # process the sdrf
+    sdrf_lines = @sdrf.split("\n")
+    header_str  = sdrf_lines.shift
+    header = header_str.split("\t")
+
+    if header_str =~ /geo/i then  # we found a GEO column
+      # get the index of the geo column and use that as the parameter
+      geo_idx = header_str.split("\t").each_with_index.map{|prot, idx| prot =~ /geo/i ? idx : nil }.reject{|i| i.nil?}[0]
+      %>
+      <%="<input id=\"#{geo_idx}\" type=\"radio\" name=\"geo_column\" value=\"#{geo_idx}\" checked />" %>
+      <b>Existing GEO column found; GEOids will be attached to it. </b><p/><%
+      protocols_radio_form = ""
+    
+    else
+      # header
+      %>
+        Here are sample protocols from each protocol column.<br/> 
+        Select the protocol you would like to attach the GEO id column to.
+        <br/><b>The last protocol on the list is typically the appropriate one to use.</b>
+        <p/>
+      <%
+      # get all the protocols and make a form with them.
+      protocol_indices = 0.upto(header.length).select{|i| header[i] =~ /Protocol REF/i}
+      protocol_idx_names = protocol_indices.map{|i| [sdrf_lines[0].split("\t")[i], i]}
+ 
+      protocol_radio_lines = protocol_idx_names.map{|item|
+        prot = item[0]
+        idx = item[1]
+        "<input id=\"#{idx}\" type=\"radio\" name=\"geo_column\" value=\"#{idx}\" />
+          <label for=\"#{idx}\">#{prot}</label>"
+        }
+      protocols_radio_form = protocol_radio_lines.join "<br/>" # todo
+    end
+
+    # mark up geo and protocols
+    processing_header = header.each_with_index.map{|hcell, idx|
+      if hcell =~ /Protocol REF/i then
+        "<td style=\"background-color:yellow\">
+        #{hcell}
+        </td>"
+      elsif hcell =~ /geo/i then
+        "<td style=\"background-color:red\">
+        <input id=\"#{idx}\" type=\"radio\" name=\"geo_column\" value=\"#{idx}\" />
+        <label for=\"#{idx}\">#{hcell}</label>
+        </td>"
+      else
+        "<td>#{hcell}</td>"
+      end
+    }
+
+    html_header ="<tr>#{ processing_header.join("")}</tr>"
+    sdrf_lines.map!{|line|
+      "<tr><td>#{
+        line.gsub("\t", "</td><td>") 
+        }</td></tr>"
+      }
+  %>
+    <%= protocols_radio_form %>
   <table border="1" style="font-size: 90%; font-family: sans-serif">
-    <%= @sdrf.gsub(/\t/, '</td><td>').gsub(/^/m, '<tr><td>').gsub(/$/m, '</td></tr>') %>
+    <%= html_header %>
+    <%= sdrf_lines.join("") %>
   </table>
 <% end %>

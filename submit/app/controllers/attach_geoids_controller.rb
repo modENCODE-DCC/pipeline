@@ -28,7 +28,12 @@ require 'ftools'
     end
     sdrf_dir = File.dirname new_sdrf
 
-    command = "#{options[:project_id]}\t#{options[:gse]}\t#{options[:gsms]}\t#{new_sdrf} to #{sdrf_dir}"
+    command = "#{
+                options[:project_id]}\t#{
+                options[:gse]}\t#{
+                options[:gsms]}\t#{
+                options[:geo_column]}\t#{
+                new_sdrf} to #{sdrf_dir}"
     # write the command string
     self.command_object.command = command
     # Whether to immediately run the database command or not.
@@ -157,8 +162,8 @@ require 'ftools'
   def run
     super do
       (geoid_string, output_dir) = command_object.command.split(/ to /)
-      # Also get path to sdrf for later
-      (pid, gse, gsms, sdrf) = geoid_string.split(/\t/)
+      # Also get path to sdrf for later and column if provided
+      (pid, gse, gsms, protocol_col, sdrf) = geoid_string.split(/\t/)
 
       # Run the appropriate helper -- are we creating a geoid.marshal or applying it?
       if command_object.creating then
@@ -177,7 +182,9 @@ require 'ftools'
           attached_geoids = find_replicates(params)
         rescue Exception => e
           # Something broke! Fail the command!
-          command_object.stderr = "#{command_object.stderr}\nError in find_replicates: #{e}"
+          # get the line info too :
+          lineno = e.backtrace[0].split(":")[-2]
+          command_object.stderr = "#{command_object.stderr}\nError in find_replicates(#{lineno}): #{e}"
           command_object.status = AttachGeoids::Status::CREATE_FAILED
           command_object.save
           return true # Should be false, but that'd affect Project's status which'd be bad
@@ -193,8 +200,9 @@ require 'ftools'
         begin
           attached_geoids = update_db(marshal_file, false)
         rescue Exception => e
+          lineno = e.backtrace[0]
            # Something broke! Fail the command!
-          command_object.stderr = "#{command_object.stderr}\nError in update_db: #{e}"
+          command_object.stderr = "#{command_object.stderr}\nError in update_db(#{lineno}): #{e}"
           command_object.status = AttachGeoids::Status::ATTACH_FAILED
           command_object.save
           return true # Should be false, but that'd affect Project's status which'd be bad
@@ -263,7 +271,7 @@ require 'ftools'
             ).save
           }
         rescue Exception => e
-          command_object.stderr = "#{command_object.sdterr}\nFailed to create TrackTags: #{e}"
+          command_object.stderr = "#{command_object.stderr}\nFailed to create TrackTags: #{e}"
           command_object.status = AttachGeoids::Status::ATTACH_FAILED
           command_object.save
         end
@@ -271,7 +279,7 @@ require 'ftools'
         begin
           old_geoid_tts.each{|old| old.destroy }
         rescue Exception => e
-          command_object.stderr = "#{command_object.sdterr}\nFailed to destroy outdated TrackTags: #{e}"
+          command_object.stderr = "#{command_object.stderr}\nFailed to destroy outdated TrackTags: #{e}"
           command_object.status = AttachGeoids::Status::ATTACH_FAILED
           command_object.save
         end

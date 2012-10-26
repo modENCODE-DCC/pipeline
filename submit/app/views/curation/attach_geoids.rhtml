@@ -21,16 +21,17 @@ There are no known GEO or SRA id TrackTags for this project.
     <% end %>
 <br/>
 
+<%= form_tag url_for(:action => :attach_geoids), :method => "post" %>
 <h3>SDRF contents:</h3>
 <%= render :partial => "sdrf" %>
 <br/>
 <h3>Attach new GEO ids</h3>
-<%= form_tag url_for(:action => :attach_geoids), :method => "post" %>
 
   GSE for this submission:<br/>
   <%= text_field_tag 'gse', "" %><br/>
   GMSs in the order they would appear in the SDRF :
   (If you aren't sure, this is probably in order by increasing number.)
+  <br/> <b>Enter one GSM for each row, even if that means entering the same GSM multiple times.</b>
   <br/>
   <%= text_field_tag 'gsms', "", :size => 60 %><br/>
 
