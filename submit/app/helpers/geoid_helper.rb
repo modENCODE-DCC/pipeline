@@ -153,18 +153,27 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         f.rewind
         next
       end
+      # Split drops trailing null fields here.
       header = line.chomp.split(/\t/).map { |k|
         has_quotes = true if (k =~ /^"|"$/)
         SDRFHeader.new(k.gsub(/^"|"$/, ''))
       }
     end
     header.each { |s| s.has_quotes! } if has_quotes
-
+  
     f.each(separator) { |line|
       line.chomp!
-      #num_at = Hash.new { |h, k| h[k] = Hash.new { |h1, k1| h1[k1] = 0 } }
-      items = line.split(/\t/).map { |k| k.gsub(/^"|"$/, '') }
+      # Split with limit of -1 to prevent suppression of trailing null fields
+      # since they are something we ACTUALLY WANT TO KEEP
+      # if they represent (nil) fields covered under the header
+      items = line.split(/\t/, -1).map { |k| k.gsub(/^"|"$/, '') }
       items.each_index { |i|
+        # What if this line has more items than the header?
+        if i >= header.length then
+          next if items[i].empty? # Let it go if they're trailing tabs that are ACTUALLY bonus
+          throw :found_more_sdrf_row_items_than_header_entries # Bonus nonempty item -- wtf?
+          # Previously would have thrown a 'nil object when you didn't expect' error.
+        end
         header[i].add_split(items[i])
         header[i].values.push items[i]
       }
@@ -317,9 +326,10 @@ GEOID_MARSHAL = "geoid_updates.marshal"
           fr_puts "  Found existing GEO ID column for #{pid} between: '#{previous_protocol_name.to_s}' AND '#{next_protocol_name.to_s}'" 
           sdrf_rows = s[geo_header_idx].rows
           geo_header_col = s[geo_header_idx]
-          if sdrf_rows != gsms.size then
-            raise Exception.new("This should have been checked for earlier--number of GSMs doesn't match SDRF rows!")
 
+          if sdrf_rows != gsms.size then
+            raise Exception.new("Can't match #{sdrf_rows} SDRF rows to #{gsms.size} GEO ids!")
+            
             ## Attach GEO IDs, lining up duplicates with the previous row in the SDRF with the appropriate number of unique values
             #fr_puts "    There are more rows in the SDRF than GSM IDs: #{sdrf_rows} != #{gsms.size}." 
             # Have to line this up carefully
@@ -342,7 +352,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
           end
           geo_record = geo_header_col
         else # No protocol column and no geo header idx. should never happen.
-          raise Exception.new("No protocol column or existing GEO column was specified--should never happen!")
+          raise Exception.new("No protocol column or existing GEO column was specified. This should never happen!")
         end
       end
 
