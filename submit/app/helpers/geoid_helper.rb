@@ -167,6 +167,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
       # since they are something we ACTUALLY WANT TO KEEP
       # if they represent (nil) fields covered under the header
       items = line.split(/\t/, -1).map { |k| k.gsub(/^"|"$/, '') }
+      i = 0 # Save the highest index
       items.each_index { |i|
         # What if this line has more items than the header?
         if i >= header.length then
@@ -177,8 +178,15 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         header[i].add_split(items[i])
         header[i].values.push items[i]
       }
+      # If we haven't gotten to the end of header yet (ie, not enough fields in the line!) 
+      # add empty-string fields to pad it out.
+      ((i+1)...header.length).each{|j|
+        fr_puts "Item expected at header index #{j} but not found! Padding row with an empty item."
+        header[j].add_split ""
+        header[j].values.push ""
+      }
     }
-
+  
     header
   end
   # Print the sdrf, optionally overwriting an existing sdrf
