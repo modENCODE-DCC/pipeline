@@ -106,6 +106,7 @@ class PublicController < ApplicationController
         @projects = @projects[page_offset...page_end]
       }
       format.xml {
+        # This is probably similar enough to format.txt that they should be rolled together.
         xml_objs = Hash.new
         Project.all.each { |p| 
           full_path = "/" + File.join("extracted", "/#{p.id}.chadoxml")
@@ -131,6 +132,10 @@ class PublicController < ApplicationController
           if info[:deprecated] then
             dpid = info[:replaced_by]
             while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              if deprecated_by[pid].include? dpid then
+                logger.info "list.xml : Found loop in deprecation ids! #{pid} to #{dpid}! Terminating!"
+                break
+              end
               deprecated_by[pid].push dpid
               dpid = xml_objs[dpid][:replaced_by]
             end
@@ -141,6 +146,10 @@ class PublicController < ApplicationController
           if info[:superseded] then
             dpid = info[:superseded_by]
             while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              if superseded_by[pid].include? dpid then
+                logger.info "list.xml : Found loop in supercession ids! #{pid} to #{dpid}! Terminating!"
+                break
+              end
               superseded_by[pid].push dpid
               dpid = xml_objs[dpid][:superseded_by]
             end
@@ -176,6 +185,10 @@ class PublicController < ApplicationController
           if info[1] then
             dpid = info[2]
             while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              if deprecated_by[pid].include? dpid then
+                logger.info "list.txt : Found loop in deprecation ids! #{pid} to #{dpid}! Terminating!"
+                break
+              end
               deprecated_by[pid].push dpid
               dpid = text_objs[dpid][2]
             end
@@ -186,6 +199,10 @@ class PublicController < ApplicationController
           if info[3] then
             dpid = info[4]
             while !dpid.nil? && "#{dpid.to_i}" == "#{dpid}" do
+              if superseded_by[pid].include? dpid then
+                logger.info "list.txt : Found loop in supercession ids! #{pid} to #{dpid}! Terminating!"
+                break
+              end
               superseded_by[pid].push dpid
               dpid = text_objs[dpid][4]
             end
@@ -401,8 +418,14 @@ class PublicController < ApplicationController
       flatten = '--transform \'s/^\.\///g\'  --transform \'s/\//_/g\''
       files = "--files-from <( cd '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}/'; find './#{File.basename(@current_directory).gsub(/'/, escape_quote)}/' -type f )"
     end
-    command = "tar #{exclude} #{flatten} -hzcv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
 
+    # Removes the first instance of wsXXX that is not immediately followed by a '/'.
+    # Effect is to leave in liftover-folder names (they are of form /wsXXX/ or /pre_wsXXX/ while
+    # stripping a single occurrence of it (all we need, in practice) from file names.
+    # Assumes the filename never ENDS with wsXXX , which is, in practice, the case.
+    strip_build = '--transform \'s/ws[0-9][0-9][0-9]\([^\/]\)/\1/i\''
+    
+    command = "tar #{exclude} #{flatten} #{strip_build} -hzcv -C '#{File.dirname(@current_directory).gsub(/'/, escape_quote)}' #{files}"
     headers['Content-Type'] = 'application/x-tar-gz'
     headers['Content-Disposition'] = "attachment; filename=#{File.basename(@current_directory)}.tgz"
     headers['Content-Transfer-Encoding'] = 'binary'
@@ -479,10 +502,14 @@ class PublicController < ApplicationController
           elsif size.to_f >= (1024) then
             size = "#{(size.to_f / 1024).round(1)}K"
           end
-          @listing.push [ :file, File.join(subdir, File.basename(path)).sub(/^\/*/, ''), nil, size ]
+          # Remove any wormbase build from the filename
+          filename_without_wsXXX = File.basename(path).gsub(/ws\d+/i, '')
+          relative_path = File.join(subdir, filename_without_wsXXX).sub(/^\/*/, '')
+          @listing.push [ :file, relative_path, nil, size ]
         end
       end
     else
+      # Non-pretty mode
       @path = params[:path]
       @current_directory = @path ? File.expand_path(File.join(@root_directory, @path)) : @root_directory
       unless File.directory?(@current_directory) then
@@ -509,13 +536,17 @@ class PublicController < ApplicationController
           Find.prune
           next
         end
+        # It's not a directory, must be a file
         size = File.size(path)
         if size.to_f >= (1024**2) then 
           size = "#{(size.to_f / 1024**2).round(1)}M"
         elsif size.to_f >= (1024) then
           size = "#{(size.to_f / 1024).round(1)}K"
         end
-        @listing.push [ :file, relative_path, nil, size ]
+        # Remove any wormbase build from the filename
+        filename_without_wsXXX = File.basename(relative_path).gsub(/ws\d+/i, '')
+        relative_path_noWS = File.join(File.dirname(relative_path), filename_without_wsXXX)
+        @listing.push [ :file, relative_path_noWS, nil, size ]
       end
     end
 
