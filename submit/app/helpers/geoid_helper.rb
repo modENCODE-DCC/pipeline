@@ -500,30 +500,64 @@ GEOID_MARSHAL = "geoid_updates.marshal"
       db.execute("SET search_path = modencode_experiment_#{pid}_data")
       if (geo_header_col) then
         fr_puts "  Found an existing GEO datum; updating it and creating new ones as necessary" 
-        sth_get_existing_record = db.prepare("SELECT apd.applied_protocol_data_id, apd.direction, apd.applied_protocol_id, d.data_id, d.value FROM applied_protocol_data apd INNER JOIN data d ON apd.data_id = d.data_id WHERE d.heading = ? AND d.name =
-     ? ORDER BY data_id")
+        sth_get_existing_record = db.prepare(
+          "SELECT apd.applied_protocol_data_id, apd.direction, apd.applied_protocol_id, d.data_id, d.value 
+           FROM applied_protocol_data apd INNER JOIN data d ON apd.data_id = d.data_id 
+           WHERE d.heading = ? AND d.name = ? ORDER BY data_id")
         sth_get_existing_record.execute(geo_header_col.heading, geo_header_col.name)
         geo_id_data = Array.new
         sth_get_existing_record.fetch_hash { |row|
           geo_id_data.push(row)
         }
         sth_get_existing_record.finish
-
+        
+        # How many geo record datums already exist?
         unique_data = geo_id_data.map { |r| r["data_id"] }.uniq
-        if geo_id_data.size == geo_record.values.size || geo_id_data.size == geo_record.values.uniq.size then
+
+        # Are there multiple geoIDs that could be collapsed to match the # of applied protocols?
+        # For example, 4 APs and given geoIDs: A A B B C C A A (nonunique is okay here.)
+        num_geoids = attached_geoids.length
+        num_aps = geo_id_data.map { |r| r["applied_protocol_id"] }.uniq.length
+        # If there are more geoids than applied protocols, but it's a multiple therof 
+        if (num_geoids > num_aps) && ((num_geoids % num_aps) == 0)then
+          dupefactor = num_geoids / num_aps
+          deduped_geoids = []
+          cant_dedupe_geoids = false
+          current_geoid = nil
+          attached_geoids.each_index{|idx|
+            if (idx % dupefactor) == 0 then # Expecting a new GEO id
+              current_geoid = attached_geoids[idx]
+              deduped_geoids << current_geoid
+            elsif ( current_geoid != attached_geoids[idx] ) then
+            # Whoops, the geo ids don't line up like we expected
+            # This will be caught lower down.
+              cant_dedupe_geoids = true
+              break
+            end
+          }
+          unless (cant_dedupe_geoids) then
+            fr_puts "    Found #{num_geoids} GEO ids for #{num_aps} applied protocols, but was" +
+                    " able to remove duplicates and reduce length to #{deduped_geoids.length}!"
+            fr_puts "    Previous GEO ids : \n#{attached_geoids.pretty_inspect}"
+            fr_puts "    Reduced GEO ids : \n#{deduped_geoids.pretty_inspect}"
+            attached_geoids = deduped_geoids
+          end
+        end
+
+        if geo_id_data.size == attached_geoids.size || geo_id_data.size == attached_geoids.uniq.size then
           # Perfect, they line up... Do we have to create more datums?
 
-          if geo_id_data.size == geo_record.values.uniq.size then
-            geo_record.values.uniq!
+          if geo_id_data.size == attached_geoids.uniq.size then
+            attached_geoids.uniq!
           end
 
           if unique_data.size != 1 then
-            if unique_data.size == geo_record.values.size then
-              geo_record.values.each_index { |i| geo_id_data[i]["value"] = geo_record.values[i] }
+            if unique_data.size == attached_geoids.size then
+              attached_geoids.each_index { |i| geo_id_data[i]["value"] = attached_geoids[i] }
             else
               # Are the IDs already in there?
               values = geo_id_data.map { |d| d["value"] }
-              if values.sort == geo_record.values.sort then
+              if values.sort == attached_geoids.sort then
                 fr_puts "      All GEO IDs already in this submission!" 
                 next
               else
@@ -531,7 +565,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
               end
             end
           else
-            geo_record.values.each_index { |i| geo_id_data[i]["value"] = geo_record.values[i] }
+            attached_geoids.each_index { |i| geo_id_data[i]["value"] = attached_geoids[i] }
             # Update the existing one and add some more
             # 1. Get current attributes of the existing datum
             sth_get_datum = db.prepare("SELECT * FROM data WHERE data_id = ?")
@@ -570,19 +604,19 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         else
           fr_puts "      More (or fewer) applied protocols using a GEO ID than GEO IDs to attach." 
           sth_update = db.prepare("UPDATE data SET value = ? WHERE data_id = ?")
-          if unique_data.size == geo_record.values.size then
+          if unique_data.size == attached_geoids.size then
             fr_puts "        However, there are as many unique datum(s) as GEO IDs to attach." 
             sorted_data_ids = unique_data.sort
             sorted_data_ids.each_index { |i|
               data_id = sorted_data_ids[i]
-              v = geo_record.values[i]
+              v = attached_geoids[i]
               fr_puts "        Updating datum to #{v}." 
               sth_update.execute(v, data_id) unless no_db_commits
             }
-          elsif geo_record.values.uniq.size == 1
+          elsif attached_geoids.uniq.size == 1
             fr_puts "        However, there is only 1 GEO ID to attach, so it is the same for all of them." 
             sorted_data_ids = unique_data.sort
-            v = geo_record.values.first
+            v = attached_geoids.first
             if geo_id_data.first["value"] == v then
               fr_puts "          Actually, that ID is already in the DB" 
             else
@@ -595,7 +629,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
             fr_puts "        Fewer applied protocols for the datum than we expected:" 
             fr_puts geo_id_data.pretty_inspect 
             fr_puts "!=!=!=" 
-            fr_puts geo_record.values.pretty_inspect 
+            fr_puts attached_geoids.pretty_inspect 
             throw :wtf_they_dont_line_up
           end
           sth_update.finish
@@ -608,18 +642,18 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         sth_find_protocol.fetch_hash { |row| existing_aps.push row }
         sth_find_protocol.finish
 
-        if existing_aps.size == geo_record.values.size then
+        if existing_aps.size == attached_geoids.size then
           # Sweet, there are as many APs as geo records
-          use_these_gsms = geo_record.values
-        elsif existing_aps.size == geo_record.values.uniq.size then
+          use_these_gsms = attached_geoids
+        elsif existing_aps.size == attached_geoids.uniq.size then
           # Okay, but it works for unique ones
-          use_these_gsms = geo_record.values.uniq
-        elsif geo_record.values.uniq.size == 1 then
+          use_these_gsms = attached_geoids.uniq
+        elsif attached_geoids.uniq.size == 1 then
           # Okay, there's only one GSM so we apply it to all APs
-          gsm = geo_record.values.first
+          gsm = attached_geoids.first
           use_these_gsms = existing_aps.map { gsm }
         else
-          fr_puts "    #{existing_aps.size} APs for #{geo_record.values.size} GEO records" 
+          fr_puts "    #{existing_aps.size} APs for #{attached_geoids.size} GEO records" 
           throw :ap_size_differs_from_geo_record_count
         end
         # Create a new datum for each geo record in order and attach it to each applied_protocol as an output
