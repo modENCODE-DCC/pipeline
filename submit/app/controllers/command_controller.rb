@@ -238,6 +238,7 @@ class CommandController < ApplicationController
     # Run the command attached to this controller
     command_object.start_time = Time.now
     command_object.host = Socket.gethostname
+    command_object.queue_position = nil # remove it from the submission queue
     command_object.save
 
     begin

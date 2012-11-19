@@ -125,20 +125,16 @@ class Command < ActiveRecord::Base
   end
 
   # Sort commands in the queue
-  # This is to deal with the "comparison of Expand with Expand failed" error.
+  # If a command has no queue_position, fall back on using command_id
   def self.queue_sort(command_queue)
+    use_command_id = false
     command_queue.sort{|c1, c2|
-      if c1.queue_position.nil? then
-        logger.info "Error: Expand with Expand! queue_position nil fixed on command #{c1.id}"
-        c1.queue_position = 1
-        c1.save
+      use_command_id = true if ( c1.queue_position.nil? || c2.queue_position.nil? )
+      if use_command_id then
+        c1.id <=> c2.id
+      else
+        c1.queue_position <=> c2.queue_position
       end
-      if c2.queue_position.nil? then
-        logger.info "Error: Expand with Expand! queue_position nil fixed on command #{c2.id}"
-        c2.queue_position = 1
-        c2.save
-      end
-    c1.queue_position <=> c2.queue_position
   }
   end
 

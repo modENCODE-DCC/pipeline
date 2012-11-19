@@ -2983,10 +2983,11 @@ class PipelineController < ApplicationController
       current_project_archive = current_project_archive.lower_item
     end
     if after_command then
+      after_cmd_pos = after_command.queue_position || 1 # after_comm won't have a queue_pos if it's already run, eg
       # Move just queued commands in front of the first queued command
       cmds.reverse.each { |cmd|
-        cmd.queue_insert_at(after_command.queue_position+1)
-        cmd.insert_at(after_command.position+1)
+        cmd.queue_insert_at(after_cmd_pos+1)
+        cmd.insert_at(after_cmd_pos+1)
       }
     end
   end

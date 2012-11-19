@@ -49,6 +49,11 @@ class DeleteController < CommandController
         end
       end
 
+      # Remove the queue_position from any of the project's commands so that the acts_as_queue plugin 
+      # will not start repositioning EVERY COMMAND IN THE DATABASE, which takes a long time & is not necessary.
+      project_commands = Command.find_all_by_project_id(command_object.project.id)
+      project_commands.each{|comm| comm.queue_position = nil ; comm.save }
+
       # Dissasociate this command object from the project it's deleting so we have a record of it
       command_object.project = nil
       command_object.save
