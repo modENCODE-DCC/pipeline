@@ -49,7 +49,7 @@ require 'ftools'
     # If there's nothing but a folder in the extracted dir, assume it's in there.
     # Otherwise, just check extracted dir.
     lookup_dir = extracted
-    entry =  Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/ }
+    entry =  Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/i }
     if (entry.size == 1) && File.directory?(entry.first) then
       lookup_dir = entry.first
     end
@@ -291,6 +291,8 @@ require 'ftools'
       if command_object.attaching then # Created and attached geoids
         command_object.stdout = "#{command_object.stdout}\nFinished!"
         command_object.status = AttachGeoids::Status::ATTACHED
+        command_object.project.updated_at = Time.now # Mark the project as updated
+        command_object.project.save
       else # Just created geoids
         command_object.status = AttachGeoids::Status::CREATED
       end
