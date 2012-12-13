@@ -1,6 +1,7 @@
 class AttachGeoidsController < CommandController
 include GeoidHelper
 require 'ftools'
+require 'shellwords'
   
   # Filename constants
   NEW_SDRF_SUFFIX = "_withGeoids"
@@ -106,29 +107,38 @@ require 'ftools'
     archive.comment = archive_comment 
     archive.save
 
-    # And tar it up -- slightly modified from url_upload_replacement_controller
-    escape_quote = "'\\''"
+    # And tar it up
     absolute_desttgz = File.join(project_dir, archive.file_name)
-    cmd = "tar -czvf '#{absolute_desttgz.gsub(/'/, escape_quote)}'  -C '#{extracted_dir.gsub(/'/, escape_quote)}' #{relative_sdrf.gsub(/'/, escape_quote)}"
+    cmd = "tar -czvf #{Shellwords.escape(absolute_desttgz)}  -C #{Shellwords.escape(extracted_dir)} #{Shellwords.escape(relative_sdrf)}"
  
-    # TODO: error handling
-    result = `#{cmd} 2>&1`
-    command_object.stdout = "#{command_object.stdout}\nCompressed #{result} to #{File.basename(absolute_desttgz)}"
-    command_object.save
+    begin
+      result = `#{cmd} 2>&1`
+      command_object.stdout = "#{command_object.stdout}\nCompressed #{result} to #{File.basename(absolute_desttgz)}"
+      command_object.save
 
-    # Finish updating the archive
-    archive.file_size = File.size(absolute_desttgz)
-    archive.signature = PipelineController.new.generate_file_signature(absolute_desttgz)
-    archive.status = ProjectArchive::Status::EXPANDED
-    archive.save
+      # Finish updating the archive
+      archive.file_size = File.size(absolute_desttgz)
+      archive.signature = PipelineController.new.generate_file_signature(absolute_desttgz)
+      archive.status = ProjectArchive::Status::EXPANDED
+      archive.save
 
-    # Then make the new ProjectFile for the sdrf
-    (project_file = archive.project_files.new(
-      :file_name => relative_sdrf,
-      :file_size => File.size(sdrf),
-      :file_date => File.ctime(sdrf),
-      :signature => PipelineController.new.generate_file_signature(sdrf)
-    )).save
+      # Then make the new ProjectFile for the sdrf
+      (project_file = archive.project_files.new(
+        :file_name => relative_sdrf,
+        :file_size => File.size(sdrf),
+        :file_date => File.ctime(sdrf),
+        :signature => PipelineController.new.generate_file_signature(sdrf)
+      )).save
+    rescue Exception => e
+      logger.error "Error making ProjectArchive of SDRF with GeoIDs: #{e.class}: #{e.to_s}"
+      logger.error e.backtrace.join "\n"
+      archive.destroy
+      command_object.stdout = "#{command_object.stdout}\nERROR: Couldn't make archive of updated SDRF: #{e.to_s}!}"
+      command_object.stderr = "ERROR: Couldn't make archive of updated SDRF: #{e.to_s}!}"
+      command_object.save
+      return false
+    end
+    true
   end
 
   
@@ -229,9 +239,15 @@ require 'ftools'
         command_object.stdout = "#{command_object.stdout}\nSaving the new sdrf in an archive..."
         
         orig_sdrf = sdrf.sub(AttachGeoidsController::NEW_SDRF_SUFFIX, "")
-        return true unless sdrf_copy(sdrf, orig_sdrf)
-        make_archive("sdrf_with_attached_GEOids", "Archive of sdrf with GEO ids that were manually attached.", orig_sdrf)
-        
+        unless sdrf_copy(sdrf, orig_sdrf) then
+          command_object.status = AttachGeoids::Status::ATTACH_FAILED
+          return true
+        end
+        unless make_archive("sdrf_with_attached_GEOids", "Archive of sdrf with GEO ids that were manually attached.", orig_sdrf) then
+          command_object.status = AttachGeoids::Status::ATTACH_FAILED
+          return true
+        end
+       
         # Then, delete the extra sdrf copy
         delete_temp_sdrf()
                 
