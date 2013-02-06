@@ -242,6 +242,9 @@ GEOID_MARSHAL = "geoid_updates.marshal"
       @calling_command.save
     end
   end
+  def set_calling_command(cmd) # Set the calling command
+    @calling_command = cmd
+  end
 ### main from find_replicates.rb ###
 
   # This is effectively the main method from the find_replicates.rb file. With a few modifications
@@ -450,6 +453,36 @@ GEOID_MARSHAL = "geoid_updates.marshal"
     end
   end
 
+  # Helpers for update_db -- any SQL.
+  # They are broken out so they can be easily overridden in an external file if your DB has a different setup
+  def  db_set_search_path(dbh, pid)
+    dbh.execute("SET search_path = modencode_experiment_#{pid}_data")
+  end
+  # Gets the existing geo datums. Returns an array with them.
+  def db_get_existing_record(dbh, pid, heading, name)
+    sth_get_existing_record = dbh.prepare(
+          "SELECT apd.applied_protocol_data_id, apd.direction, apd.applied_protocol_id, d.data_id, d.value 
+           FROM applied_protocol_data apd INNER JOIN data d ON apd.data_id = d.data_id 
+           WHERE d.heading = ? AND d.name = ? ORDER BY data_id")
+    sth_get_existing_record.execute(heading, name)
+    geo_id_data = Array.new
+    sth_get_existing_record.fetch_hash { |row|
+      geo_id_data.push(row)
+    }
+    sth_get_existing_record.finish
+    geo_id_data
+  end
+  # returns a prepared sth of last_data_id
+  def db_prepare_last_data_id(dbh)
+    dbh.prepare("SELECT last_value FROM generic_chado.data_data_id_seq")
+  end
+
+  # reason should be a symbol.
+  # This is so we can choose not to throw if we want to continue on
+  def error_in_submission(pid, reason)
+    throw reason
+  end
+
   # Updates the database.
   
   # f = geo info. Can be a hash, array of hashes,
@@ -497,20 +530,13 @@ GEOID_MARSHAL = "geoid_updates.marshal"
       attached_geoids = geo_record.values
 
       # Database!
-      db.execute("SET search_path = modencode_experiment_#{pid}_data")
+      db_set_search_path(db, pid)
+      
       if (geo_header_col) then
+
         fr_puts "  Found an existing GEO datum; updating it and creating new ones as necessary" 
-        sth_get_existing_record = db.prepare(
-          "SELECT apd.applied_protocol_data_id, apd.direction, apd.applied_protocol_id, d.data_id, d.value 
-           FROM applied_protocol_data apd INNER JOIN data d ON apd.data_id = d.data_id 
-           WHERE d.heading = ? AND d.name = ? ORDER BY data_id")
-        sth_get_existing_record.execute(geo_header_col.heading, geo_header_col.name)
-        geo_id_data = Array.new
-        sth_get_existing_record.fetch_hash { |row|
-          geo_id_data.push(row)
-        }
-        sth_get_existing_record.finish
-        
+        geo_id_data = db_get_existing_record(db, pid, geo_header_col.heading, geo_header_col.name)
+
         # How many geo record datums already exist?
         unique_data = geo_id_data.map { |r| r["data_id"] }.uniq
 
@@ -561,7 +587,8 @@ GEOID_MARSHAL = "geoid_updates.marshal"
                 fr_puts "      All GEO IDs already in this submission!" 
                 next
               else
-                throw :more_than_one_unique_datum
+                error_in_submission(pid, :more_than_one_unique_datum) # throws
+                next # skip this submission, if we choose not to throw an error
               end
             end
           else
@@ -579,7 +606,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
           # Insert and/or update
           sth_create = db.prepare("INSERT INTO data (name, heading, value, type_id, dbxref_id) VALUES(?, ?, ?, ?, ?)")
           sth_update = db.prepare("UPDATE data SET value = ? WHERE data_id = ?")
-          sth_last_data_id = db.prepare("SELECT last_value FROM generic_chado.data_data_id_seq")
+          sth_last_data_id = db_prepare_last_data_id(db) 
           sth_update_applied_protocol_data = db.prepare("UPDATE applied_protocol_data SET data_id = ? WHERE applied_protocol_data_id = ?")
           n=0
           geo_id_data.each { |d|
@@ -630,7 +657,8 @@ GEOID_MARSHAL = "geoid_updates.marshal"
             fr_puts geo_id_data.pretty_inspect 
             fr_puts "!=!=!=" 
             fr_puts attached_geoids.pretty_inspect 
-            throw :wtf_they_dont_line_up
+            error_in_submission(pid, :wtf_they_dont_line_up) # throws
+            next
           end
           sth_update.finish
         end
@@ -654,18 +682,20 @@ GEOID_MARSHAL = "geoid_updates.marshal"
           use_these_gsms = existing_aps.map { gsm }
         else
           fr_puts "    #{existing_aps.size} APs for #{attached_geoids.size} GEO records" 
-          throw :ap_size_differs_from_geo_record_count
+          error_in_submission(pid, :ap_size_differs_from_geo_record_count ) # throws
+          next
         end
         # Create a new datum for each geo record in order and attach it to each applied_protocol as an output
         if use_these_gsms.size != existing_aps.size then
-          throw :wtf_i_thought_i_just_set_ap_sizes
+          error_in_submission(pid, :wtf_i_thought_i_just_set_ap_sizes) # throws
+          next
         end
 
         geo_type_id = get_geo_type_id(db) unless no_db_commits
 
         sth_create_data = db.prepare("INSERT INTO data (heading, name, value, type_id) VALUES(?, ?, ?, ?)")
         sth_create_apd = db.prepare("INSERT INTO applied_protocol_data (applied_protocol_id, data_id, direction) VALUES(?, ?, 'output')")
-        sth_last_data_id = db.prepare("SELECT last_value FROM generic_chado.data_data_id_seq")
+        sth_last_data_id = db_prepare_last_data_id(db) 
         sth_datum_exists = db.prepare("SELECT data_id FROM data WHERE (name = 'geo record' or name = 'GEO id') AND value = ?")
         sth_apd_exists = db.prepare("SELECT applied_protocol_data_id FROM applied_protocol_data WHERE applied_protocol_id = ? AND data_id = ?")
 

@@ -13,7 +13,7 @@ require 'shellwords'
     # Construct command
     basedir = ExpandController.path_to_project_dir(Project.find(self.command_object.project_id))
     extracted = File.join(basedir, "extracted")
-    sdrf = find_sdrf(extracted)
+    sdrf = AttachGeoidsController.find_sdrf(extracted)
     if sdrf.nil? then
       self.command_object = nil
       return
@@ -44,25 +44,20 @@ require 'shellwords'
   end
 
   # Returns the path to the SDRF file, given the extracted dir
-  # Based on the find-idf code in validate_idf2chadoxml controller.
-  # But better.
-  def find_sdrf(extracted)
-    # If there's nothing but a folder in the extracted dir, assume it's in there.
-    # Otherwise, just check extracted dir.
-    lookup_dir = extracted
-    entry =  Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/i }
-    if (entry.size == 1) && File.directory?(entry.first) then
-      lookup_dir = entry.first
-    end
-
-    possible_sdrfs = Dir.glob(File.join(lookup_dir, "*[sS][dD][rR][fF]*")) # full path
+  def self.find_sdrf(extracted)
+    search_path = File.join(extracted, "**", "*") # search recursively in extracted
+    extracted_files = Dir.glob(search_path).reject{|file| file =~ /\/ws\d+\//i } # omit liftover directories
+    possible_sdrfs = extracted_files.select{|file| file =~ /sdrf/i }
     # ignore ._ files and an already-copied sdrf
     possible_sdrfs.reject!{|f| ( f =~ /^\._/ ) || ( f.include? AttachGeoidsController::NEW_SDRF_SUFFIX ) }
-    unless possible_sdrfs.length == 1 then
-      logger.error "Found #{possible_sdrfs.length} sdrf files in #{lookup_dir}; there can be only one."
-      return nil
-    end
-    possible_sdrfs.first
+    # do we have exactly one?
+    return possible_sdrfs.first if possible_sdrfs.length == 1 
+    # no. do we have exactly one in the base extracted dir?
+    possible_sdrfs = Dir.glob(File.join(extracted, "*[sS][dD][rR][fF]*"))
+    return possible_sdrfs.first if possible_sdrfs.length == 1 
+    # no. give up.
+    logger.error "Found #{possible_sdrfs.length} sdrf files in #{extracted} & 0 or many in subdirs; want exactly 1."
+    nil
   end
  
   # Creates an archive containing the new version of the sdrf
@@ -195,6 +190,7 @@ require 'shellwords'
           # get the line info too :
           lineno = e.backtrace[0].split(":")[-2]
           command_object.stderr = "#{command_object.stderr}\nError in find_replicates(#{lineno}): #{e}"
+          command_object.stderr += e.backtrace.join "\n"
           command_object.status = AttachGeoids::Status::CREATE_FAILED
           command_object.save
           return true # Should be false, but that'd affect Project's status which'd be bad
@@ -208,6 +204,7 @@ require 'shellwords'
         command_object.stdout = "#{command_object.stdout}\nExtracting GEOids from marshal file & attaching to database..."
         # Heavy lifting - in GeoidHelper. We are committing to DB.
         begin
+          set_calling_command(command_object) # Set command used for output
           attached_geoids = update_db(marshal_file, false)
         rescue Exception => e
           lineno = e.backtrace[0]
