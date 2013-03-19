@@ -478,12 +478,23 @@ class TrackFinder
         ) ON cur_apd.data_id = cur_output_data.data_id
       ) ON cur_apd.applied_protocol_id = cur.applied_protocol_id AND cur_apd.direction = 'output'"
     }
-    @sth_get_organism = dbh_safe {
+  end
+
+  # Get species from chado via attributes & the organism table.
+  def get_species_from_chado
+    sth = dbh_safe {
       @dbh.prepare "SELECT
-      value as organism
+      species as organism
+      FROM organism
+      UNION
+      SELECT value
       FROM attribute
       WHERE heading = 'species'"
     }
+    sth.execute
+    orgs = Array.new
+    sth.fetch_hash{|org| orgs << org["organism"] }
+    orgs.uniq
   end
   def cmd_puts(message)
     puts "#{message} \n" if debugging?
@@ -524,40 +535,42 @@ class TrackFinder
     return s.value
   end
 
-  # Use the chado database to try to fix the organism of a GenomeBuilds
-  def fetch_chado_organism(gb)
-      # Get organism info from DB
-    orgs = Array.new
-    @sth_get_organism.execute
-    @sth_get_organism.fetch_hash{|org| orgs << org["organism"] }
-    gb.guess_by_name! orgs
+  # Given an array of organisms (from chado), and self,  try to find an unique valid organism.
+  # Use class_eval to reopen the class because it seems to want to make a new GenomeBuilds class otherwise.
+  # Modifies the GenomeBuilds instance & returns true / false for success / failure.
+  GenomeBuilds.class_eval {
+    def fetch_chado_organism(orgs, tf)
+      bad_orgs = ["N/A", nil] 
+      orgs.reject!{|o| bad_orgs.include? o}
 
-    if gb.organism? then # We found it!
-        cmd_puts "       Found organism #{gb.organism} in the chado database."
-        return gb
-    else
-      # if we didn't find an organism, try eliminating melanogaster & elegans 
-      # and see if that uniques it
-      # TODO something other than hardcoding elegans & melanogaster FIXME
-     remaining_orgs = gb.possible_organisms.reject{|o| ( o == "elegans" ) || (o == "melanogaster") }
-          cmd_puts "       NOTICE: Chado database has multiple organisms:#{orgs.join(", ")}! Ignoring elegans and melanogaster..."
-      case remaining_orgs.length
-        when 0
-          # Whoops, we've eliminated all the organisms
-          cmd_puts "       Couldn't find a valid organism from chado database--options were  were #{orgs.join(", ")}"
-          return false
-        when 1
-          # Great, there was either exactly one, or  elegans / d mel and one other
-          gb.guess_by_name! remaining_orgs[0]
-          cmd_puts "       Found organism #{gb.organism} in the chado database."
-          return gb
-        else
-          # Whoops, there are still too many
-          cmd_puts "       The chado database has too many organisms; can't determine which is correct among#{orgs.join(", ")}"
-          return false
+      self.guess_by_name! orgs
+      if self.organism? then # We found it!
+          tf.cmd_puts "       Found organism #{self.organism} in the chado database."
+          return true
+      else
+        # if we didn't find an organism, try eliminating melanogaster & elegans 
+        # and see if that uniques it
+        # TODO something other than hardcoding elegans & melanogaster FIXME
+        remaining_orgs = self.possible_organisms.reject{|o| ( o == "elegans" ) || (o == "melanogaster") }
+        tf.cmd_puts "       NOTICE: Chado database has multiple organisms:#{orgs.join(", ")}! Ignoring elegans and melanogaster..."
+        case remaining_orgs.length
+          when 0
+            # Whoops, we've eliminated all the organisms
+            tf.cmd_puts "       Couldn't find a valid organism from chado database--options were #{orgs.join(", ")}"
+            return false
+          when 1
+            # Great, there was either exactly one, or  elegans / d mel and one other
+            self.guess_by_name! remaining_orgs[0]
+            tf.cmd_puts "       Found organism #{self.organism} in the chado database."
+            return true
+          else
+            # Whoops, there are still too many
+            tf.cmd_puts "       The chado database has too many organisms; can't determine which is correct among#{orgs.join(", ")}"
+            return false
+        end
       end
     end
-  end
+  }
 
   # Runs the bigwig writer
   # wig_path = source , bigwig_path = dest, chrom_path = chromosome file
@@ -1390,9 +1403,9 @@ class TrackFinder
             # Set up some GenomeBuilds for determining the organism
             organism_chado = GenomeBuilds.new(:file => WiggleToBedgraph::GENOME_BUILD_FILE)
             organism_file = organism_chado.clone # Make a copy with all the possibilities now, to save processing 
-
-            # Try to fetch the organism from chado
-            organism_chado = fetch_chado_organism(organism_chado)
+  
+            # See if the organism can be fetched from chado; if not perhaps it is in the file
+            organism_chado.fetch_chado_organism(get_species_from_chado, self)
             
             seen_srcfeatures = Array.new
 
@@ -1441,8 +1454,8 @@ class TrackFinder
 
               # If neither chado nor file provided an organism, complain & die.
               unless organism_chado.organism? || organism_file.organism? then
-                cmd_puts "          ERROR: Cannot create zoomed-out bigwig #{File.basename bigwig_path} because we can't figure out what organism to use."
-                next
+                cmd_puts "          ERROR: Cannot create zoomed-out bigwig for #{tracknum}_#{type} because we can't figure out what organism to use."
+                return nil
               end
 
               chromosomes_filepath = nil
@@ -1535,7 +1548,7 @@ class TrackFinder
               wig_to_bed.debugging = debugging?
               # See of we can determine an organism from the chado 
               organism_chado = GenomeBuilds.new(:file => WiggleToBedgraph::GENOME_BUILD_FILE)
-              organism_chado = fetch_chado_organism(organism_chado)
+              organism_chado.fetch_chado_organism(get_species_from_chado, self)
               cmd_puts "Found organism #{organism_chado.organism} from chado for wiggle cvsn." if debugging?
 
               wig_to_bed.set_organism(organism_chado.organism) if organism_chado.organism?
@@ -2104,13 +2117,10 @@ class TrackFinder
         height = 10
         bgcolor = "blue"
         database = "modencode_bigwig_#{project.id}_#{tracknum}_#{bigwig_type}"
-        #puts "FEATURE TYPE SPOSED TO BE #{feature_type}, BIGWIG TYPE IS #{bigwig_type}"
         if bigwig_type == "feature" then
           bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File #{feature_type}", "bigwig_file", tracknum).value
-         # puts "GOT BIGWIG A: #{bigwig_file}"
         else
           bigwig_file = TrackTag.find_by_project_id_and_name_and_cvterm_and_track(project.id, "BigWig File", "bigwig_file", tracknum).value
-          puts "GOT BIGWIG B: #{bigwig_file}"
         end
       end
 
