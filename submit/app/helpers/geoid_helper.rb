@@ -458,6 +458,18 @@ GEOID_MARSHAL = "geoid_updates.marshal"
   def  db_set_search_path(dbh, pid)
     dbh.execute("SET search_path = modencode_experiment_#{pid}_data")
   end
+
+  # Find applied protocols with the correct name
+  def db_find_protocol(dbh, pid, protocol_name)
+    sth_find_protocol = dbh.prepare("SELECT ap.applied_protocol_id FROM applied_protocol ap 
+                                    INNER JOIN protocol p ON ap.protocol_id = p.protocol_id WHERE p.name = ? 
+                                    ORDER BY ap.applied_protocol_id")
+    sth_find_protocol.execute(protocol_name)
+    existing_aps = Array.new
+    sth_find_protocol.fetch_hash { |row| existing_aps.push row }
+    sth_find_protocol.finish
+    existing_aps
+  end
   # Gets the existing geo datums. Returns an array with them.
   def db_get_existing_record(dbh, pid, heading, name)
     sth_get_existing_record = dbh.prepare(
@@ -664,11 +676,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         end
       else
         fr_puts "  No existing GEO datum, creating it/them" 
-        sth_find_protocol = db.prepare("SELECT ap.applied_protocol_id FROM applied_protocol ap INNER JOIN protocol p ON ap.protocol_id = p.protocol_id WHERE p.name = ? ORDER BY ap.applied_protocol_id")
-        sth_find_protocol.execute(previous_protocol_name)
-        existing_aps = Array.new
-        sth_find_protocol.fetch_hash { |row| existing_aps.push row }
-        sth_find_protocol.finish
+        existing_aps = db_find_protocol(db, pid, previous_protocol_name)
 
         if existing_aps.size == attached_geoids.size then
           # Sweet, there are as many APs as geo records
