@@ -161,7 +161,7 @@ class ReportsController < ApplicationController
 
     @filter_by_ids = session[:filter_by_ids].nil? ? Array.new : session[:filter_by_ids]
     unless params[:filter_by_ids].nil?
-      @filter_by_ids = params[:filter_by_ids].split(/,? /).reject { |i| i != i.to_i.to_s }.map { |i| i.to_i }
+      @filter_by_ids = params[:filter_by_ids].split(/[, ]+/).reject { |i| i != i.to_i.to_s }.map { |i| i.to_i }
       session[:filter_by_ids] = @filter_by_ids
       redirect_to :action => "publication"
     end
@@ -194,6 +194,9 @@ class ReportsController < ApplicationController
 
     @all_released_projects = @released_projects
     if @filter_by_ids.size > 0 then
+      # Put everything on the same page if you are filtering
+      @num_pages = 1
+      @cur_page = 1
       @released_projects = @released_projects.find_all { |rp| @filter_by_ids.include?(rp.id) }
     else
       # Paginate
@@ -213,8 +216,6 @@ class ReportsController < ApplicationController
       @cur_page = (page_offset / page_size) + 1
       @num_pages = @released_projects.size / page_size
       @num_pages += 1 if @released_projects.size % page_size != 0
-      @has_next_page = @cur_page != @num_pages
-      @has_prev_page = @cur_page != 1
       @released_projects = @released_projects[page_offset...page_end]
     end
 

@@ -52,9 +52,14 @@ Select page:
   <%= "</b>" if @cur_page == pagenum %>
 <% end %>
 <br/>
-<%= link_to_if @has_prev_page, "&lt; previous", :page => @cur_page-1 %>
+<%
+  # Link to next or previous pages
+  has_next_page = @cur_page != @num_pages
+  has_prev_page = @cur_page != 1
+%>
+<%= link_to_if has_prev_page, "&lt; previous", :page => @cur_page-1 %>
 |
-<%= link_to_if @has_next_page, "next &gt;", :page => @cur_page+1 %>
+<%= link_to_if has_next_page, "next &gt;", :page => @cur_page+1 %>
 <br/>
 <table class="data_matrix" id="data_matrix">
 <tr>
