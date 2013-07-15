@@ -172,6 +172,7 @@ class CurationController < ApplicationController
 
     # Submitting the form
     if params[:commit] == "Attach GEOids" then
+
       geo_column = params[:geo_column]
       gse = params[:gse].upcase
       # GSMS are separated by commas and/or spaces
@@ -190,14 +191,15 @@ class CurationController < ApplicationController
       # GSMS are not necessarily unique
 
       # Make controller, creating the geoids marshal object but not attaching it to DB
-      attach_geoids = AttachGeoidsController.new(
-                                                 :gse => gse, 
-                                                 :gsms => gsms.join(","), 
-                                                 :project_id => @project.id,
-                                                 :creating => true,
-                                                 :attaching => false,
-                                                 :geo_column => geo_column
-                                                )
+      controller_params = {
+       :gse => gse, 
+       :gsms => gsms.join(","), 
+       :project_id => @project.id,
+       :creating => true,
+       :attaching => false,
+       :geo_column => geo_column
+      }
+      attach_geoids = AttachGeoidsController.new(controller_params)
       # If it failed to initalize, complain; otherwise, go ahead and queue
       if attach_geoids.command_object.nil? then
         flash[:error] = "Couldn't make AttachGeoids controller! <br> Perhaps there are zero or multiple sdrf files extracted for project #{params[:id]}."
@@ -233,12 +235,11 @@ class CurationController < ApplicationController
     end
  
     # Find the directory for sdrf and marshal files
-    lookup_dir = File.join(ExpandController.path_to_project_dir(@project), "extracted")
-    # If there's nothing there but a subfolder, assume everything is in there; otherwise, stick with the extracted dir
-    entries = Dir.glob(File.join(lookup_dir, "*")).reject{|f| f =~ /\.chadoxml$|\/ws\d+$/ }
-    lookup_dir = entries.first if ( (entries.size == 1) && File.directory?(entries.first) )
-
-
+    extracted_dir = File.join(ExpandController.path_to_project_dir(@project), "extracted")
+    sdrf_path = AttachGeoidsController.find_sdrf(extracted_dir)
+    # If no SDRF found, default to extracted and it will fail gracefully
+    lookup_dir = sdrf_path.nil? ? extracted_dir : File.dirname(sdrf_path)
+    
     geoid_marshal = File.join(lookup_dir, GEOID_MARSHAL) 
     
     # Form submission
