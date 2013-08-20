@@ -5,7 +5,7 @@
 Event.observe(window, 'load', function(evt) {
   // Tabs
   YUI().use("yui", "tabview", function(Y) {
-      var selected = '<%= params[:bulk_tab] %>';
+      var selected = '<%= @bulk_tab %>';
       var tabview = new Y.TabView({srcNode:'#content_tabs'});
       tabview.after("render", function(evt) { $('content_tabs').setStyle({display: 'block'}) });
       tabview.render();
@@ -91,6 +91,11 @@ function viewURLs(e, ids) {
 
 </script>
 
+
+<div style="color:red;display:inline">Preferred Data Access Tool:</div> The <a href="http://data.modencode.org">Faceted Search of ModENCODE Data Sets</a> 
+is the recommended way to interactively search for and download data sets.
+<p>
+<p>
 <div id="content_tabs">
   <ul>
     <li><a href="#templates">Templates</a></li>
@@ -117,5 +122,4 @@ function viewURLs(e, ids) {
 Colored squares indicate the presence of data. Click on a row or column header to toggle all associated squares between selected and unselected.
 <br style="clear: both"/>
 <br style="clear: both"/>
-<div style="color:red">New!</div> <a href="http://data.modencode.org">Faceted Search of ModENCODE Data Sets</a> For an alternative 
-way to interactively search for and download data sets, try our new <a href="http://data.modencode.org">Faceted Search</a> tool.
+

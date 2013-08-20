@@ -34,7 +34,13 @@ module FancyGroupedOptions
     self.map { |group| group_name = group[0]; group_opts = group[1..-1].map { |k, v| [ v[:description], k.to_s ] }; [ group_name, group_opts ] }
   end
   def get(key)
-    return if key.nil?; val = self.inject(Array.new) { |accum, arr| accum+arr[1..-1] }.find_all { |val| val.is_a?(Array) }.find { |val| val[0] == key.to_sym }; return val.nil? ? nil : val[1]
+    return if key.nil?
+    begin
+      key_sym = key.to_sym
+    rescue ArgumentError
+      return
+    end
+    val = self.inject(Array.new) { |accum, arr| accum+arr[1..-1] }.find_all { |val| val.is_a?(Array) }.find { |val| val[0] == key_sym }; return val.nil? ? nil : val[1]
   end
 end
 class BulkDownloadController < ApplicationController
@@ -555,6 +561,9 @@ class BulkDownloadController < ApplicationController
   def init_options_from_params
     return if @options_initted
     @options_initted = true
+    # Sanitize the bulk_tab value
+    bulk_tab_ok = /\A(advanced|filter|template)\z/.match(params["bulk_tab"])
+    @bulk_tab = bulk_tab_ok.nil? ? nil : bulk_tab_ok[1]
     @freeze_files = get_freeze_files
     just_filenames = @freeze_files.map { |k, v| v.nil? ? [] : v.map { |v2| v2[1] unless v2.nil? } }.flatten.compact
     @selected_freeze_id = params[:selected_freeze]
