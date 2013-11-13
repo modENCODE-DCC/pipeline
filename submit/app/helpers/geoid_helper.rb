@@ -583,7 +583,8 @@ GEOID_MARSHAL = "geoid_updates.marshal"
         end
 
         if geo_id_data.size == attached_geoids.size || geo_id_data.size == attached_geoids.uniq.size then
-          # Perfect, they line up... Do we have to create more datums?
+          # Set the values in geo_id_data to be the geoIDs we want to put in the DB; clear data_id if 
+          # we need to make a new datum.
 
           if geo_id_data.size == attached_geoids.uniq.size then
             attached_geoids.uniq!
@@ -599,8 +600,35 @@ GEOID_MARSHAL = "geoid_updates.marshal"
                 fr_puts "      All GEO IDs already in this submission!" 
                 next
               else
-                error_in_submission(pid, :more_than_one_unique_datum) # throws
-                next # skip this submission, if we choose not to throw an error
+                # Ok, the number of datums doesn't match up. Does the number of applied protocols
+                # match up, and there are TOO FEW datums?
+                unique_aps = geo_id_data.map { |r| r["applied_protocol_id"] }.uniq
+                if (unique_data.size < attached_geoids.size) && (unique_aps.size == attached_geoids.size) then
+                  # need to resort geo_id_data because data_id order is unusable since there are datums re-used
+                  geo_id_data.sort!{|a, b| a["applied_protocol_id"].to_i <=> b["applied_protocol_id"].to_i }
+
+                  # Update the geoID for each;
+                  # if it's a repeat data_id, clear it--new datum is needed
+                  geo_id_data.each_index {|i|
+                    geo_id_data[i]["value"] = attached_geoids[i]
+                    current_data_id = geo_id_data[i]["data_id"]
+                    if geo_id_data.index{|j| j["data_id"] == current_data_id} < i then
+                      geo_id_data[i]["data_id"] = nil
+                    end
+                  }
+                  # Get current attributes of the existing datum if we're adding new datums.
+                  if geo_id_data.map{|i| i["data_id"]}.include? nil then
+                    sth_get_datum = db.prepare("SELECT * FROM data WHERE data_id = ?")
+                    sth_get_datum.execute(geo_id_data.first["data_id"])
+                    data_info = sth_get_datum.fetch_hash
+                    sth_get_datum.finish
+                  end
+                else
+                  # Give up 
+                  fr_puts "      ERROR! Couldn't figure out how to map GeoIDs to the existing datums!" 
+                  error_in_submission(pid, :more_than_one_unique_datum) # throws
+                  next # skip this submission, if we choose not to throw an error
+                end
               end
             end
           else
@@ -614,7 +642,7 @@ GEOID_MARSHAL = "geoid_updates.marshal"
             # 2. Remove data_id from all but first data entry
             geo_id_data[1..-1].each { |d| d["data_id"] = nil }
           end
-          
+
           # Insert and/or update
           sth_create = db.prepare("INSERT INTO data (name, heading, value, type_id, dbxref_id) VALUES(?, ?, ?, ?, ?)")
           sth_update = db.prepare("UPDATE data SET value = ? WHERE data_id = ?")
