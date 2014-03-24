@@ -268,7 +268,19 @@ class ReportsController < ApplicationController
                "Y5Q1" => {"year" => "Y5", "quarter"=> "Q1", "start" => Date.civil(2011,5,1), "end" => Date.civil(2011,7,31)},
                "Y5Q2" => {"year" => "Y5", "quarter"=> "Q2", "start" => Date.civil(2011,8,1), "end" => Date.civil(2011,10,31)},
                "Y5Q3" => {"year" => "Y5", "quarter"=> "Q3", "start" => Date.civil(2011,11,1), "end" => Date.civil(2012,1,31)},
-               "Y5Q4" => {"year" => "Y5", "quarter"=> "Q4", "start" => Date.civil(2012,2,1), "end" => Date.civil(2012,4,30)}
+               "Y5Q4" => {"year" => "Y5", "quarter"=> "Q4", "start" => Date.civil(2012,2,1), "end" => Date.civil(2012,4,30)},
+               "Y6Q1" => {"year" => "Y6", "quarter"=> "Q1", "start" => Date.civil(2012,5,1), "end" => Date.civil(2012,7,31)},
+               "Y6Q2" => {"year" => "Y6", "quarter"=> "Q2", "start" => Date.civil(2012,8,1), "end" => Date.civil(2012,10,31)},
+               "Y6Q3" => {"year" => "Y6", "quarter"=> "Q3", "start" => Date.civil(2012,11,1), "end" => Date.civil(2013,1,31)},
+               "Y6Q4" => {"year" => "Y6", "quarter"=> "Q4", "start" => Date.civil(2013,2,1), "end" => Date.civil(2013,4,30)},
+               "Y7Q1" => {"year" => "Y7", "quarter"=> "Q1", "start" => Date.civil(2013,5,1), "end" => Date.civil(2013,7,31)},
+               "Y7Q2" => {"year" => "Y7", "quarter"=> "Q2", "start" => Date.civil(2013,8,1), "end" => Date.civil(2013,10,31)},
+               "Y7Q3" => {"year" => "Y7", "quarter"=> "Q3", "start" => Date.civil(2013,11,1), "end" => Date.civil(2014,1,31)},
+               "Y7Q4" => {"year" => "Y7", "quarter"=> "Q4", "start" => Date.civil(2014,2,1), "end" => Date.civil(2014,4,30)},
+               "Y8Q1" => {"year" => "Y8", "quarter"=> "Q1", "start" => Date.civil(2014,5,1), "end" => Date.civil(2014,7,31)},
+               "Y8Q2" => {"year" => "Y8", "quarter"=> "Q2", "start" => Date.civil(2014,8,1), "end" => Date.civil(2014,10,31)},
+                "Y8Q3" => {"year" => "Y8", "quarter"=> "Q3", "start" => Date.civil(2014,11,1), "end" => Date.civil(2015,1,31)},
+                "Y8Q4" => {"year" => "Y8", "quarter"=> "Q4", "start" => Date.civil(2015,2,1), "end" => Date.civil(2015,4,30)} 
  }
 
 
